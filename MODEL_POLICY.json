@@ -1,0 +1,31 @@
+{
+  "schema": "iot-ai.model-policy.v2",
+  "suite_version": "6.5.0-beta.2",
+  "community_limits": {
+    "maximum_provider_families_per_run": 3,
+    "maximum_effective_effort": "medium",
+    "telemetry_retention_days": 30
+  },
+  "privacy": {
+    "cloud_is_opt_in": true,
+    "private_network_data_allowed": false,
+    "raw_prompts_stored_by_default": false,
+    "raw_outputs_stored_by_default": false
+  },
+  "readiness": {
+    "installed_is_not_live_ready": true,
+    "authenticated_round_trip_required": true,
+    "requested_served_model_match_required": true,
+    "positive_receipt_ttl_seconds": 300,
+    "silent_fallback_forbidden": true
+  },
+  "ollama": {
+    "first_class_provider_family": true,
+    "cloud_preferred": true,
+    "local_governed_reasoning_enabled_by_default": false,
+    "exact_cloud_models_are_distinct_candidates": true,
+    "may_qualify_other_named_adapters": false
+  },
+  "effort_order": ["low", "medium", "high", "xhigh"],
+  "notice": "Provider/model selection is evidence-driven. Model availability, pricing and quality are never inferred from configuration alone."
+}

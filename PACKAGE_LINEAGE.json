@@ -1,0 +1,25 @@
+{
+  "schema": "iot-ai.package-lineage.v3",
+  "product_id": "ai-iot-tech.iot-ai-coder-suite",
+  "suite_version": "6.5.0-beta.2",
+  "python_distribution": "iot-ai-coder-suite",
+  "python_version": "6.5.0b2",
+  "embedded_components": {
+    "iot-ai-mc-gpt": "0.6.0-alpha.1"
+  },
+  "lineage": "iot-ai-suite",
+  "canonical_executable": "iot-ai",
+  "canonical_update_authority": "iot-ai update",
+  "public_commands": [
+    "iot-ai",
+    "iot-ai-help",
+    "iot-ai-status",
+    "iot-ai-settings",
+    "iot-ai-update"
+  ],
+  "legacy_alias_policy": "not-installed-by-default",
+  "state_namespace": "ai-iot-tech/iot-ai-suite/v1",
+  "legacy_state_policy": "observe-and-snapshot-only; never delete or silently migrate",
+  "review_bundle_apply_allowed": false,
+  "all_in_one_apply_allowed_after_founder_authorization": true
+}

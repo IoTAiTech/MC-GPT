@@ -1,0 +1,10 @@
+{
+  "suite_version": "6.5.0-beta.2",
+  "public_unittest": 157,
+  "public_pytest": 157,
+  "enterprise_unittest": 15,
+  "enterprise_pytest": 15,
+  "article_50_operator": "IoT-AI.Tech",
+  "all_in_one_sha256": "a53c7b1eccdb4812eec0457afe5f552f624f315b704662c07218914099f6faf4",
+  "decision": "pass"
+}

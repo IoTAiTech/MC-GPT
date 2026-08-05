@@ -1,0 +1,11 @@
+{
+  "classification": "community-developer-preview-candidate",
+  "embedded_components": {
+    "iot-ai-mc-gpt": "0.6.0-alpha.1"
+  },
+  "product_id": "ai-iot-tech.iot-ai-coder-suite",
+  "python_distribution": "iot-ai-coder-suite",
+  "python_version": "6.5.0b2",
+  "schema": "iot-ai.suite-package.v1",
+  "version": "6.5.0-beta.2"
+}

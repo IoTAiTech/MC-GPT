@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
+# Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Version: 6.5.0-beta.2 | Date: 2026-08-05
+from .suite_version import MC_GPT_VERSION, SUITE_VERSION
+
+__version__ = SUITE_VERSION
+__mc_gpt_version__ = MC_GPT_VERSION
+PUBLIC_EDITION = "community"

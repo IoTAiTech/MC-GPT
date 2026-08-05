@@ -1,0 +1,96 @@
+{
+  "classification": "community-developer-preview-candidate",
+  "community": {
+    "cloud_default": "off-opt-in",
+    "commercial_use_requires_license": true,
+    "developer_preview_candidate": true,
+    "maximum_effective_effort": "medium",
+    "maximum_provider_families_per_run": 3,
+    "ordinary_user_stable": false,
+    "telemetry_retention_days": 30
+  },
+  "enterprise": {
+    "cryptography_50_target_qualification": "pending",
+    "pmd_access": "authenticated-https-api-only",
+    "private_paid_customer_candidate": true,
+    "production_ready": false,
+    "requires_signed_entitlement": true,
+    "supports_signed_revocation": true,
+    "version": "1.0.0-alpha.2"
+  },
+  "eu_ai_act": {
+    "developer_preview_release_wording": "Technical current-obligation controls verified for the declared Community Developer Preview; no legal certification or blanket deployment conformity claim.",
+    "global_compliance_claim_allowed": false,
+    "legal_baseline": "Regulation (EU) 2024/1689 as amended by Regulation (EU) 2026/1744",
+    "organisational_release_actions_required": [
+      "Founder records role-appropriate AI literacy completion before public publication.",
+      "Founder confirms the public intended purpose, prohibited uses and human-oversight policy.",
+      "Each future customer, high-risk or safety-critical deployment is reassessed before activation."
+    ],
+    "production_or_all_deployments_compliance": "not-claimed",
+    "technical_developer_preview_gate": "pass",
+    "unverified_organisational_or_live_controls": [
+      "role-based AI literacy completion evidence",
+      "live Article 50 verification for every customer-facing surface and export format",
+      "exact upstream model supplier dossiers and contracts",
+      "deployment-specific high-risk and legal assessment",
+      "live post-market and incident process exercise"
+    ]
+  },
+  "external_gates": [
+    "real Windows on-device qualification",
+    "live provider-account and exact-served-model qualification",
+    "Enterprise target qualification with cryptography 50.x",
+    "PostgreSQL 18 forced-RLS and backup/restore drill",
+    "real GitHub Actions execution and artifact attestation",
+    "German legal review before external commercial agreement"
+  ],
+  "mc_gpt_version": "0.6.0-alpha.1",
+  "personal_local_install_authorized": true,
+  "production_or_fleet_install_authorized": false,
+  "production_ready": false,
+  "publication": {
+    "annotated_tag_simulated": "v6.5.0-beta.2",
+    "candidate_for_first_public_github_developer_preview": true,
+    "detached_release_signature": "external-gate-pending",
+    "git_history_and_clone_back": "pass",
+    "real_github_push_performed": false
+  },
+  "runtime_architecture": {
+    "context_ownership": "implemented",
+    "control_flow_ownership": "implemented",
+    "five_decision_receipts": "implemented",
+    "goal_first_contract": "implemented",
+    "ollama_model_specific_qualification": "implemented",
+    "pause_resume_replay": "implemented",
+    "prompt_ownership": "implemented",
+    "tool_selection_ownership": "implemented"
+  },
+  "schema": "iot-ai.release-status.v3",
+  "suite_version": "6.5.0-beta.2",
+  "tests": {
+    "agent_runtime_benchmark": "pass-p95-1.05-ms-target-10.0-ms",
+    "agent_runtime_ownership": "pass-prompt-context-tools-control-flow-five-decisions",
+    "clean_install_old_version_cleanup": "pass-managed-only-archive-preserve-customer-data",
+    "compileall": "pass",
+    "coverage": "pass-72-percent-branch-aware",
+    "deterministic_dual_build": "pass",
+    "diagnostics_redaction": "pass",
+    "enterprise_entitlement_revocation": "pass-temporary-key-e2e",
+    "enterprise_regression": "pass-15-unittest-15-pytest-4-subtests",
+    "eu_ai_act_current_obligations_developer_preview": "pass-technical-gate-not-legal-certification",
+    "final_package_and_blackbox": "pass",
+    "git_history_and_clone_back": "pass",
+    "goal_loop_safety": "pass-bounded-stop-checkpoint-and-false-green-tests",
+    "license_headers": "pass-90-of-90",
+    "normal_rollback_without_force": "pass",
+    "official_side_by_side_install": "pass",
+    "pep668_isolated_venv": "pass",
+    "public_boundary": "pass-zero-findings",
+    "repository_contract": "pass",
+    "shell_install_uninstall_rollback": "pass",
+    "source_regression": "pass-151-unittest-151-pytest",
+    "static_security": "pass-zero-high-85-files",
+    "warnings_as_errors": "pass-151"
+  }
+}

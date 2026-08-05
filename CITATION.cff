@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use IOT-AI in research, please cite this software."
+title: "IoT-AI.Tech IOT-AI Coder Suite"
+version: "6.5.0-beta.2"
+date-released: 2026-08-05
+authors:
+  - family-names: Sorkhpour
+    given-names: Babak
+    prefix: Dr.-Ing.
+repository-code: "https://github.com/IoTAiTech/MC-GPT"
+license: "LicenseRef-PolyForm-Strict-1.0.0"

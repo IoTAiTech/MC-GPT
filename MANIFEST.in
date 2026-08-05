@@ -1,0 +1,12 @@
+include LICENSE
+include LICENSE-COMMERCIAL.md
+include LICENSE_POLICY.json
+include NOTICE
+include THIRD_PARTY_NOTICES.md
+recursive-include src/iot_ai/data *.json
+recursive-include docs *.md *.json
+recursive-include skills *.md *.json *.toml
+recursive-include installers *.sh *.ps1 *.whl
+recursive-include examples *.json *.xlsx
+recursive-include assets *.png *.json
+recursive-include schemas *.json

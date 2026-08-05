@@ -1,0 +1,29 @@
+{
+  "schema": "iot-ai.public-publish-audit.v1",
+  "suite_version": "6.5.0-beta.2",
+  "target_repo": "https://github.com/IoTAiTech/MC-GPT",
+  "audience": "private individuals \u2014 personal test and noncommercial evaluation only",
+  "generated_at": "2026-08-05T23:09:27Z",
+  "audits": {
+    "public_boundary_check": "pass (0 findings)",
+    "static_security_audit": "pass (0 high)",
+    "license_headers": "pass (92 files SPDX PolyForm Strict)",
+    "brand_identity_scan": "pass (0 unclassified)",
+    "article_50_operator_en_de_fa": "IoT-AI.Tech",
+    "fleet_lan_ip_company_address_scan": "pass (no 192.168.50/home/iot/company address/phone)",
+    "privacy_test_fixtures": "sanitized away from real fleet IPs",
+    "public_unittest": 157,
+    "public_pytest": 157,
+    "enterprise_private_excluded": true,
+    "production_claim": false
+  },
+  "license": {
+    "spdx": "LicenseRef-PolyForm-Strict-1.0.0",
+    "name": "PolyForm Strict 1.0.0",
+    "source_available_not_open_source": true,
+    "personal_noncommercial_permitted": true,
+    "commercial_requires_written_license": true
+  },
+  "legal_brand": "IoT-AI.Tech",
+  "version": "6.5.0-beta.2"
+}

@@ -1,0 +1,38 @@
+name: Security and privacy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: python -m pip install -e .
+      - name: Scan public boundary
+        run: python tools/public_boundary_check.py . --json evidence-public-boundary.json
+      - name: EU AI Act technical release gate
+        run: python tools/eu_ai_act_release_gate.py .
+      - name: Verify SBOM
+        run: python tools/verify_repository.py . --check-sbom
+      - name: Upload sanitized evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: public-boundary-evidence
+          path: evidence-public-boundary.json
+          if-no-files-found: error
+          retention-days: 14

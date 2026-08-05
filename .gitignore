@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+.venv/
+venv/
+
+# Runtime state and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite3
+*.db
+*.jsonl
+*.log
+*.dump
+*.diagnostics.zip
+.iot-ai/
+
+# IDE/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Private or enterprise material — never publish
+enterprise/
+private/
+customer/
+evidence-private/
+secrets/
+release-private/

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-iot.tech/schemas/ai-system-card-v1.schema.json",
+  "title": "IOT-AI AI System Card",
+  "type": "object",
+  "required": ["schema", "system_id", "name", "version", "provider", "operator_roles", "intended_purpose", "excluded_purposes", "interaction_profile", "risk_classification", "human_oversight", "assessment_date"],
+  "properties": {
+    "schema": {"const": "iot-ai.ai-system-card.v1"},
+    "system_id": {"type": "string", "minLength": 3},
+    "name": {"type": "string"},
+    "version": {"type": "string"},
+    "provider": {"type": "string"},
+    "operator_roles": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "intended_purpose": {"type": "string", "minLength": 20},
+    "excluded_purposes": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "interaction_profile": {"type": "object"},
+    "risk_classification": {"type": "object"},
+    "human_oversight": {"type": "object"},
+    "assessment_date": {"type": "string"}
+  },
+  "additionalProperties": true
+}

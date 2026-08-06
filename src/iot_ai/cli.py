@@ -65,9 +65,38 @@ PUBLIC_COMMANDS = {"help", "status", "settings", "update", "license", "run"}
 ADVANCED_COMMANDS = {"setup", "privacy", "provider", "mesh", "meeting", "tasks", "multi-coder", "knowledge", "graph", "diagnostics", "compliance", "package", "report", "worktree"}
 ALL_COMMANDS = PUBLIC_COMMANDS | ADVANCED_COMMANDS
 
+SENSITIVE_KEYS = {
+    "secret",
+    "secret_env",
+    "secret_value",
+    "password",
+    "token",
+    "api_key",
+    "apikey",
+    "authorization",
+    "auth",
+}
+
+
+def _redact_sensitive(value: Any) -> Any:
+    if isinstance(value, dict):
+        redacted: dict[Any, Any] = {}
+        for key, item in value.items():
+            key_text = str(key).casefold()
+            if key_text in SENSITIVE_KEYS or any(marker in key_text for marker in ("secret", "token", "password", "api_key", "authorization")):
+                redacted[key] = "***REDACTED***"
+            else:
+                redacted[key] = _redact_sensitive(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_sensitive(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_sensitive(item) for item in value)
+    return value
+
 
 def emit(value: Any) -> None:
-    print(value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True, default=str))
+    print(value if isinstance(value, str) else json.dumps(_redact_sensitive(value), ensure_ascii=False, indent=2, sort_keys=True, default=str))
 
 
 def _split(value: str | None) -> list[str]:
@@ -390,7 +419,7 @@ def main(argv: list[str] | None = None) -> int:
     normalized = _normalize_argv(argv)
     a = parser().parse_args(normalized)
     h = home(a.home)
-    append_event(h, "cli.command.start", {"command": a.cmd, "operation": getattr(a, "op", None), "arguments": vars(a)})
+    append_event(h, "cli.command.start", {"command": a.cmd, "operation": getattr(a, "op", None), "arguments": _redact_sensitive(vars(a))})
     try:
         if a.cmd == "help":
             if a.op == "list": emit({"public_commands": sorted(PUBLIC_COMMANDS), "advanced_compatibility_commands": sorted(ADVANCED_COMMANDS), "skills": list_topics()})

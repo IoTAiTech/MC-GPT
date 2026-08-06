@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Canonical standalone task, meeting, evidence and telemetry workspace."""
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from typing import Any, Iterable
 from .paths import data_root, db_path
 from .util import utc_now
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 CLOSED_STATUSES = {"completed", "closed", "cancelled", "rejected"}
 OPEN_STATUSES = {"backlog", "queued", "ready", "claimed", "active", "needs-work", "blocked", "meeting", "awaiting_founder"}
 
@@ -256,6 +256,37 @@ CREATE TABLE IF NOT EXISTS knowledge_items(
  created_at TEXT NOT NULL,
  FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE SET NULL
 );
+CREATE TABLE IF NOT EXISTS task_validations(
+ id TEXT PRIMARY KEY,
+ task_id TEXT NOT NULL,
+ source_revision INTEGER NOT NULL,
+ applied_revision INTEGER,
+ trigger_action TEXT NOT NULL,
+ policy TEXT NOT NULL CHECK(policy IN ('optional','recommended','required')),
+ status TEXT NOT NULL,
+ validation_task_id TEXT,
+ validation_meeting_id TEXT,
+ original_json TEXT NOT NULL,
+ original_sha256 TEXT NOT NULL,
+ proposal_json TEXT,
+ proposal_sha256 TEXT,
+ plan_digest TEXT,
+ verdict TEXT,
+ confidence REAL,
+ requested_roles_json TEXT NOT NULL DEFAULT '[]',
+ providers_json TEXT NOT NULL DEFAULT '[]',
+ context_manifest_json TEXT NOT NULL DEFAULT '{}',
+ user_decision TEXT,
+ decision_subject TEXT,
+ decision_note TEXT,
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL,
+ FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+ FOREIGN KEY(validation_task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+ FOREIGN KEY(validation_meeting_id) REFERENCES meetings(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_task_validation_task ON task_validations(task_id,created_at);
+CREATE INDEX IF NOT EXISTS idx_task_validation_status ON task_validations(status);
 CREATE TABLE IF NOT EXISTS projection_jobs(
  id TEXT PRIMARY KEY,
  task_id TEXT,

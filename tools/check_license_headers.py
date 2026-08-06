@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Verify project-owned executable sources carry the release license notice."""
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 EXTENSIONS = {".py", ".ps1", ".sh"}
 SKIP = {".git", ".venv", "venv", "build", "dist", "__pycache__", ".pytest_cache"}
-MARKER = "SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0"
+MARKER = "SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0"
 
 
 def main() -> int:

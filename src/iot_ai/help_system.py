@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Human and AI-readable help for the minimal public command surface."""
 from __future__ import annotations
 
@@ -36,13 +36,25 @@ PUBLIC = {
     },
     "meeting": {
         "purpose": "Internal graph template for independent roles, challenge, layered fan-in, one frozen plan digest and evidence-bound acceptance.",
-        "examples": ["iot-ai meeting start --topic 'Review the design' --seats auto --depth deep"],
-        "boundary": "Meeting execution success is not plan acceptance, founder approval or task authorization.",
+        "examples": [
+            "iot-ai meeting seat-plan --seats all-coders+ollama-clouds",
+            "iot-ai meeting start --topic 'Review the design' --seats all-coders+ollama-clouds --depth deep",
+            "iot-ai-meeting --max-parallel ask all coder and ollama clouds only review this design",
+        ],
+        "boundary": "Ollama Cloud cannot be silently omitted when first-class policy applies. Meeting execution success is not plan acceptance, founder approval or task authorization.",
     },
     "tasks": {
         "purpose": "Internal transactional lifecycle for task, work unit, lease, attempts, evidence, tests and audit.",
         "examples": ["iot-ai tasks open", "iot-ai tasks show <task-id>"],
         "boundary": "SQLite or an enterprise adapter is authoritative; Excel is a sealed human projection only.",
+    },
+    "worktree": {
+        "purpose": "Create and inspect isolated git worktrees for parallel coders without copying untracked files or auto-merging results.",
+        "examples": [
+            "iot-ai worktree plan --repo . --goal 'Review auth' --agents codex,grok",
+            "iot-ai worktree create --repo . --goal 'Review auth' --agents codex,grok --apply",
+        ],
+        "boundary": "Dirty or unmerged work blocks cleanup; promotion is an explicit human-reviewed draft-PR flow.",
     },
 }
 
@@ -59,7 +71,12 @@ QUICKSTART = {
 
 
 def list_topics() -> dict:
-    return {"decision": "pass", "topics": sorted(PUBLIC), "public_commands": ["iot-ai", "iot-ai-help", "iot-ai-status", "iot-ai-settings", "iot-ai-update"]}
+    return {
+        "decision": "pass",
+        "topics": sorted(PUBLIC),
+        "public_commands": ["iot-ai", "iot-ai-help", "iot-ai-status", "iot-ai-settings", "iot-ai-update"],
+        "workflow_aliases": ["iot-ai-meeting", "iot-ai-tasks", "iot-ai-multi-coder"],
+    }
 
 
 def show(topic: str | None = None) -> dict:

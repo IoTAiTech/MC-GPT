@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Unified IOT-AI command surface with backward-compatible advanced commands."""
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ from .eu_ai_act import (
 from .graph_runtime import compile_graph, validate_graph
 from .help_system import QUICKSTART, list_topics, search as help_search, show as help_show
 from .installer import HOSTS, install as package_install, plan as package_plan, repair as package_repair, rollback as package_rollback, status as package_status, uninstall as package_uninstall, upgrade as package_upgrade, verify as package_verify
+from .identity_migration import apply as identity_apply, plan as identity_plan, rollback as identity_rollback, status as identity_status
 from .knowledge import export_jsonl
 from .capability_pack import build_pack as capability_build_pack, verify_pack as capability_verify_pack
 from .knowledge_plane import list_artifacts, write_canvas
@@ -41,17 +42,27 @@ from .paths import home
 from .projection import export_workspace
 from .providers import add_route, load as load_routes, mutate_route, static_status
 from .readiness import provider_candidates
+from .seat_selection import resolve_meeting_seats
 from .privacy import sanitize
 from .report import render as render_report
 from .setup_wizard import discover as setup_discover, init_inventory, show_inventory
 from .status import unified_status
 from .tasks import add_evidence, add_work_unit, claim_work_unit, create as task_create, heartbeat as task_heartbeat, list_all, list_closed, list_open, record_progress, release_lease, show as task_show, solve_all_plan, submit_task, workspace_status
+from .task_validation import (
+    approve as validation_approve,
+    gate as validation_gate,
+    reject as validation_reject,
+    review as validation_review,
+    skip as validation_skip,
+    status as validation_status,
+)
 from .transparency import mark_file, record_disclosure, runtime_output_provenance, verify_file
 from .suite_package import clean_install_state
 from .update_manager import apply_local as update_apply_local, plan as update_plan, rollback as update_rollback, status as update_status
+from .worktrees import cleanup as worktree_cleanup, create as worktree_create, list_runs as worktree_list, promotion_plan as worktree_promotion_plan, show as worktree_show
 
 PUBLIC_COMMANDS = {"help", "status", "settings", "update", "license", "run"}
-ADVANCED_COMMANDS = {"setup", "privacy", "provider", "mesh", "meeting", "tasks", "multi-coder", "knowledge", "graph", "diagnostics", "compliance", "package", "report"}
+ADVANCED_COMMANDS = {"setup", "privacy", "provider", "mesh", "meeting", "tasks", "multi-coder", "knowledge", "graph", "diagnostics", "compliance", "package", "report", "worktree"}
 ALL_COMMANDS = PUBLIC_COMMANDS | ADVANCED_COMMANDS
 
 
@@ -61,6 +72,51 @@ def emit(value: Any) -> None:
 
 def _split(value: str | None) -> list[str]:
     return [x.strip() for x in (value or "").split(",") if x.strip()]
+
+
+
+MEETING_OPERATIONS = {"start", "seat-plan", "list", "show", "run", "approve", "create-task", "export"}
+
+
+def normalize_meeting_argv(argv: list[str]) -> list[str]:
+    """Normalize a meeting alias or natural-language meeting command."""
+    import re
+
+    if argv and argv[0] in MEETING_OPERATIONS:
+        return ["meeting", *argv]
+
+    max_parallel: str | None = None
+    remaining: list[str] = []
+    index = 0
+    while index < len(argv):
+        value = argv[index]
+        if value == "--max-parallel":
+            if index + 1 < len(argv) and argv[index + 1].isdigit():
+                max_parallel = argv[index + 1]
+                index += 2
+            else:
+                index += 1
+            continue
+        remaining.append(value)
+        index += 1
+
+    raw_topic = " ".join(remaining).strip()
+    if not raw_topic:
+        return ["meeting", "seat-plan", "--seats", "all-coders+ollama-clouds"]
+    normalized = raw_topic.casefold()
+    wants_all_coders = bool(re.search(r"\ball\s+coders?\b|\ball\s+coder\b", normalized))
+    wants_ollama_cloud = bool(re.search(r"\bollama\s+clouds?\b|\bollama-cloud", normalized))
+    selector = "all-coders+ollama-clouds" if wants_all_coders and wants_ollama_cloud else "auto"
+    topic = re.sub(
+        r"^\s*(?:ask\s+)?all\s+coders?\s+and\s+ollama\s+clouds?\s+only\s*[:,;-]?\s*",
+        "",
+        raw_topic,
+        flags=re.IGNORECASE,
+    ).strip() or raw_topic
+    command = ["meeting", "start", "--topic", topic, "--seats", selector, "--depth", "deep", "--effort", "high"]
+    if max_parallel:
+        command.extend(["--max-parallel", max_parallel])
+    return command
 
 
 def _runtime_mark_for_mesh(result: dict[str, Any] | list[dict[str, Any]]) -> dict[str, Any]:
@@ -114,6 +170,8 @@ def _normalize_argv(argv: list[str] | None) -> list[str]:
         break
 
     remaining = values[index:]
+    if remaining and remaining[0] == "meeting" and (len(remaining) == 1 or remaining[1] not in MEETING_OPERATIONS):
+        return [*root_prefix, *normalize_meeting_argv(remaining[1:])]
     if remaining and remaining[0] in ALL_COMMANDS:
         return values
 
@@ -149,15 +207,11 @@ def _normalize_argv(argv: list[str] | None) -> list[str]:
 
 
 def _auto_meeting_seats(user_home: Path) -> list[str]:
-    candidates = provider_candidates(user_home, require_live=True, cloud_only=False)
-    seats: list[str] = []
-    for candidate in candidates:
-        provider = str(candidate["provider"])
-        model = str(candidate.get("model") or "auto")
-        seat = f"ollama@{model}" if provider == "ollama" else provider
-        if seat not in seats:
-            seats.append(seat)
-    return seats
+    """Backward-compatible wrapper over the auditable seat resolver."""
+    plan = resolve_meeting_seats(user_home, "auto")
+    if plan.decision != "pass":
+        raise RuntimeError(f"meeting seat resolution blocked: {plan.reason}")
+    return list(plan.resolved_seats)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -180,6 +234,11 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--token-budget", type=int, default=250000)
     run.add_argument("--wall-clock-seconds", type=int, default=3600)
     run.add_argument("--allow-static", action="store_true", help="Review/testing only: allow non-live provider candidates")
+    run.add_argument("--task-validation", choices=("ask", "review", "skip"), default="ask", help="Pre-execution task validation policy")
+    run.add_argument("--subject")
+    run.add_argument("--reason", default="")
+    run.add_argument("--founder-confirm")
+    run.add_argument("--context", action="append", default=[])
 
     status = commands.add_parser("status", help="Unified Suite, coder, model and workflow health")
     status.add_argument("--live", action="store_true")
@@ -193,6 +252,7 @@ def parser() -> argparse.ArgumentParser:
     ss = ops.add_parser("set"); ss.add_argument("key"); ss.add_argument("value")
     sg = ops.add_parser("group"); sg.add_argument("group"); sg.add_argument("state", choices=("on", "off"))
     sp = ops.add_parser("profile"); sp.add_argument("name", choices=("economy", "balanced", "ultracode")); sp.add_argument("--session-only", action="store_true")
+    sm = ops.add_parser("migrate-brand"); sm.add_argument("--apply", action="store_true"); sm.add_argument("--rollback", action="store_true")
 
     update = commands.add_parser("update", help="Single public update authority")
     uops = update.add_subparsers(dest="op", required=True)
@@ -226,7 +286,8 @@ def parser() -> argparse.ArgumentParser:
 
     meeting = commands.add_parser("meeting", help=argparse.SUPPRESS)
     mops = meeting.add_subparsers(dest="op", required=True)
-    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--execute", action="store_true")
+    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto", help="auto | all-coders | all-coders+ollama-clouds | comma-separated seats"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--max-parallel", type=int); ms.add_argument("--exclude-ollama", action="store_true", help="Explicitly omit Ollama and record the exception"); ms.add_argument("--allow-missing-ollama", action="store_true", help="Allow an all-coders+ollama-clouds plan to continue when no Ollama cloud seat is configured"); ms.add_argument("--execute", action="store_true")
+    mplan = mops.add_parser("seat-plan"); mplan.add_argument("--seats", default="auto"); mplan.add_argument("--max-parallel", type=int); mplan.add_argument("--exclude-ollama", action="store_true"); mplan.add_argument("--allow-missing-ollama", action="store_true")
     mops.add_parser("list")
     mshow = mops.add_parser("show"); mshow.add_argument("meeting_id")
     mrun = mops.add_parser("run"); mrun.add_argument("meeting_id")
@@ -239,6 +300,18 @@ def parser() -> argparse.ArgumentParser:
     for op in ("list", "open", "closed", "queue"):
         q = tops.add_parser(op); q.add_argument("--owner"); q.add_argument("--query"); q.add_argument("--status-filter"); q.add_argument("--limit", type=int); q.add_argument("--scope", choices=("open", "closed", "all"), default="all")
     tsh = tops.add_parser("show"); tsh.add_argument("task_id", nargs="?"); tsh.add_argument("--limit", type=int, default=5)
+    tprep = tops.add_parser("prepare")
+    tprep.add_argument("--task-id", required=True)
+    tprep.add_argument("--action", choices=("status", "review", "approve", "reject", "skip"), default="status")
+    tprep.add_argument("--validation-id")
+    tprep.add_argument("--context", action="append", default=[])
+    tprep.add_argument("--privacy-class", default="D1")
+    tprep.add_argument("--effort", default="high")
+    tprep.add_argument("--profile", choices=("economy", "balanced", "ultracode"), default="balanced")
+    tprep.add_argument("--subject")
+    tprep.add_argument("--reason", default="")
+    tprep.add_argument("--founder-confirm")
+    tprep.add_argument("--allow-static", action="store_true")
     tc = tops.add_parser("create"); tc.add_argument("--title", required=True); tc.add_argument("--description", default=""); tc.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); tc.add_argument("--owner"); tc.add_argument("--risk-class", default="R1"); tc.add_argument("--task-type", default="task"); tc.add_argument("--source", default="local"); tc.add_argument("--source-id"); tc.add_argument("--tag", action="append", default=[]); tc.add_argument("--acceptance-criteria", default=""); tc.add_argument("--allow-duplicate", action="store_true")
     tw = tops.add_parser("add-work-unit"); tw.add_argument("--task-id", required=True); tw.add_argument("--title", required=True); tw.add_argument("--role", default="implementation"); tw.add_argument("--read-scope", action="append", default=[]); tw.add_argument("--write-scope", action="append", default=[])
     tclaim = tops.add_parser("claim"); tclaim.add_argument("--work-unit-id", required=True); tclaim.add_argument("--owner", required=True); tclaim.add_argument("--session-id", required=True); tclaim.add_argument("--ttl-seconds", type=int, default=3600)
@@ -250,7 +323,7 @@ def parser() -> argparse.ArgumentParser:
     ta = tops.add_parser("audit"); ta.add_argument("task_id")
     tx = tops.add_parser("export-excel"); tx.add_argument("--output", required=True)
     solve = tops.add_parser("solve-all"); solve.add_argument("query", nargs="?"); solve.add_argument("--providers", default="auto"); solve.add_argument("--quorum", type=int, default=2); solve.add_argument("--implementer"); solve.add_argument("--test-profile"); solve.add_argument("--cwd", default="."); solve.add_argument("--effort", default="high"); solve.add_argument("--confirm-critical", action="store_true"); solve.add_argument("--max-tasks", type=int); solve.add_argument("--apply", action="store_true")
-    tops.add_parser("execute")
+    texec = tops.add_parser("execute"); texec.add_argument("--task-id", required=True)
 
     multi = commands.add_parser("multi-coder", help=argparse.SUPPRESS)
     mops = multi.add_subparsers(dest="op", required=True)
@@ -267,6 +340,15 @@ def parser() -> argparse.ArgumentParser:
     graph = commands.add_parser("graph", help=argparse.SUPPRESS)
     gops = graph.add_subparsers(dest="op", required=True)
     gc = gops.add_parser("compile"); gc.add_argument("--goal", required=True); gc.add_argument("--execute", action="store_true"); gc.add_argument("--risk-class", default="R2"); gc.add_argument("--privacy-class", default="D1"); gc.add_argument("--max-parallel", type=int, default=6)
+
+    worktree = commands.add_parser("worktree", help=argparse.SUPPRESS)
+    wops = worktree.add_subparsers(dest="op", required=True)
+    wp = wops.add_parser("plan"); wp.add_argument("--repo", required=True); wp.add_argument("--goal", required=True); wp.add_argument("--agents", required=True); wp.add_argument("--base-ref", default="HEAD"); wp.add_argument("--max-parallel", type=int, default=6)
+    wc = wops.add_parser("create"); wc.add_argument("--repo", required=True); wc.add_argument("--goal", required=True); wc.add_argument("--agents", required=True); wc.add_argument("--base-ref", default="HEAD"); wc.add_argument("--max-parallel", type=int, default=6); wc.add_argument("--apply", action="store_true")
+    wops.add_parser("list")
+    ws = wops.add_parser("show"); ws.add_argument("run_id")
+    wr = wops.add_parser("review"); wr.add_argument("run_id"); wr.add_argument("--winner")
+    wx = wops.add_parser("cleanup"); wx.add_argument("run_id"); wx.add_argument("--apply", action="store_true")
 
     diagnostics = commands.add_parser("diagnostics", help=argparse.SUPPRESS)
     dops = diagnostics.add_subparsers(dest="op", required=True)
@@ -318,7 +400,40 @@ def main(argv: list[str] | None = None) -> int:
             else: emit(help_show(a.op))
             return 0
         if a.cmd == "run":
-            emit(run_goal(h, " ".join(a.goal), execute=a.execute, risk_class=a.risk_class, privacy_class=a.privacy_class, max_parallel=a.max_parallel, token_budget=a.token_budget, wall_clock_seconds=a.wall_clock_seconds, require_live=not a.allow_static, profile=a.profile))
+            goal_text = " ".join(a.goal)
+            if a.execute:
+                created = task_create(
+                    h,
+                    goal_text[:180],
+                    goal_text,
+                    "high" if a.risk_class in {"R2", "R3", "R4"} else "normal",
+                    source="cli-run",
+                    risk_class=a.risk_class,
+                    task_type="agentic-execution",
+                    tags=["natural-goal", "pre-execution-validation"],
+                    acceptance_criteria="Execute only after task validation or an explicit risk-acceptance receipt.",
+                )
+                task_id = created.get("task_id") or created.get("duplicate_of")
+                if not task_id:
+                    emit(created); return 0
+                if a.task_validation == "ask":
+                    emit(validation_gate(h, task_id, "run")); return 0
+                if a.task_validation == "review":
+                    emit(validation_review(
+                        h, task_id, context_files=[Path(value) for value in a.context],
+                        privacy_class=a.privacy_class, effort="xhigh" if a.profile == "ultracode" else "high",
+                        profile=a.profile or "balanced", require_live=not a.allow_static,
+                    )); return 0
+                validation_skip(
+                    h, task_id, subject=a.subject or "cli-user", reason=a.reason or "Explicit one-shot execution risk acceptance",
+                    trigger_action="run", founder_confirm=a.founder_confirm,
+                )
+                emit(run_goal(
+                    h, goal_text, execute=True, risk_class=a.risk_class, privacy_class=a.privacy_class,
+                    max_parallel=a.max_parallel, token_budget=a.token_budget, wall_clock_seconds=a.wall_clock_seconds,
+                    require_live=not a.allow_static, profile=a.profile, existing_task_id=task_id,
+                )); return 0
+            emit(run_goal(h, goal_text, execute=False, risk_class=a.risk_class, privacy_class=a.privacy_class, max_parallel=a.max_parallel, token_budget=a.token_budget, wall_clock_seconds=a.wall_clock_seconds, require_live=not a.allow_static, profile=a.profile))
             return 0
         if a.cmd == "status":
             emit(log_locations(h) if a.logs else unified_status(h, live=a.live, window=a.window))
@@ -342,10 +457,14 @@ def main(argv: list[str] | None = None) -> int:
             if a.op == "show": emit(value)
             elif a.op == "set": settings_mod.set_value(value, a.key, a.value); settings_mod.save(h, value); emit({"decision": "pass", "key": a.key})
             elif a.op == "group": settings_mod.toggle_group(value, a.group, a.state == "on"); settings_mod.save(h, value); emit({"decision": "pass", "group": a.group, "enabled": a.state == "on"})
-            else:
+            elif a.op == "profile":
                 value["orchestration"]["active_profile"] = a.name
                 if not a.session_only: settings_mod.save(h, value)
                 emit({"decision": "pass", "profile": a.name, "session_only": a.session_only, "settings": value["orchestration"]["profiles"][a.name]})
+            else:
+                if a.apply and a.rollback:
+                    raise ValueError("choose either --apply or --rollback")
+                emit(identity_rollback(h) if a.rollback else identity_apply(h) if a.apply else identity_status(h))
             return 0
         if a.cmd == "privacy":
             result = sanitize(a.text, a.mode); emit({"decision": result.decision, "text": result.text, "findings": result.findings}); return 0 if result.decision != "block" else 3
@@ -370,10 +489,40 @@ def main(argv: list[str] | None = None) -> int:
                 emit({"decision": "pass" if any(r.get("status") == "pass" for r in results) else "needs-work", "results": results, "article_5": article5, "article_50": disclosure, "content_provenance": _runtime_mark_for_mesh(results), "global_compliance_claim_allowed": False})
             return 0
         if a.cmd == "meeting":
-            if a.op == "start":
-                seats = _auto_meeting_seats(h) if a.seats == "auto" else _split(a.seats)
-                if not seats: raise RuntimeError("no live-ready meeting seats; run provider doctor or use the primary iot-ai goal command after readiness is restored")
-                emit(meeting_start(h, a.topic, seats, min(a.quorum, len(seats)), a.rounds, a.execute, depth=a.depth, effort=a.effort, owner=a.owner, priority=a.priority, risk_class=a.risk_class))
+            if a.op in {"start", "seat-plan"}:
+                plan = resolve_meeting_seats(
+                    h,
+                    a.seats,
+                    exclude_ollama=bool(a.exclude_ollama),
+                    allow_missing_ollama=bool(a.allow_missing_ollama),
+                    max_seats=a.max_parallel,
+                )
+                if a.op == "seat-plan":
+                    emit(plan.to_dict())
+                    return 0 if plan.decision == "pass" else 3
+                if plan.decision != "pass":
+                    raise PermissionError(
+                        f"meeting seat plan blocked: {plan.reason}; "
+                        "use --seats all-coders+ollama-clouds, or explicitly --exclude-ollama when omission is intentional"
+                    )
+                seats = list(plan.resolved_seats)
+                if not seats:
+                    raise RuntimeError("no meeting seats resolved")
+                emit(meeting_start(
+                    h,
+                    a.topic,
+                    seats,
+                    min(a.quorum, len(seats)),
+                    a.rounds,
+                    a.execute,
+                    depth=a.depth,
+                    effort=a.effort,
+                    owner=a.owner,
+                    priority=a.priority,
+                    risk_class=a.risk_class,
+                    seat_plan=plan.to_dict(),
+                    max_parallel=a.max_parallel,
+                ))
             elif a.op == "list": emit({"meetings": list_meetings(h)})
             elif a.op == "show": emit(meeting_show(h, a.meeting_id))
             elif a.op == "run": emit(meeting_run(h, a.meeting_id))
@@ -389,11 +538,27 @@ def main(argv: list[str] | None = None) -> int:
                 else: result = list_all(h, owner=a.owner, query=a.query, status_filter=a.status_filter, limit=a.limit)
                 emit({"decision": "pass", "requires_user_selection": True, "tasks": result, "count": len(result)})
             elif a.op == "show": emit(task_show(h, a.task_id, a.limit))
+            elif a.op == "prepare":
+                if a.action == "status": emit(validation_status(h, a.task_id))
+                elif a.action == "review": emit(validation_review(
+                    h, a.task_id, context_files=[Path(value) for value in a.context],
+                    privacy_class=a.privacy_class, effort=a.effort, profile=a.profile, require_live=not a.allow_static,
+                ))
+                elif a.action == "approve":
+                    if not a.validation_id: raise ValueError("--validation-id is required")
+                    emit(validation_approve(h, a.task_id, a.validation_id, a.subject or "user", a.reason))
+                elif a.action == "reject":
+                    if not a.validation_id: raise ValueError("--validation-id is required")
+                    emit(validation_reject(h, a.task_id, a.validation_id, a.subject or "user", a.reason))
+                else: emit(validation_skip(
+                    h, a.task_id, subject=a.subject or "user", reason=a.reason or "Explicit validation skip",
+                    trigger_action="manual", founder_confirm=a.founder_confirm,
+                ))
             elif a.op == "create":
                 article5 = _screen_text("\n".join((a.title, a.description, a.acceptance_criteria)), h, context="cli:task-create")
                 emit({**task_create(h, a.title, a.description, a.priority, a.owner, risk_class=a.risk_class, task_type=a.task_type, source=a.source, source_id=a.source_id, tags=a.tag, acceptance_criteria=a.acceptance_criteria, allow_duplicate=a.allow_duplicate), "article_5": article5})
             elif a.op == "add-work-unit": emit(add_work_unit(h, a.task_id, a.title, a.role, a.read_scope, a.write_scope))
-            elif a.op == "claim": emit(claim_work_unit(h, a.work_unit_id, a.owner, a.session_id, a.ttl_seconds))
+            elif a.op == "claim": emit(claim_work_unit(h, a.work_unit_id, a.owner, a.session_id, a.ttl_seconds, enforce_validation=True, trigger_action="claim"))
             elif a.op == "heartbeat": emit(task_heartbeat(h, a.lease_id, a.lease_token, a.ttl_seconds))
             elif a.op == "progress": emit(record_progress(h, a.task_id, a.stage, a.percent, a.summary, a.work_unit_id))
             elif a.op == "evidence-add": emit(add_evidence(h, a.task_id, Path(a.artifact), a.artifact_sha256, a.kind, a.work_unit_id))
@@ -401,9 +566,9 @@ def main(argv: list[str] | None = None) -> int:
             elif a.op == "submit": emit(submit_task(h, a.task_id, a.work_unit_id, a.lease_id, a.lease_token, a.result_summary))
             elif a.op == "audit": emit(audit_task(h, a.task_id, record=True))
             elif a.op == "export-excel": emit(export_workspace(h, Path(a.output)))
-            elif a.op == "execute": emit({"decision": "block", "error": "host-side workflow only; use the primary iot-ai goal command with --execute or solve-all --apply"})
+            elif a.op == "execute": emit(validation_gate(h, a.task_id, "execute"))
             else:
-                plan = solve_all_plan(h, a.query, a.confirm_critical, a.max_tasks)
+                plan = solve_all_plan(h, a.query, a.confirm_critical, a.max_tasks, require_validated=True)
                 if not a.apply: emit(plan)
                 else:
                     provider_list = [c["provider"] for c in provider_candidates(h, require_live=True)] if a.providers == "auto" else _split(a.providers)
@@ -435,6 +600,14 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "graph":
             graph = compile_graph(a.goal, include_implementation=a.execute, risk_class=a.risk_class, privacy_class=a.privacy_class, max_parallel=a.max_parallel)
             emit({"decision": "pass", "validation": validate_graph(graph), "graph": graph.to_dict()}); return 0
+        if a.cmd == "worktree":
+            if a.op in {"plan", "create"}:
+                emit(worktree_create(h, Path(a.repo), a.goal, _split(a.agents), base_ref=a.base_ref, max_parallel=a.max_parallel, apply=(a.op == "create" and a.apply)))
+            elif a.op == "list": emit(worktree_list(h))
+            elif a.op == "show": emit(worktree_show(h, a.run_id))
+            elif a.op == "review": emit(worktree_promotion_plan(h, a.run_id, winner=a.winner))
+            else: emit(worktree_cleanup(h, a.run_id, apply=a.apply))
+            return 0
         if a.cmd == "diagnostics":
             if a.op == "collect": emit(diagnostics_collect(h, a.correlation_id, Path(a.output)))
             elif a.op == "validate": emit(diagnostics_validate(Path(a.bundle)))

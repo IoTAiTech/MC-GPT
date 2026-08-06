@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Unified health, version, coder, model, effort and workflow status."""
 from __future__ import annotations
 
@@ -22,6 +22,8 @@ from .report import data as report_data
 from .settings import load as load_settings
 from .suite_version import MC_GPT_VERSION, SUITE_VERSION
 from .workspace import connect_read, one, rows
+from .worktrees import list_runs as worktree_runs
+from .identity_migration import status as identity_migration_status
 
 
 def _status_from_score(score: float | None, *, pass_at: float = 90.0) -> str:
@@ -266,6 +268,8 @@ def unified_status(user_home: Path, *, live: bool = False, window: str = "24h") 
         "eu_regulatory_baselines": EU_REGULATORY_BASELINES,
         "logs": log_locations(user_home),
         "activity": report_data(user_home, normalized_window),
+        "worktrees": worktree_runs(user_home),
+        "brand_identity_migration": identity_migration_status(user_home),
         "live_probe_performed": live,
         "live_probe_results": live_results,
         "window": normalized_window,

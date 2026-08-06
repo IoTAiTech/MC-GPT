@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Governed Multi-Coder implementation, verification, and audit workflow.
 
 Provider seats are bound to explicit roles and exact served-model receipts.  A
@@ -398,11 +398,6 @@ def run(
         if connection is None:
             raise ValueError("Task not found")
         task_row = one(connection, "SELECT * FROM tasks WHERE id=?", (task_id,))
-        meeting = one(
-            connection,
-            "SELECT * FROM meetings WHERE task_id=? AND status='approved' ORDER BY created_at DESC LIMIT 1",
-            (task_id,),
-        )
         existing_work_unit = one(
             connection,
             "SELECT * FROM work_units WHERE task_id=? AND status IN ('ready','claimed','active') ORDER BY created_at DESC LIMIT 1",
@@ -411,8 +406,19 @@ def run(
         connection.close()
         if not task_row:
             raise ValueError("Task not found")
-        if not meeting:
-            raise PermissionError("task execution requires an approved same-digest meeting")
+        from .task_validation import gate as validation_gate
+        validation = validation_gate(user_home, task_id, "execute")
+        if validation.get("decision") != "pass":
+            return {
+                "schema": "iot-ai.multi-coder-result.v4",
+                "run_id": run_id,
+                "task_id": task_id,
+                "decision": "requires-user-confirmation",
+                "reason": "task-validation-required",
+                "task_validation": validation,
+                "provider_calls": 0,
+                "execution_authorized": False,
+            }
         task_text = task_row["description"] or task_row["title"]
 
     if not task_text.strip():
@@ -462,7 +468,7 @@ def run(
         else:
             work_unit_id = existing_work_unit["id"]
         implementer = implementer or seats[0]
-        claim = claim_work_unit(user_home, work_unit_id, implementer, f"{implementer}-{run_id}", 7200)
+        claim = claim_work_unit(user_home, work_unit_id, implementer, f"{implementer}-{run_id}", 7200, enforce_validation=True, trigger_action="execute")
         lease_id = claim["lease_id"]
         lease_token = claim["lease_token"]
         record_progress(user_home, task_id, "planning", 10, "Multi-Coder planning started", work_unit_id)

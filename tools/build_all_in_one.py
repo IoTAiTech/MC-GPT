@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Build the deterministic Community ALL-IN-ONE installer package."""
 from __future__ import annotations
 
@@ -15,13 +15,11 @@ import zipfile
 from pathlib import Path
 
 FIXED_TIME = (2026, 8, 4, 0, 0, 0)
-SUITE_VERSION = "6.5.0-beta.2"
-PACKAGE_FILENAME_PREFIX = "IoT-AI-Tech"  # canonical; never emit AI-IoT-Tech for new releases
-LEGACY_PACKAGE_FILENAME_PREFIX = "AI-IoT-Tech"
-MC_GPT_VERSION = "0.6.0-alpha.1"
+SUITE_VERSION = "6.6.0-beta.3"
+MC_GPT_VERSION = "0.7.0-alpha.3"
 ROOT_FILES = {
-    "AGENTS.md", "CHANGELOG.md", "COMMERCIAL.md", "COMPONENT_REGISTRY.json", "EDITION_BOUNDARY.json",
-    "FINAL_TEST_SUMMARY.json", "LICENSE", "LICENSE-COMMERCIAL.md", "LICENSE_POLICY.json", "MODEL_POLICY.json",
+    "AGENTS.md", "CHANGELOG.md", "COMMERCIAL.md", "CONTACT.md", "COMPONENT_REGISTRY.json", "EDITION_BOUNDARY.json",
+    "FINAL_TEST_SUMMARY.json", "LEGACY_IDENTITY_ALLOWLIST.json", "LICENSE", "LICENSE-COMMERCIAL.md", "LICENSE_POLICY.json", "MODEL_POLICY.json",
     "NOTICE", "PACKAGE_LINEAGE.json", "PACKAGE_METADATA.json", "PUBLIC_REPOSITORY_NOTICE.md", "README.md",
     "RELEASE_NOTES.md", "RELEASE_STATUS.json", "REVIEW_SCOPE.md", "ROADMAP.md", "SBOM.cdx.json", "SECURITY.md",
     "THIRD_PARTY_NOTICES.md", "TRADEMARKS.md",
@@ -54,7 +52,7 @@ def _zip(root: Path, output: Path) -> None:
 def build(root: Path, wheel: Path, openpyxl: Path, et_xmlfile: Path, component: Path, output_dir: Path) -> dict[str, object]:
     root = root.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    output = output_dir / f"{PACKAGE_FILENAME_PREFIX}-iot-ai-Coder-Suite-v{SUITE_VERSION}-ALL-IN-ONE.zip"
+    output = output_dir / f"IoT-AI-Tech-iot-ai-Coder-Suite-v{SUITE_VERSION}-ALL-IN-ONE.zip"
     with tempfile.TemporaryDirectory(prefix="iot-ai-all-in-one-") as temporary:
         stage = Path(temporary) / "stage"
         stage.mkdir()

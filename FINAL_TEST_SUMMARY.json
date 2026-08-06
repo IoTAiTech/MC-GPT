@@ -1,10 +1,279 @@
 {
-  "suite_version": "6.5.0-beta.2",
-  "public_unittest": 157,
-  "public_pytest": 157,
-  "enterprise_unittest": 15,
-  "enterprise_pytest": 15,
-  "article_50_operator": "IoT-AI.Tech",
-  "all_in_one_sha256": "a53c7b1eccdb4812eec0457afe5f552f624f315b704662c07218914099f6faf4",
-  "decision": "pass"
+  "agent_runtime": {
+    "application_owns": {
+      "context_manifest": true,
+      "control_flow": true,
+      "goal_contract": true,
+      "persistence_decision": true,
+      "rendered_prompt": true,
+      "tool_and_provider_selection": true
+    },
+    "benchmark": {
+      "decision": "pass",
+      "iterations": 5000,
+      "max_ms": 33.1926,
+      "mean_ms": 0.9917,
+      "median_ms": 0.9448,
+      "p95_ms": 1.1152,
+      "p99_ms": 1.4364,
+      "schema": "iot-ai.agent-runtime-benchmark.v1",
+      "scope": "goal+context+prompt+tool-decision compilation only; excludes provider network latency",
+      "target_met": true,
+      "target_p95_ms": 10.0
+    },
+    "checkpoint_pause_resume_replay": "pass",
+    "d2_d3_cloud_egress": "fail-closed",
+    "decision": "pass",
+    "five_decision_receipts": [
+      "context_decision",
+      "tool_decision",
+      "validation_decision",
+      "continuation_decision",
+      "persistence_decision"
+    ],
+    "meeting_advanced_path": "owned-delegate",
+    "multicoder_advanced_path": "owned-delegate",
+    "named_adapter_cross_provider_qualification": "forbidden",
+    "no_silent_context_truncation": true,
+    "schema": "iot-ai.agent-runtime-evidence.v1",
+    "static_availability_is_not_live_readiness": true
+  },
+  "artifact_hash_policy": {
+    "all_in_one_self_hash_embedded": false,
+    "component_and_wheel_hashes_may_be_embedded": true,
+    "reason": "A ZIP cannot contain its own final digest without self-reference; final artifact hashes are published in detached SHA-256 sidecars and the delivery manifest."
+  },
+  "blackbox": {
+    "article_50_mark_and_verify": "pass",
+    "article_5_pre_dispatch_fail_closed": "pass",
+    "artifact_hash_location": "detached delivery evidence and .sha256 sidecar",
+    "component_uninstall_rollback": "pass",
+    "decision": "pass",
+    "normal_rollback_without_force": "pass",
+    "official_update_apply": "pass",
+    "pep668_isolated_venv": "pass",
+    "shell_install_uninstall_rollback": "pass",
+    "steps_passed": 15
+  },
+  "classification": "community-developer-preview-not-stable-not-production",
+  "clean_install": {
+    "normal_rollback": "restore-without-force",
+    "official_authority": "iot-ai update apply",
+    "old_canonical_packages_and_sidecars": "archive",
+    "old_managed_suite_and_component_versions": "archive-after-new-version-verifies",
+    "pep668": "isolated-versioned-venv-no-break-system-packages",
+    "settings_databases_customer_data_unknown_paths": "preserve"
+  },
+  "community_policy": {
+    "cloud_default": "off-opt-in",
+    "local_ollama_governed_reasoning_default": false,
+    "maximum_effective_effort": "medium",
+    "maximum_provider_families_per_run": 3,
+    "ollama_cloud_first_class": true,
+    "telemetry_retention_days": 30
+  },
+  "detached_evidence_policy": {
+    "integrity": "SHA256SUMS.txt and DELIVERY_MANIFEST.json",
+    "location": "release delivery kit / 03_PUBLIC_SAFE_EVIDENCE",
+    "reason": "Final package and Git object digests cannot be safely self-embedded without circular identity."
+  },
+  "enterprise_customer_edition": {
+    "classification": "private-paid-customer-add-on-not-public",
+    "cryptography_target": ">=50,<51",
+    "pmd_transport": "https-api-only-with-optional-mtls-and-certificate-pin",
+    "pytest": {
+      "failed": 0,
+      "passed": 15,
+      "skipped": 0
+    },
+    "python_version": "1.1.0a2",
+    "signed_entitlement": "ed25519-pass",
+    "signed_revocation": "pass",
+    "subtests": 4,
+    "target_qualification": "external-gate-pending-cryptography-50-wheel-unavailable-in-build-environment",
+    "tested_cryptography": "46.0.4",
+    "unittest": {
+      "failed": 0,
+      "passed": 15,
+      "skipped": 0
+    },
+    "version": "1.1.0-alpha.2",
+    "wheel_sha256": "d93216e385c96240bdc698272ded1eeeded300a69a8626aed92a3a4936ebeedf"
+  },
+  "eu_ai_act": {
+    "claim": "technical-current-obligations-gate-not-legal-certification",
+    "controls_implemented": [
+      "operator role and intended-purpose system card",
+      "Article 5 fail-closed screening before provider dispatch",
+      "Article 50 first-interaction disclosure receipts",
+      "machine-readable provenance for text, Markdown, HTML, JSON and PNG plus sidecars",
+      "human oversight and high-risk execution block",
+      "public/private export boundary and claim control",
+      "upstream model register and supplier-dossier schema",
+      "post-market incident evidence contract"
+    ],
+    "decision": "pass",
+    "external_release_gates": [
+      "live surface and export-path Article 50 verification",
+      "role-based AI literacy completion evidence",
+      "exact model supplier dossiers and contracts",
+      "deployment-specific legal review and high-risk reassessment"
+    ],
+    "global_compliance_claim_allowed": false,
+    "profile": "developer-preview",
+    "schema": "iot-ai.eu-ai-act-release-gate.v1",
+    "unverified_runtime_or_organisational_controls": [
+      "article_4_ai_literacy",
+      "post_market_and_incident_process",
+      "upstream_model_and_gpai_dossier"
+    ]
+  },
+  "external_gates": {
+    "enterprise_postgresql_rls_restore": "not_in_public_artifact",
+    "german_legal_review": "pending",
+    "github_actions_attestation": "pending-until-workflow-runs-on-github",
+    "live_provider_accounts": "pending",
+    "real_windows_on_device": "pending"
+  },
+  "generated_at": "2026-08-06T01:25:00Z",
+  "git_simulation": {
+    "annotated_tag": "v6.6.0-beta.3",
+    "decision": "pass-recorded-in-detached-delivery-evidence",
+    "exact_commit_and_clone_results": "see complete delivery 05_TEST_EVIDENCE/GIT_SIMULATION.json",
+    "real_github_push_performed": false
+  },
+  "logs": {
+    "files": [
+      "iot-ai.jsonl",
+      "audit.jsonl",
+      "transactions/",
+      "diagnostics/"
+    ],
+    "linux_default": "~/.local/state/iot-ai-tech/iot-ai-suite/v1/logs",
+    "linux_xdg_override": "$XDG_STATE_HOME/iot-ai-tech/iot-ai-suite/v1/logs",
+    "printed_by": "installer, updater, repair, rollback, status --logs and errors",
+    "windows_default": "%LOCALAPPDATA%\\IoT-AI.Tech\\IOT-AI-Suite\\v1\\logs"
+  },
+  "mc_gpt_version": "0.7.0-alpha.3",
+  "orca_comparison": {
+    "code_copied": false,
+    "honest_boundary": "ORCA currently has stronger desktop/mobile developer UX and broad agent tooling; IOT-AI differentiates on evidence-bound governance, named role contracts, Ollama model-specific seats, enterprise licensing, privacy boundaries and EU-focused release gates.",
+    "patterns_adopted": [
+      "worktree-native write isolation",
+      "coordinator/task DAG concepts",
+      "decision gates",
+      "lifecycle reconciliation",
+      "clear visual orchestration inspiration"
+    ],
+    "source": "official stablyai/orca repository and documentation, reviewed at pinned commit ae1ed5e886acdc4352e5c2de70fed04331386daa"
+  },
+  "package": {
+    "all_in_one_blackbox": "pass-15-of-15",
+    "all_in_one_manifest": "pass",
+    "community_wheel_sha256": "96a00ff946f6c212c0c9a38b58faa7172c5b543477ffd819e3f6565f112bb652",
+    "component_manifest": "pass",
+    "component_manifest_sha256": "623a3fa6dfe86145ed347b1bf2ab4e3818362cf1df4149c3fe4c8b931abb82a6",
+    "component_sha256": "04cd3315e585b3e80caa68203098c3d23f12f17c23d99985f48d78a20e884da5",
+    "deterministic_dual_build": "pass-byte-for-byte",
+    "et_xmlfile": "2.0.0",
+    "final_artifact_hashes": "published-in-detached-sidecars-and-delivery-manifest-no-self-reference",
+    "openpyxl": "3.1.5",
+    "source_archive": "pass",
+    "wheel_install": "pass"
+  },
+  "production_ready": false,
+  "schema": "iot-ai.final-test-summary.v7",
+  "security": {
+    "brand_identity": {
+      "canonical_company": "IoT-AI.Tech",
+      "decision": "pass",
+      "unclassified_legacy_references": 0
+    },
+    "git_history_scan": "pass",
+    "license_headers": {
+      "checked": 100,
+      "decision": "pass",
+      "missing": 0
+    },
+    "public_boundary": {
+      "decision": "pass",
+      "findings": 0
+    },
+    "repository_contract": "pass",
+    "static_ast_audit": {
+      "decision": "pass",
+      "files": 95,
+      "high_findings": 0
+    }
+  },
+  "source": {
+    "compileall": "pass",
+    "coverage": {
+      "measurement": "coverage.py branch-aware run over 163 tests",
+      "note": "Overall public-source coverage is not a legal conformity score; critical Article 5/50, Meeting, Mesh, Multi-Coder, privacy, installer and rollback paths have deterministic positive and negative tests.",
+      "overall_percent": 73
+    },
+    "coverage_note": "Branch-aware total coverage is 73%; critical identity, worktree, EU AI Act, Meeting, Mesh, Multi-Coder, privacy, installer and rollback paths include deterministic positive and negative tests.",
+    "pytest": {
+      "failed": 0,
+      "passed": 163,
+      "skipped": 0
+    },
+    "unittest": {
+      "failed": 0,
+      "passed": 163,
+      "skipped": 0
+    },
+    "warnings_as_errors": "pass-163"
+  },
+  "suite_version": "6.6.0-beta.3",
+  "tests": {
+    "community_pytest": {
+      "failed": 0,
+      "passed": 180
+    },
+    "community_unittest": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 180,
+      "ran": 180
+    },
+    "community_warnings_as_errors": {
+      "failed": 0,
+      "passed": 180
+    },
+    "enterprise_pytest": {
+      "failed": 0,
+      "passed": 15,
+      "subtests": 4
+    },
+    "enterprise_unittest": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 15,
+      "ran": 15
+    },
+    "enterprise_warnings_as_errors": {
+      "failed": 0,
+      "passed": 15,
+      "subtests": 4
+    },
+    "meeting_ollama_policy": {
+      "decision": "pass",
+      "silent_omission_blocked": true
+    },
+    "task_validation": {
+      "decision": "pass",
+      "ollama_required": true,
+      "user_confirmation_gate": true
+    }
+  },
+  "vendor_licensing": {
+    "classification": "vendor-private-never-customer-never-public",
+    "entitlement_issue_and_verify": "pass",
+    "private_key_mode": "0600",
+    "real_private_keys_in_delivery": false,
+    "revocation_issue_and_reject": "pass",
+    "temporary_key_generation": "pass"
+  }
 }

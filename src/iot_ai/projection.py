@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Atomic Excel redundancy/projection for the standalone workspace."""
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from .workspace import connect_read, connect_write, excel_manifest_path, excel_p
 SHEETS: list[tuple[str, str, list[str]]] = [
     ("Tasks", "SELECT * FROM tasks ORDER BY created_at", ["id","source","source_id","owner","title","priority","risk_class","task_type","status","engineering_stage","engineering_progress","task_progress","revision","blocker","final_decision","result_summary","created_at","updated_at"]),
     ("Work Units", "SELECT * FROM work_units ORDER BY created_at", ["id","task_id","title","role","status","provider","model_requested","model_served","engineering_stage","engineering_progress","revision","created_at","updated_at"]),
+    ("Task Validations", "SELECT * FROM task_validations ORDER BY created_at", ["id","task_id","source_revision","applied_revision","trigger_action","policy","status","validation_task_id","validation_meeting_id","plan_digest","verdict","confidence","user_decision","decision_subject","decision_note","created_at","updated_at"]),
     ("Leases", "SELECT id,work_unit_id,task_id,owner,session_id,status,issued_at,heartbeat_at,expires_at,released_at,revision FROM leases ORDER BY issued_at", ["id","work_unit_id","task_id","owner","session_id","status","issued_at","heartbeat_at","expires_at","released_at","revision"]),
     ("Progress", "SELECT * FROM progress_events ORDER BY created_at", ["id","task_id","work_unit_id","stage","percent","summary","created_at"]),
     ("Attempts", "SELECT * FROM attempts ORDER BY created_at", ["id","task_id","work_unit_id","run_id","provider","role","stage","status","model_requested","model_served","request_or_job_id","auth_route","input_tokens","cached_tokens","output_tokens","reasoning_tokens","latency_ms","fallback_used","failure_class","retry_after","created_at"]),
@@ -93,7 +94,7 @@ def export_workspace(user_home: Path, output: Path | None = None, task_id: str |
         os.replace(temp, output)
         digest = sha256_file(output)
         manifest = {
-            "schema": "iot-ai.excel-projection.v2",
+            "schema": "iot-ai.excel-projection.v3",
             "generated_at": utc_now(),
             "database": str(db_path(user_home)),
             "output": str(output),

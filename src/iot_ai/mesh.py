@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 from __future__ import annotations
 
 import ipaddress
@@ -227,6 +227,20 @@ def delegate(
                 exit_code = completed.returncode
                 raw_output = completed.stdout or completed.stderr
                 output, usage = _parse_cli_output(raw_output)
+                # Ollama CLI executes the exact model supplied as an argv item.
+                # A successful non-empty `ollama run <exact-model>` call is
+                # therefore stronger evidence than a configured default and may
+                # bind the served-model receipt to that exact argument.  Auto
+                # selectors remain unverified and fail closed.
+                if (
+                    route.get("provider") == "ollama"
+                    and completed.returncode == 0
+                    and output.strip()
+                    and selected_model not in {"auto", "auto:cloud"}
+                    and not usage.get("model_served")
+                ):
+                    usage["model_served"] = selected_model
+                    usage["model_identity_source"] = "ollama-cli-exact-model-argument"
                 status = "pass" if completed.returncode == 0 and output.strip() else "failed"
                 if completed.returncode != 0:
                     low = raw_output.lower()
@@ -252,6 +266,7 @@ def delegate(
             "privacy_findings": list(privacy.findings) if privacy else [],
             "model_requested": selected_model,
             "model_served": usage.get("model_served"),
+            "model_identity_source": usage.get("model_identity_source"),
             "input_tokens": usage.get("input_tokens"),
             "cached_tokens": usage.get("cached_tokens"),
             "output_tokens": usage.get("output_tokens"),
@@ -305,6 +320,7 @@ def delegate(
             "model_requested": selected_model,
             "model_served": result.get("model_served"),
             "model_identity_verified": exact_model,
+            "model_identity_source": result.get("model_identity_source"),
             "request_or_job_id": request_id,
             "latency_ms": latency,
             "failure_class": failure_class or (None if exact_model else "model-identity-unverified"),

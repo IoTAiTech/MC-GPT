@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 set -eu
 HOME_DIR="${HOME}"
 while [ "$#" -gt 0 ]; do
@@ -10,10 +10,10 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 DATA_HOME="${XDG_DATA_HOME:-$HOME_DIR/.local/share}"
-RUNTIME_ROOT="$DATA_HOME/ai-iot-tech/iot-ai-suite/v1/suite/6.5.0-beta.2"
+RUNTIME_ROOT="$DATA_HOME/iot-ai-tech/iot-ai-suite/v1/suite/6.6.0-beta.3"
 VENV="$RUNTIME_ROOT/venv"
 [ -x "$VENV/bin/iot-ai" ] || { echo "Suite runtime not found: $VENV" >&2; exit 1; }
-BACKUP="$DATA_HOME/ai-iot-tech/iot-ai-suite/v1/uninstall-backups/$(date -u +%Y%m%dT%H%M%SZ)"
+BACKUP="$DATA_HOME/iot-ai-tech/iot-ai-suite/v1/uninstall-backups/$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$BACKUP"
 cp -a "$RUNTIME_ROOT" "$BACKUP/runtime"
 "$VENV/bin/iot-ai" --home "$HOME_DIR" package uninstall --apply

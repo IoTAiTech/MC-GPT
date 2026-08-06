@@ -1,7 +1,7 @@
 {
   "assessment_profile": "public-community-developer-preview",
   "component_versions": {
-    "iot-ai-mc-gpt": "0.6.0-alpha.1"
+    "iot-ai-mc-gpt": "0.7.0-alpha.3"
   },
   "controls": {
     "article_4_ai_literacy": "implemented_unverified",
@@ -34,6 +34,6 @@
     "Live surfaces, provider contracts, exact models, AI literacy completion and customer incidents require runtime evidence."
   ],
   "schema": "iot-ai.eu-ai-act-compliance-matrix.v1",
-  "system_id": "ai-iot-tech.iot-ai-coder-suite",
-  "system_version": "6.5.0-beta.2"
+  "system_id": "iot-ai-tech.iot-ai-coder-suite",
+  "system_version": "6.6.0-beta.3"
 }

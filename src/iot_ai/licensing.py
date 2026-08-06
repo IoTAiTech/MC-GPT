@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 from __future__ import annotations
 import os
 from dataclasses import dataclass
@@ -18,7 +18,7 @@ class Entitlements:
     expires_at:str|None=None
     retention_days:int=30
 
-COMMUNITY=Entitlements("community",False,False,False,3,"medium",retention_days=30)
+COMMUNITY=Entitlements("community",False,False,False,16,"medium",retention_days=30)
 
 def current()->Entitlements:
     """Remain Community unless an explicitly configured private add-on verifies a signed entitlement."""

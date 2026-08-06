@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 from __future__ import annotations
 
 import json
@@ -79,6 +79,29 @@ class MeshSecurityTests(IsolatedHomeTestCase):
         self.assertEqual(result["route_id"], "route-2")
         self.assertTrue(result["fallback_used"])
         self.assertEqual(run_mock.call_count, 2)
+
+
+    @patch("iot_ai.mesh.save_receipt")
+    @patch("iot_ai.mesh.record", return_value="contribution-ollama")
+    @patch("iot_ai.mesh.eligible_routes")
+    @patch("iot_ai.mesh.subprocess.run")
+    def test_ollama_cli_exact_model_is_bound_as_served_model(self, run_mock, eligible_mock, record_mock, receipt_mock) -> None:
+        route = self._route(model="demo:cloud")
+        route["provider"] = "ollama"
+        route["route_id"] = "ollama-cloud-subscription"
+        route["command"] = ["ollama", "run", "{model}", "{prompt}"]
+        eligible_mock.return_value = [route]
+        run_mock.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="Substantive Ollama Cloud review output.", stderr=""
+        )
+        result = delegate(self.home, "ollama", "Review this design", model="demo:cloud")
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["model_requested"], "demo:cloud")
+        self.assertEqual(result["model_served"], "demo:cloud")
+        self.assertTrue(result["live_ready"])
+        receipt = receipt_mock.call_args.args[1]
+        self.assertTrue(receipt["model_identity_verified"])
+        self.assertEqual(receipt["model_served"], "demo:cloud")
 
     def test_cloud_endpoint_rejects_credentials_query_redirect_surface_and_http(self) -> None:
         base = {"cloud": True, "allow_private_endpoint": False}

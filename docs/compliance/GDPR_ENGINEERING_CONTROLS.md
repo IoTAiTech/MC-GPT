@@ -1,7 +1,7 @@
 <!--
 Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-Version: 6.5.0-beta.2 | Date: 2026-08-05
-SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+Version: 6.6.0-beta.3 | Date: 2026-08-06
+SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 # GDPR engineering controls
 

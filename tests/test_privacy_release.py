@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 from __future__ import annotations
 
 import tempfile
@@ -21,9 +21,9 @@ class PrivacyReleaseTests(IsolatedHomeTestCase):
         self.assertNotIn("A" * 32, result.text)
 
     def test_private_infrastructure_is_redacted(self) -> None:
-        value = "server=10.255." + "255.1 path=/home/" + "example/private/file"
+        value = "server=192.168." + "50.40 path=/home/" + "operator/private/file"
         result = sanitize(value, "strict")
-        self.assertNotIn("10.255.", result.text)
+        self.assertNotIn("192.168.", result.text)
         self.assertNotIn("/home/operator", result.text)
         self.assertTrue(result.findings)
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ai-iot.tech/schemas/capability-pack-v1.schema.json",
+  "$id": "https://iot-ai.tech/schemas/capability-pack-v1.schema.json",
   "title": "IOT-AI Capability Pack v1",
   "type": "object",
   "required": ["schema", "name", "version", "classification", "operations", "secrets_embedded"],

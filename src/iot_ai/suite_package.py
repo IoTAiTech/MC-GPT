@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Transactional, PEP-668-safe installer for unified ALL-IN-ONE packages."""
 from __future__ import annotations
 
@@ -187,7 +187,6 @@ def _rollback_partial_host_install(user_home: Path, prior_install_state: dict[st
 
 
 _CANONICAL_PACKAGE = re.compile(r"^IoT-AI-Tech-iot-ai-Coder-Suite-v(?P<version>[0-9A-Za-z.+-]+)-ALL-IN-ONE\.zip$")
-_LEGACY_PACKAGE = re.compile(r"^AI-IoT-Tech-iot-ai-Coder-Suite-v(?P<version>[0-9A-Za-z.+-]+)-ALL-IN-ONE\.zip$")
 _VERSION_NAME = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z]+)*$")
 
 
@@ -197,7 +196,7 @@ def _managed_runtime_directory(path: Path) -> bool:
     if metadata_path.is_file():
         metadata = load_json(metadata_path, {}) or {}
         product_id = str(metadata.get("product_id") or "")
-        if metadata.get("schema") == PACKAGE_SCHEMA and product_id.startswith(("ai-iot-tech.iot-ai", "iot-ai-tech.iot-ai")):
+        if metadata.get("schema") == PACKAGE_SCHEMA and product_id.startswith("iot-ai-tech.iot-ai"):
             return True
     _, entrypoint = _venv_paths(path)
     return bool(_VERSION_NAME.match(path.name)) and entrypoint.is_file()
@@ -280,7 +279,7 @@ def clean_package_store(
         for path in sorted(store.iterdir()):
             if not path.is_file() or path.resolve() == current:
                 continue
-            if _CANONICAL_PACKAGE.match(path.name) or _LEGACY_PACKAGE.match(path.name):
+            if _CANONICAL_PACKAGE.match(path.name):
                 candidates.append(path)
                 for suffix in (".sha256", ".sig", ".asc"):
                     sidecar = path.with_name(path.name + suffix)

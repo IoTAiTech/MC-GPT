@@ -1,12 +1,33 @@
 {
-  "schema": "ai-iot-tech.license-policy.v2",
-  "suite_version": "6.5.0-beta.2",
-  "community_spdx": "LicenseRef-PolyForm-Strict-1.0.0",
-  "enterprise_spdx": "LicenseRef-IoT-AI-Tech-Commercial",
+  "commercial_contact": "info@iot-ai.tech",
+  "commercial_license_required": [
+    "company_internal_operational_use",
+    "production",
+    "paid_services",
+    "managed_hosting",
+    "resale",
+    "commercial_distribution",
+    "commercial_fork",
+    "customer_deployment",
+    "enterprise_features"
+  ],
+  "community_rights": [
+    "personal_use",
+    "noncommercial_research",
+    "study",
+    "modify",
+    "derivative_works",
+    "fork",
+    "noncommercial_distribution"
+  ],
+  "community_spdx": "LicenseRef-PolyForm-Noncommercial-1.0.0",
   "default_when_unresolved": "BLOCK",
+  "enterprise_spdx": "LicenseRef-IoT-AI-Tech-Commercial",
   "forbidden": [
     "infer MIT",
     "copy license from another project",
     "publish enterprise source in public export"
-  ]
+  ],
+  "schema": "iot-ai-tech.license-policy.v2",
+  "suite_version": "6.6.0-beta.3"
 }

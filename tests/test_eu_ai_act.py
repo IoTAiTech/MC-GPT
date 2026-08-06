@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 from __future__ import annotations
 
 import base64
@@ -211,9 +211,9 @@ class EuAiActTests(IsolatedHomeTestCase):
     def test_evidence_chain_redacts_private_metadata(self) -> None:
         result = record_incident(self.home, {
             "system_id": "suite",
-            "system_version": "6.5.0-beta.2",
+            "system_version": "6.6.0-beta.3",
             "severity": "low",
-            "discovered_at": "2026-08-05T00:00:00Z",
+            "discovered_at": "2026-08-06T00:00:00Z",
             "summary": "Observed on " + ".".join(("192", "168", "50", "40")) + " under /" + "/".join(("home", "iot", "private")),
             "reportability": "not-assessed",
         })
@@ -250,7 +250,7 @@ class EuAiActTests(IsolatedHomeTestCase):
             "capabilities": ["text"],
             "limitations": ["may be inaccurate"],
             "data_egress_profile": "cloud-opt-in",
-            "last_verified_at": "2026-08-05T00:00:00Z",
+            "last_verified_at": "2026-08-06T00:00:00Z",
         }
         register_model_dossier(self.home, dossier)
         status = runtime_compliance_status(self.home)
@@ -267,7 +267,7 @@ class EuAiActTests(IsolatedHomeTestCase):
             "capabilities": ["text"],
             "limitations": ["may be inaccurate"],
             "data_egress_profile": "cloud-opt-in",
-            "last_verified_at": "2026-08-05T00:00:00Z",
+            "last_verified_at": "2026-08-06T00:00:00Z",
         }
         entry = register_model_dossier(self.home, dossier)
         self.assertEqual(entry["provider"], "example-provider")
@@ -284,9 +284,9 @@ class EuAiActTests(IsolatedHomeTestCase):
     def test_incident_record_is_evidence_only(self) -> None:
         result = record_incident(self.home, {
             "system_id": "suite",
-            "system_version": "6.5.0-beta.2",
+            "system_version": "6.6.0-beta.3",
             "severity": "high",
-            "discovered_at": "2026-08-05T00:00:00Z",
+            "discovered_at": "2026-08-06T00:00:00Z",
             "summary": "Provider returned wrong model identity",
             "reportability": "legal-review-required",
         })

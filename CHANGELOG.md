@@ -4,31 +4,102 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
-## [6.5.0-beta.2] — 2026-08-05
+## [6.6.0-beta.3] — 2026-08-06
+
+### Added
+- One complete private delivery with a physically isolated public GitHub tree, Community release assets, Enterprise customer source, vendor-only licensing tools, test evidence, Git publication prompts and a delivery verifier.
+- Exact GitHub publication prompt and fail-closed scripts that publish only the public repository and Community assets after literal Founder confirmation.
+- Evidence-bounded Orca maturity indicators and product lessons for worktrees, usage visibility, visual task context and human review.
+
+### Changed
+- Strengthened pre-execution task validation so Claude, Codex, Gemini, Grok and an exact Ollama Cloud model seat must each provide a substantive receipt before an optimized task can be accepted.
+- Updated public installation, supported-coder, licensing, Founder/contact and GitHub release documentation for the first Community Developer Preview; noncommercial modification, forks and redistribution are stated consistently across all notices.
+- Embedded MC-GPT component advanced to `0.7.0-alpha.3`; Enterprise Customer Add-on advanced to `1.1.0-alpha.2`.
+
+### Fixed
+- Eliminated same-version multi-build ambiguity by issuing a new immutable revision rather than republishing beta.2 bytes.
+- Corrected release notes and manifests so every public, Enterprise and vendor artifact resolves to one versioned source snapshot.
+
+### Security
+- Public GitHub publication remains allowlist-only and rejects Enterprise/vendor/private evidence, secrets, private infrastructure, personal paths and customer data.
+- Task execution remains blocked until task validation is approved or a policy-compliant, audited risk-acceptance receipt exists.
+- Full-council meetings and task validation cannot silently omit Ollama Cloud or another required provider family when the governed all-provider policy is enabled.
+
+## [6.6.0-beta.2] — 2026-08-06
+
+### Added
+- Auditable meeting seat plans with selectors `auto`, `all-coders`, `ollama-clouds` and `all-coders+ollama-clouds`.
+- Natural-language compatibility for `/iot-ai-meeting --max-parallel ask all coder and ollama clouds only <topic>`.
+- Workflow compatibility skills and wrappers for `iot-ai-meeting`, `iot-ai-tasks` and `iot-ai-multi-coder` while retaining one updater authority.
+- Machine-readable meeting coverage showing requested, attempted, substantive, unsatisfied and Ollama-specific seats.
+- Task-validation gate before claim, run, go, execute and solve-all with evidence-bound task optimisation and user approval.
+
+### Changed
+- Ollama Cloud is required whenever first-class Ollama policy is enabled and a meeting would otherwise silently omit it.
+- `auto` meeting selection reserves at least one Ollama Cloud seat when configured; explicit all-coder meetings must include Ollama or record an explicit exclusion.
+- Community documentation now clearly permits personal/noncommercial use, study, research, modification, forks and noncommercial redistribution under the licence and notices.
+- GitHub README now includes supported coders, Ollama operating guidance, five-minute installation, task validation, repository map, Founder/contact and publication boundaries.
+- Embedded MC-GPT component advanced to `0.7.0-alpha.2`.
+
+### Fixed
+- Prevented the observed `--seats claude,codex,gemini,grok` omission from being treated as an all-provider meeting when Ollama Cloud is configured.
+- Prevented meeting summaries from hiding whether Ollama was requested, attempted or substantive.
+- Restored compatibility slash-command discovery for Meeting, Tasks and Multi-Coder after clean installation.
+
+### Security
+- Missing Ollama Cloud is recorded as an explicit seat-plan blocker rather than a silent fallback or false quorum.
+- Intentional Ollama exclusion requires a visible command flag and remains auditable.
+- No provider success may qualify another named adapter.
+
+## [6.6.0-beta.1] — 2026-08-06
+
+### Added
+- Canonical legal/operator identity `IoT-AI.Tech` across licences, Article 50 disclosures, provenance, package metadata and customer-facing documentation.
+- Transactional migration from the superseded company/state namespace with dry-run, hash inventory, conflict blocking and digest-bound rollback.
+- Worktree-native parallel coder isolation with tracked-content-only workers, run registry, review/promotion plans and dirty/unmerged cleanup protection.
+- Source-grounded Stably Orca comparison, including explicit strengths, weaknesses, adopted patterns and non-claims.
+- Allowlist-driven public GitHub preparation and publication directives with local tests, history scanning, annotated tag and explicit Founder confirmation.
+- Machine-readable legacy-identity exception register and release-blocking identity scanner.
+
+### Changed
+- Canonical package prefix is `IoT-AI-Tech`; legacy prefixes may be read only by migration compatibility code and are never emitted by a new release.
+- Canonical Linux state namespace is `iot-ai-tech/iot-ai-suite/v1`; canonical Windows vendor path is `IoT-AI.Tech`.
+- `iot-ai status` now reports governed worktree runs and brand-migration state in addition to provider/model/workflow evidence.
+- Clean installation remains the single update path and removes recognised stale active versions only after successful verification while preserving one transactional rollback path.
+- Embedded MC-GPT component advanced to `0.7.0-alpha.1`; Enterprise Customer Add-on advanced to `1.1.0-alpha.2`.
+
+### Fixed
+- Corrected the legal/licensor/operator identity in Article 50 disclosures and all English, German and Persian transparency payloads.
+- Removed invented GitHub organisation URLs from package metadata; the actual public repository URL is supplied only at publication time.
+- Prevented worktree cleanup from deleting dirty or committed-but-unmerged agent work.
+
+### Security
+- Public publication remains physically limited to the public repository and Community assets; the complete delivery kit, Enterprise source, vendor signing tools and private evidence are forbidden.
+- Worktree creation never copies untracked files, local credentials or ad-hoc workspace state.
+- Every residual superseded brand string must have a machine-readable migration classification or the release is blocked.
+
+## [6.5.0-beta.1] — 2026-08-06 — Quarantined / not published
 
 ### Added
 - Enterprise Customer Edition with Ed25519-signed entitlements, feature/limit/environment/installation binding, trust rotation, signed revocation metadata and strict limit validation.
 - Licensed PMD/ProductX connector through authenticated HTTPS APIs only, with optional mTLS/certificate pinning, mutation idempotency, optimistic revision binding and bounded JSON responses; direct PMD database and Excel access remain forbidden.
 - Portable capability packs with one typed contract, deterministic neutral archive and REST/MCP/OpenAPI materialisers.
-- Central JSONL application/audit/transaction/diagnostics logging with deterministic secret redaction and `iot-ai status --logs`.
+- Central JSONL application/audit/transaction/diagnostics logging with deterministic secret redaction and exact log discovery.
 - Technical readiness documentation for EU AI Act, GDPR, CRA, NIS2 and AI incident response.
-- Official MC-GPT logo and brand manifest in public release assets.
-- Evidence-bound quantitative and qualitative competitor comparison in README.
+- Official MC-GPT logo and evidence-bound competitor comparison.
 
 ### Changed
-- Every official installer and `iot-ai update apply` now performs a clean transactional installation by default.
-- Recognised older active Suite/component versions and canonical packages are archived only after the replacement verifies; settings, databases, customer data and unknown files are preserved.
-- `iot-ai update` is the only public update authority; older updater names are deprecated aliases or internal modules.
-- Embedded MC-GPT component advanced to `0.6.0-alpha.1`; its archive builder now validates and includes the full relative-import dependency closure.
+- Every official installer and update path performs a clean transactional installation by default.
+- Recognised older active Suite/component versions and canonical packages are archived only after replacement verification; settings, databases, customer data and unknown files are preserved.
 
 ### Security
-- Capability capture redacts secret values and secret-named fields before archive creation.
-- Clean host-adapter upgrades remove obsolete files only when their recorded managed digest still matches.
-- Enterprise customer packages contain only public verification material; issuer private keys remain vendor-only.
-- Public GitHub export and history remain physically isolated from Enterprise/customer/vendor licensing material.
-- Knowledge-export failures are audit-logged instead of being silently discarded.
+- Capability capture redacts secret values before archive creation.
+- Public GitHub export and history are physically isolated from Enterprise/customer/vendor licensing material.
 
-## [6.4.0-beta.1] — 2026-08-05
+### Known release blocker
+- The candidate used the superseded `AI-IoT.Tech` legal/operator identity and was therefore quarantined rather than published.
+
+## [6.4.0-beta.1] — 2026-08-06
 
 ### Added
 - Goal-first execution contracts with explicit outcome, context, constraints, verification and stop rules.
@@ -49,7 +120,7 @@ All notable changes are documented here. The project follows semantic versioning
 - No silent context truncation or framework-owned prompt defaults.
 - Public/private/customer state and diagnostics remain separated and hash-bound.
 
-## [6.3.0-beta.1] — 2026-08-05
+## [6.3.0-beta.1] — 2026-08-06
 
 ### Added
 - Evidence-bound EU AI Act current-obligation controls for Articles 4, 5 and 50, upstream model dossiers, incident records and deployment-specific risk triage.

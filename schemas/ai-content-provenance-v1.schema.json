@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ai-iot.tech/schemas/ai-content-provenance-v1.schema.json",
+  "$id": "https://iot-ai.tech/schemas/ai-content-provenance-v1.schema.json",
   "title": "IOT-AI AI Content Provenance",
   "type": "object",
   "required": ["schema", "content_sha256", "content_type", "ai_generated", "ai_assisted", "human_reviewed", "generator_system", "generator_version", "generated_at", "transparency_profile"],

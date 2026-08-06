@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 from __future__ import annotations
 
 import json
@@ -70,20 +70,20 @@ class LoggingAndCleanInstallTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp).resolve()
             suite_root = data_root(home) / "suite"
-            current = suite_root / "6.5.0-beta.2"
+            current = suite_root / "6.6.0-beta.3"
             old = suite_root / "6.4.0-beta.1"
             unknown = suite_root / "customer-data"
-            for root, version in ((current, "6.5.0-beta.2"), (old, "6.4.0-beta.1")):
+            for root, version in ((current, "6.6.0-beta.3"), (old, "6.4.0-beta.1")):
                 (root / "venv" / "bin").mkdir(parents=True)
                 (root / "venv" / "bin" / "iot-ai").write_text("#!/bin/sh\n", encoding="utf-8")
                 (root / "PACKAGE_METADATA.json").write_text(
-                    json.dumps({"schema": "iot-ai.suite-package.v1", "product_id": "ai-iot-tech.iot-ai-suite", "version": version}),
+                    json.dumps({"schema": "iot-ai.suite-package.v1", "product_id": "iot-ai-tech.iot-ai-suite", "version": version}),
                     encoding="utf-8",
                 )
             unknown.mkdir(parents=True)
             (unknown / "keep.txt").write_text("not a managed runtime", encoding="utf-8")
             transaction = data_root(home) / "update-transactions" / "TX"
-            result = archive_old_active_versions(home, "6.5.0-beta.2", transaction, apply=True)
+            result = archive_old_active_versions(home, "6.6.0-beta.3", transaction, apply=True)
             self.assertEqual(result["decision"], "pass")
             self.assertTrue(current.exists())
             self.assertFalse(old.exists())
@@ -93,8 +93,8 @@ class LoggingAndCleanInstallTests(unittest.TestCase):
     def test_package_store_cleanup_archives_only_canonical_old_packages(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            current = root / "IoT-AI-Tech-iot-ai-Coder-Suite-v6.5.0-beta.2-ALL-IN-ONE.zip"
-            old = root / "AI-IoT-Tech-iot-ai-Coder-Suite-v6.4.0-beta.1-ALL-IN-ONE.zip"
+            current = root / "IoT-AI-Tech-iot-ai-Coder-Suite-v6.6.0-beta.3-ALL-IN-ONE.zip"
+            old = root / "IoT-AI-Tech-iot-ai-Coder-Suite-v6.4.0-beta.1-ALL-IN-ONE.zip"
             unrelated = root / "notes.zip"
             current.write_bytes(b"current")
             old.write_bytes(b"old")

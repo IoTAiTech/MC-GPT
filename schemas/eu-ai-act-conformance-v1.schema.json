@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ai-iot.tech/schemas/eu-ai-act-conformance-v1.schema.json",
+  "$id": "https://iot-ai.tech/schemas/eu-ai-act-conformance-v1.schema.json",
   "title": "IOT-AI EU AI Act Control Matrix",
   "type": "object",
   "required": ["schema", "system_id", "system_version", "declared_purpose", "controls", "global_compliance_claim_allowed"],

@@ -1,44 +1,59 @@
-# IOT-AI Coder Suite 6.5.0-beta.2 — Enterprise Customer and Clean-Release Preview
+# IOT-AI Coder Suite 6.6.0-beta.3 — First Public Developer Preview Candidate
 
-This Community Developer Preview embeds MC-GPT `0.6.0-alpha.1` and prepares the first public GitHub release while keeping the paid Enterprise Customer Edition, vendor licence issuer material and customer evidence physically private.
+This immutable revision consolidates the corrected IoT-AI.Tech identity, task validation before execution, first-class Ollama Cloud meeting policy, governed worktree isolation, source-grounded Orca comparison, personal/noncommercial research licensing, and a fail-closed GitHub publication workflow into one authoritative release lineage.
 
-## Added
+## Core workflow changes
 
-- Private Enterprise Customer Add-on `1.0.0-alpha.2` with Ed25519-signed entitlements, signed revocation support, feature/limit/host/environment binding and offline verification.
-- Authenticated PMD API adapter with HTTPS-only transport, no redirects, optional mTLS/certificate pinning, mutation idempotency, optimistic revision binding and bounded JSON responses.
-- Secret-safe capability packs built from one typed operation contract and materialised as REST, MCP and OpenAPI 3.1 surfaces.
-- Exact operator-facing application, audit, transaction and diagnostics log locations.
-- Technical readiness documentation and release gates for EU AI Act, GDPR, CRA and NIS2-aligned customer controls.
-- Source-dated quantitative and qualitative competitor comparison in the public README.
-- Canonical MC-GPT brand assets.
+- `claim`, `execute`, `run`, `go`, `solve-all` and Multi-Coder task execution are guarded by an evidence-bound **Task Validation** decision.
+- The user may validate and optimise the task, explicitly use the original task, or cancel. High-risk bypass requires a Founder-scoped risk-acceptance receipt.
+- Validation reviews screenshots, documents, logs, code and prior evidence; produces 5W1H, KPI/SLA, ten use cases, ten tests, ten failure cases and one frozen plan digest.
+- Full-council Meeting selection automatically includes eligible model-specific Ollama Cloud seats. Omission is blocked or must be explicitly recorded.
 
-## Changed
+## Community licensing
 
-- Every official command-driven or prompt-driven installer uses the same clean transactional update path.
-- Recognised older managed Suite/component versions and canonical packages are archived only after the replacement verifies; settings, databases, customer data, knowledge, evidence and unknown files are preserved.
-- `iot-ai update` is the only normal-user update authority. Legacy updater names remain transitional aliases only.
-- MC-GPT component builds now resolve and include their complete in-package Python dependency closure.
-- Optional knowledge-export failures are written to structured audit logs instead of being silently discarded.
+The public source uses PolyForm Noncommercial 1.0.0. Personal use, noncommercial research, study, modification, forks and noncommercial redistribution are permitted under the licence and notices. Company-internal production, paid services, hosting, resale and commercial forks require a written commercial licence from IoT-AI.Tech.
 
-## Research adoption
+## Supported execution families
 
-The exact body of the referenced `marfinxx` X post was not independently retrievable. The associated design patterns were verified against the official AgentGem product and architecture documentation: redact secrets at capture, define an operation once, keep a deterministic neutral archive, and materialise that contract across multiple boundaries. IOT-AI independently implements those patterns and does not copy AgentGem code, branding, hosted marketplace or monetisation claims.
+- Claude Code
+- OpenAI Codex CLI
+- Gemini CLI
+- Grok CLI
+- Ollama local/cloud as a first-class, model-specific gateway
+
+Provider names are not roles. Specialist identity, mission, authority, read/write scope and expected output are bound before selecting a provider/model.
+
+## Honest Orca comparison
+
+Orca is currently the stronger benchmark for desktop/mobile experience, terminals, diff UX, Design Mode, remote worktrees, GitHub/issue integration and broad CLI-agent support. IOT-AI adopts worktree isolation and usage visibility patterns while differentiating on immutable specialist contracts, exact provider/model truth, mandatory Ollama governance, digest-bound decisions, Task/Assignment/ACK/Lease evidence, Enterprise entitlements, privacy boundaries and EU-focused release controls. No Orca source, assets, protocols or branding are copied.
+
+See `docs/comparison/ORCA_COMPARISON.md`.
+
+## GitHub publication boundary
+
+Publish only:
+
+```text
+01_PUBLIC_GITHUB_REPOSITORY/
+04_RELEASE_ASSETS/COMMUNITY/
+```
+
+Never publish the complete private delivery, Enterprise source, vendor licensing issuer, private evidence or customer material. Use the canonical prompt and scripts in `06_CODER_AND_GIT_COMMANDS/`.
 
 ## Verification
 
 ```bash
 python -m unittest discover -s tests -p "test_*.py"
-python -m pytest
-python -W error -m pytest
+python -m pytest -q
+python -W error -m pytest -q
+python tools/brand_identity_check.py .
+python tools/eu_ai_act_release_gate.py . --profile developer-preview
 python tools/static_security_audit.py .
-python tools/public_boundary_check.py .
+python tools/public_boundary_check.py . --git-history
+python tools/check_license_headers.py .
 python tools/verify_repository.py . --check-sbom
-python tools/benchmark_agent_runtime.py --iterations 3000
 ```
 
-## Limitations
+## Claim boundary
 
-- Developer Preview only; not stable or production-ready.
-- Live provider/model qualification requires customer accounts and may consume quota.
-- Real Windows-device execution, GitHub-hosted Actions/attestation, Enterprise `cryptography 50.x` target qualification, PostgreSQL 18 forced-RLS/restore drills and deployment-specific legal review remain external gates.
-- Technical controls are not a blanket legal certification, CE marking or conformity assessment for every customer deployment.
+This is a Community Developer Preview candidate—not stable, not production-ready, not a legal certification and not a blanket EU AI Act conformity claim. Windows on-device, live provider/model receipts, GitHub-hosted attestation, Enterprise cryptography/PostgreSQL qualification and deployment-specific German legal review remain external gates.

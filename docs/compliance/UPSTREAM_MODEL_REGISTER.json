@@ -42,7 +42,7 @@
       "underlying_model_provider_required": true
     }
   ],
-  "generated_at": "2026-08-05",
+  "generated_at": "2026-08-06",
   "policy": {
     "requested_and_served_model_are_separate": true,
     "silent_fallback_forbidden": true,

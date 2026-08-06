@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Deep multi-provider meeting workflow linked to the task store.
 
 A successful command is never interpreted as an accepted plan.  Empty seats,
@@ -203,6 +203,8 @@ def start(
     owner: str | None = None,
     priority: str = "normal",
     risk_class: str = "R2",
+    seat_plan: dict[str, Any] | None = None,
+    max_parallel: int | None = None,
 ) -> dict[str, Any]:
     clean = list(dict.fromkeys(seat.strip().lower() for seat in seats if seat.strip()))
     if not topic.strip() or not clean:
@@ -261,6 +263,15 @@ def start(
                 "article_6": article6,
                 "article_50": disclosure,
                 "article_50_disclosure_receipt": disclosure["receipt"],
+                "seat_plan": seat_plan or {
+                    "schema": "iot-ai.meeting-seat-plan.v1",
+                    "selector": "explicit-api",
+                    "requested_seats": clean,
+                    "resolved_seats": clean,
+                    "ollama_cloud_included": any(seat.startswith("ollama@") or seat == "ollama" for seat in clean),
+                    "decision": "pass",
+                },
+                "max_parallel": max_parallel or min(8, len(clean)),
             },
             task_id=task_id,
         )
@@ -278,6 +289,15 @@ def start(
         "rounds": configured_rounds,
         "depth": depth,
         "effort": effort,
+        "seat_plan": seat_plan or {
+            "schema": "iot-ai.meeting-seat-plan.v1",
+            "selector": "explicit-api",
+            "requested_seats": clean,
+            "resolved_seats": clean,
+            "ollama_cloud_included": any(seat.startswith("ollama@") or seat == "ollama" for seat in clean),
+            "decision": "pass",
+        },
+        "max_parallel": max_parallel or min(8, len(clean)),
         "status": "planned",
         "meeting_status": "planned",
         "plan_acceptance": "none",
@@ -314,6 +334,20 @@ def show(user_home: Path, meeting_id: str) -> dict[str, Any]:
             disclosure["shown_at"] = receipt["shown_at"]
         article_50 = {"disclosure": disclosure, "receipt": receipt}
     plan_acceptance = "accepted" if acceptance.get("accepted") else ("pending-user" if meeting["status"] == "awaiting-user-decision" else "none")
+    seat_plan = created_payload.get("seat_plan") if isinstance(created_payload.get("seat_plan"), dict) else {
+        "schema": "iot-ai.meeting-seat-plan.v1",
+        "selector": "legacy-explicit",
+        "requested_seats": created_payload.get("seats", []),
+        "resolved_seats": created_payload.get("seats", []),
+        "ollama_cloud_included": any(str(seat).startswith("ollama@") or seat == "ollama" for seat in created_payload.get("seats", [])),
+        "decision": "pass",
+    }
+    requested = list(seat_plan.get("requested_seats") or created_payload.get("seats") or [])
+    attempted = sorted({str(row.get("seat") or "") for row in meeting["contributions"] if row.get("seat")})
+    substantive = sorted({str(row.get("seat") or "") for row in meeting["contributions"] if row.get("text") and row.get("model_served")})
+    ollama_requested = [seat for seat in requested if str(seat).startswith("ollama@") or seat == "ollama"]
+    ollama_attempted = [seat for seat in attempted if str(seat).startswith("ollama@") or seat == "ollama"]
+    ollama_substantive = [seat for seat in substantive if str(seat).startswith("ollama@") or seat == "ollama"]
     providers = sorted({str(row.get("provider") or row.get("seat") or "") for row in meeting["contributions"] if row.get("text")})
     models = sorted({str(row.get("model_served") or "") for row in meeting["contributions"] if row.get("model_served")})
     content_provenance = (
@@ -339,6 +373,17 @@ def show(user_home: Path, meeting_id: str) -> dict[str, Any]:
         "hard_gates": acceptance.get("hard_gates", {}),
         "founder_approval": bool(meeting.get("user_approved")),
         "execution_authorized": False,
+        "seat_plan": seat_plan,
+        "seat_coverage": {
+            "requested": requested,
+            "attempted": attempted,
+            "substantive": substantive,
+            "unsatisfied": sorted(set(requested) - set(substantive)),
+            "ollama_requested": ollama_requested,
+            "ollama_attempted": ollama_attempted,
+            "ollama_substantive": ollama_substantive,
+            "ollama_omitted": not bool(ollama_requested),
+        },
         "article_50": article_50,
         "global_compliance_claim_allowed": False,
         "content_provenance": content_provenance,
@@ -378,10 +423,16 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
     topic = current_record["topic"]
     task_id = current_record["task_id"]
     seats = _requested_seats(user_home, task_id)
+    conn_meta = connect_read(user_home)
+    created_meta = one(conn_meta, "SELECT payload_json FROM events WHERE task_id=? AND event_type='meeting.created' ORDER BY seq ASC LIMIT 1", (task_id,)) if conn_meta else None
+    if conn_meta:
+        conn_meta.close()
+    created_payload = json.loads(created_meta["payload_json"]) if created_meta else {}
+    max_parallel = max(1, min(int(created_payload.get("max_parallel") or 8), len(seats)))
     run_id = meeting_id
     opinions: list[dict[str, Any]] = []
     raw: list[tuple[str, dict[str, Any]]] = []
-    with ThreadPoolExecutor(max_workers=min(8, len(seats))) as pool:
+    with ThreadPoolExecutor(max_workers=max_parallel) as pool:
         futures = {
             pool.submit(
                 _delegate_safe,
@@ -437,7 +488,7 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
     for round_no in range(1, current_record["rounds"] + 1):
         critiques: list[dict[str, Any]] = []
         buffered: list[tuple[str, dict[str, Any], dict[str, Any] | None]] = []
-        with ThreadPoolExecutor(max_workers=min(8, len(good))) as pool:
+        with ThreadPoolExecutor(max_workers=min(max_parallel, len(good))) as pool:
             futures = {
                 pool.submit(
                     _delegate_safe,
@@ -519,7 +570,7 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
             f"PLAN_DIGEST:{plan_digest}\nPLAN:\n{synthesis_text}"
         )
         buffered_reviews: list[tuple[str, dict[str, Any]]] = []
-        with ThreadPoolExecutor(max_workers=min(8, len(good))) as pool:
+        with ThreadPoolExecutor(max_workers=min(max_parallel, len(good))) as pool:
             futures = {
                 pool.submit(_delegate_safe, user_home, item["seat"], prompt, "meeting-final-review", run_id, "independent-judge", 900): item["seat"]
                 for item in good

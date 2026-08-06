@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Standalone task lifecycle with work units, leases, evidence and audits."""
 from __future__ import annotations
 
@@ -132,6 +132,7 @@ def show(user_home:Path,task_id:str|None=None,limit:int=5)->dict[str,Any]:
     task["meetings"]=rows(conn,"SELECT * FROM meetings WHERE task_id=? ORDER BY created_at",(task_id,))
     task["tests"]=rows(conn,"SELECT * FROM test_results WHERE task_id=? ORDER BY created_at",(task_id,))
     task["audits"]=rows(conn,"SELECT * FROM audits WHERE task_id=? ORDER BY created_at",(task_id,))
+    task["validations"]=rows(conn,"SELECT id,source_revision,applied_revision,trigger_action,policy,status,validation_task_id,validation_meeting_id,plan_digest,verdict,confidence,user_decision,decision_subject,decision_note,created_at,updated_at FROM task_validations WHERE task_id=? ORDER BY created_at",(task_id,))
     task["events"]=rows(conn,"SELECT seq,event_id,event_type,prev_hash,event_hash,created_at FROM events WHERE task_id=? ORDER BY seq",(task_id,))
     conn.close(); return {"decision":"pass","task":task}
 
@@ -150,12 +151,26 @@ def add_work_unit(user_home:Path,task_id:str,title:str,role:str="implementation"
 def _parse_time(value:str)->datetime: return datetime.fromisoformat(value.replace('Z','+00:00')).astimezone(timezone.utc)
 
 
-def claim_work_unit(user_home:Path,work_unit_id:str,owner:str,session_id:str,ttl_seconds:int=3600)->dict[str,Any]:
+def claim_work_unit(
+    user_home:Path,
+    work_unit_id:str,
+    owner:str,
+    session_id:str,
+    ttl_seconds:int=3600,
+    *,
+    enforce_validation:bool=False,
+    trigger_action:str="claim",
+)->dict[str,Any]:
     if not owner or not session_id: raise ValueError("owner and session_id are required")
     ttl=max(60,min(ttl_seconds,86400)); conn=connect_write(user_home)
     try:
         wu=one(conn,"SELECT * FROM work_units WHERE id=?",(work_unit_id,))
         if not wu: raise ValueError("Work unit not found")
+        if enforce_validation:
+            from .task_validation import gate as validation_gate
+            validation=validation_gate(user_home,wu["task_id"],trigger_action)
+            if validation.get("decision") != "pass":
+                return validation
         active=one(conn,"SELECT * FROM leases WHERE work_unit_id=? AND status='active'",(work_unit_id,))
         now_dt=datetime.now(timezone.utc); now=now_dt.isoformat().replace('+00:00','Z')
         if active and _parse_time(active["expires_at"])>now_dt:
@@ -254,12 +269,19 @@ def workspace_status(user_home:Path)->dict[str,Any]:
     conn=connect_read(user_home)
     if conn is None: return {"decision":"pass","backend":"standalone","configured":False,"integrity":"not-created","schema_version":None,"counts":{}}
     integrity=conn.execute("PRAGMA quick_check").fetchone()[0]; schema=one(conn,"SELECT value FROM meta WHERE key='schema_version'")
-    tables=("tasks","work_units","leases","evidence","events","attempts","meetings","test_results","audits","knowledge_items","contributions")
+    tables=("tasks","work_units","leases","evidence","events","attempts","meetings","test_results","audits","knowledge_items","contributions","task_validations")
     counts={name:int(conn.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]) for name in tables}; conn.close()
     return {"decision":"pass" if integrity=="ok" else "block","backend":"standalone","configured":True,"integrity":integrity,"schema_version":schema["value"] if schema else None,"counts":counts,"event_chain":verify_event_chain(user_home),"excel":{"path":str(excel_path(user_home)),"exists":excel_path(user_home).exists(),"manifest":str(excel_manifest_path(user_home))}}
 
 
-def solve_all_plan(user_home:Path,query:str|None=None,confirm_critical:bool=False,max_tasks:int|None=None)->dict[str,Any]:
+def solve_all_plan(
+    user_home:Path,
+    query:str|None=None,
+    confirm_critical:bool=False,
+    max_tasks:int|None=None,
+    *,
+    require_validated:bool=False,
+)->dict[str,Any]:
     candidates=list_open(user_home,query=query)
     selected=[]; skipped=[]
     for task in candidates:
@@ -267,7 +289,15 @@ def solve_all_plan(user_home:Path,query:str|None=None,confirm_critical:bool=Fals
         if task.get("duplicate_of"): reason="duplicate"
         elif task["status"] in {"claimed","active","awaiting_founder","meeting","blocked"}: reason=f"status:{task['status']}"
         elif task["priority"]=="critical" and not confirm_critical: reason="critical-confirmation-required"
-        if reason: skipped.append({"task_id":task["id"],"reason":reason})
+        elif require_validated:
+            from .task_validation import gate as validation_gate
+            validation=validation_gate(user_home,task["id"],"solve-all")
+            if validation.get("decision") != "pass":
+                reason="task-validation-required"
+        if reason:
+            item={"task_id":task["id"],"reason":reason}
+            if reason=="task-validation-required": item["validation"]=validation
+            skipped.append(item)
         else: selected.append(task)
         if max_tasks and len(selected)>=max_tasks: break
     return {"decision":"plan","query":query,"selected":selected,"skipped":skipped,"eligible_count":len(selected),"skipped_count":len(skipped),"requires_user_confirmation":True,"apply":False}

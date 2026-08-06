@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Role-aware, evidence-driven provider/model selection with Ollama first-class."""
 from __future__ import annotations
 
@@ -115,6 +115,7 @@ def select_candidates(
     allow_reuse: bool = True,
     require_ollama_when_available: bool = True,
     max_providers: int | None = None,
+    required_provider_families: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Assign candidates to roles with diversity and an explicit fallback ladder."""
     ladders = rank_candidates(user_home, role_ids, require_live=require_live, cloud_only=cloud_only)
@@ -175,6 +176,51 @@ def select_candidates(
                 "selection_reason": "first-class-ollama-diversity",
                 "fallback_candidates": [old, *[c for c in ladders.get(role_id, []) if c.get("candidate_id") not in {old.get("candidate_id"), ollama.get("candidate_id")}]],
             }
+
+    required_families = tuple(dict.fromkeys(str(value).strip().lower() for value in (required_provider_families or ()) if str(value).strip()))
+    if required_families:
+        if max_providers is not None and max_providers > 0 and len(required_families) > max_providers:
+            raise PermissionError(
+                f"required provider-family count {len(required_families)} exceeds edition limit {max_providers}"
+            )
+        for required_provider in required_families:
+            if any(str(candidate.get("provider")) == required_provider for candidate in selected.values()):
+                continue
+            replacement_options: list[tuple[float, str, dict[str, Any]]] = []
+            provider_counts: dict[str, int] = {}
+            for candidate in selected.values():
+                provider = str(candidate.get("provider"))
+                provider_counts[provider] = provider_counts.get(provider, 0) + 1
+            for role_id in role_ids:
+                current = selected.get(role_id)
+                if not current:
+                    continue
+                current_provider = str(current.get("provider"))
+                if current_provider in required_families and provider_counts.get(current_provider, 0) <= 1:
+                    continue
+                candidate = next(
+                    (row for row in ladders.get(role_id, []) if str(row.get("provider")) == required_provider),
+                    None,
+                )
+                if candidate is None:
+                    continue
+                loss = float(current.get("selection_score") or 0.0) - float(candidate.get("selection_score") or 0.0)
+                replacement_options.append((loss, role_id, candidate))
+            if replacement_options:
+                _, role_id, replacement = min(replacement_options, key=lambda item: (item[0], item[1]))
+                previous = selected[role_id]
+                selected[role_id] = {
+                    **replacement,
+                    "selection_reason": "required-provider-family",
+                    "fallback_candidates": [
+                        previous,
+                        *[
+                            candidate
+                            for candidate in ladders.get(role_id, [])
+                            if candidate.get("candidate_id") not in {previous.get("candidate_id"), replacement.get("candidate_id")}
+                        ],
+                    ],
+                }
 
     if max_providers is not None and max_providers > 0:
         provider_scores: dict[str, float] = {}

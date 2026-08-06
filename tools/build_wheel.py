@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Build the pure-Python Community wheel deterministically without network access."""
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from pathlib import Path
 
 FIXED_TIME = (2026, 8, 4, 0, 0, 0)
 DIST_NAME = "iot_ai_coder_suite"
-PYTHON_VERSION = "6.5.0b2"
+PYTHON_VERSION = "6.6.0b3"
 DIST_INFO = f"{DIST_NAME}-{PYTHON_VERSION}.dist-info"
 WHEEL_NAME = f"{DIST_NAME}-{PYTHON_VERSION}-py3-none-any.whl"
 
@@ -35,7 +35,7 @@ def _metadata(root: Path) -> bytes:
         f"Version: {PYTHON_VERSION}",
         "Summary: Evidence-bound multi-coder orchestration with typed roles, Ollama Cloud, diagnostics and portable knowledge.",
         "Author: Dr.-Ing. Babak Sorkhpour",
-        "License-Expression: LicenseRef-PolyForm-Strict-1.0.0",
+        "License-Expression: LicenseRef-PolyForm-Noncommercial-1.0.0",
         "Keywords: ai-agents,multi-agent,multi-coder,ollama,developer-tools,agentic-workflows",
         "Classifier: Development Status :: 3 - Alpha",
         "Classifier: Environment :: Console",
@@ -50,10 +50,10 @@ def _metadata(root: Path) -> bytes:
         "Requires-Dist: openpyxl<4,>=3.1.5",
         "Provides-Extra: dev",
         'Requires-Dist: pytest<10,>=8; extra == "dev"',
-        "Project-URL: Homepage, https://github.com/IoTAiTech/MC-GPT",
-        "Project-URL: Documentation, https://github.com/IoTAiTech/MC-GPT/tree/main/docs",
-        "Project-URL: Issues, https://github.com/IoTAiTech/MC-GPT/issues",
-        "Project-URL: Commercial, https://ai-iot.tech",
+        "Project-URL: Homepage, https://iot-ai.tech",
+        "Project-URL: Documentation, https://iot-ai.tech",
+        "Project-URL: Issues, https://iot-ai.tech",
+        "Project-URL: Commercial, https://iot-ai.tech",
         "License-File: LICENSE",
         "License-File: LICENSE-COMMERCIAL.md",
         "License-File: LICENSE_POLICY.json",

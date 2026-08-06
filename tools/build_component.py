@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Build the public MC-GPT component archive deterministically."""
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ import zipfile
 from pathlib import Path
 
 FIXED_TIME = (2026, 8, 4, 0, 0, 0)
-COMPONENT_VERSION = "0.6.0-alpha.1"
-SUITE_VERSION = "6.5.0-beta.2"
+COMPONENT_VERSION = "0.7.0-alpha.3"
+SUITE_VERSION = "6.6.0-beta.3"
 SEED_MODULES = {
     "agentic.py", "capability_pack.py", "checkpoints.py", "context_compiler.py", "control_flow.py",
     "decision_receipts.py", "diagnostics.py", "eu_ai_act.py", "european_compliance.py", "goal_contract.py",
@@ -86,12 +86,12 @@ def build(root: Path, output_dir: Path) -> dict[str, object]:
     component = {
         "schema": "iot-ai.component.v2",
         "component_id": "iot-ai-mc-gpt",
-        "product_id": "ai-iot-tech.iot-ai-mc-gpt",
+        "product_id": "iot-ai-tech.iot-ai-mc-gpt",
         "version": COMPONENT_VERSION,
         "suite_compatibility": {"minimum": SUITE_VERSION, "maximum_exclusive": "7.0.0"},
         "classification": "community-source-component-not-standalone-installer",
         "entrypoint": "iot-ai",
-        "state_namespace": "ai-iot-tech/iot-ai-suite/v1",
+        "state_namespace": "iot-ai-tech/iot-ai-suite/v1",
     }
     files["component.json"] = (json.dumps(component, indent=2, sort_keys=True) + "\n").encode()
     manifest = {

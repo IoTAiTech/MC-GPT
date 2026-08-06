@@ -16,7 +16,7 @@
     "production_ready": false,
     "requires_signed_entitlement": true,
     "supports_signed_revocation": true,
-    "version": "1.0.0-alpha.2"
+    "version": "1.1.0-alpha.2"
   },
   "eu_ai_act": {
     "developer_preview_release_wording": "Technical current-obligation controls verified for the declared Community Developer Preview; no legal certification or blanket deployment conformity claim.",
@@ -45,15 +45,15 @@
     "real GitHub Actions execution and artifact attestation",
     "German legal review before external commercial agreement"
   ],
-  "mc_gpt_version": "0.6.0-alpha.1",
+  "mc_gpt_version": "0.7.0-alpha.3",
   "personal_local_install_authorized": true,
   "production_or_fleet_install_authorized": false,
   "production_ready": false,
   "publication": {
-    "annotated_tag_simulated": "v6.5.0-beta.2",
+    "annotated_tag_simulated": "v6.6.0-beta.3",
     "candidate_for_first_public_github_developer_preview": true,
     "detached_release_signature": "external-gate-pending",
-    "git_history_and_clone_back": "pass",
+    "git_history_and_clone_back": "pass-local-bare-remote-simulation-detached-evidence",
     "real_github_push_performed": false
   },
   "runtime_architecture": {
@@ -67,30 +67,34 @@
     "tool_selection_ownership": "implemented"
   },
   "schema": "iot-ai.release-status.v3",
-  "suite_version": "6.5.0-beta.2",
+  "suite_version": "6.6.0-beta.3",
   "tests": {
-    "agent_runtime_benchmark": "pass-p95-1.05-ms-target-10.0-ms",
+    "agent_runtime_benchmark": "pass-p95-1.042-ms-target-10.0-ms",
     "agent_runtime_ownership": "pass-prompt-context-tools-control-flow-five-decisions",
+    "brand_legal_identity": "pass-IoT-AI.Tech-zero-unclassified-legacy-references",
     "clean_install_old_version_cleanup": "pass-managed-only-archive-preserve-customer-data",
     "compileall": "pass",
-    "coverage": "pass-72-percent-branch-aware",
+    "coverage": "pass-73-percent-branch-aware",
     "deterministic_dual_build": "pass",
     "diagnostics_redaction": "pass",
     "enterprise_entitlement_revocation": "pass-temporary-key-e2e",
     "enterprise_regression": "pass-15-unittest-15-pytest-4-subtests",
     "eu_ai_act_current_obligations_developer_preview": "pass-technical-gate-not-legal-certification",
-    "final_package_and_blackbox": "pass",
+    "final_package_and_blackbox": "pass-15-of-15",
     "git_history_and_clone_back": "pass",
     "goal_loop_safety": "pass-bounded-stop-checkpoint-and-false-green-tests",
-    "license_headers": "pass-90-of-90",
+    "license_headers": "pass-100-of-100",
+    "meeting_ollama_required_policy": "pass-silent-omission-blocked",
     "normal_rollback_without_force": "pass",
     "official_side_by_side_install": "pass",
     "pep668_isolated_venv": "pass",
     "public_boundary": "pass-zero-findings",
     "repository_contract": "pass",
     "shell_install_uninstall_rollback": "pass",
-    "source_regression": "pass-151-unittest-151-pytest",
-    "static_security": "pass-zero-high-85-files",
-    "warnings_as_errors": "pass-151"
+    "source_regression": "pass-180-unittest-180-pytest",
+    "static_security": "pass-zero-high-95-files",
+    "task_validation_before_execution": "pass-user-confirmation-consensus-and-ollama",
+    "warnings_as_errors": "pass-180",
+    "worktree_orchestration": "pass-plan-create-list-show-review-dirty-cleanup-guards"
   }
 }

@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Primary natural-language workflow backed by immutable roles and a DAG."""
 from __future__ import annotations
 
@@ -269,35 +269,45 @@ def _default_provider_executor(
 
     return execute
 
-def _register_run(user_home: Path, graph: ExecutionGraph, goal: str, role_count: int, execute: bool) -> tuple[str, str]:
-    task_id = new_id("task")
+def _register_run(user_home: Path, graph: ExecutionGraph, goal: str, role_count: int, execute: bool, existing_task_id: str | None = None) -> tuple[str, str]:
+    task_id = existing_task_id or new_id("task")
     meeting_id = new_id("meeting")
     now = utc_now()
     connection = connect_write(user_home)
     try:
-        connection.execute(
-            """INSERT INTO tasks(
-            id,title,description,status,priority,owner,source,source_id,risk_class,task_type,
-            tags_json,acceptance_criteria,engineering_stage,created_at,updated_at)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                task_id,
-                goal.strip()[:180],
-                goal.strip(),
-                "meeting",
-                "high" if graph.risk_class in {"R2", "R3", "R4"} else "normal",
-                "iot-ai-orchestrator",
-                "iot-ai",
-                graph.graph_id,
-                graph.risk_class,
-                "agentic-execution" if execute else "agentic-decision",
-                json.dumps(["graph", "meeting", graph.privacy_class]),
-                "Required roles accept one plan digest; hard gates pass; evidence and diagnostics persist.",
-                "meeting",
-                now,
-                now,
-            ),
-        )
+        if existing_task_id:
+            existing = one(connection, "SELECT id FROM tasks WHERE id=?", (existing_task_id,))
+            if not existing:
+                raise ValueError("Task not found")
+            connection.execute(
+                """UPDATE tasks SET status='meeting',source_id=?,engineering_stage='meeting',
+                revision=revision+1,updated_at=? WHERE id=?""",
+                (graph.graph_id, now, task_id),
+            )
+        else:
+            connection.execute(
+                """INSERT INTO tasks(
+                id,title,description,status,priority,owner,source,source_id,risk_class,task_type,
+                tags_json,acceptance_criteria,engineering_stage,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    task_id,
+                    goal.strip()[:180],
+                    goal.strip(),
+                    "meeting",
+                    "high" if graph.risk_class in {"R2", "R3", "R4"} else "normal",
+                    "iot-ai-orchestrator",
+                    "iot-ai",
+                    graph.graph_id,
+                    graph.risk_class,
+                    "agentic-execution" if execute else "agentic-decision",
+                    json.dumps(["graph", "meeting", graph.privacy_class]),
+                    "Required roles accept one plan digest; hard gates pass; evidence and diagnostics persist.",
+                    "meeting",
+                    now,
+                    now,
+                ),
+            )
         connection.execute(
             """INSERT INTO meetings(
             id,task_id,topic,depth,effort,status,requested_seats,substantive_seats,quorum,rounds,
@@ -401,6 +411,8 @@ def run_goal(
     provider_executor: ProviderExecutor | None = None,
     require_live: bool = True,
     profile: str | None = None,
+    existing_task_id: str | None = None,
+    required_provider_families: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     article5 = screen_prohibited_practices(goal)
     record_prohibited_practice_screen(user_home, goal, context="agentic-run")
@@ -485,8 +497,9 @@ def run_goal(
         require_live=require_live,
         allow_reuse=True,
         max_providers=entitlements.max_providers,
+        required_provider_families=required_provider_families,
     )
-    task_id, meeting_id = _register_run(user_home, graph, goal, len(role_ids), execute)
+    task_id, meeting_id = _register_run(user_home, graph, goal, len(role_ids), execute, existing_task_id)
     provider_executor = provider_executor or _default_provider_executor(
         user_home,
         candidates,

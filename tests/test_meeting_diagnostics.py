@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 from __future__ import annotations
 
 import json
@@ -85,7 +85,7 @@ class MeetingDiagnosticsTests(IsolatedHomeTestCase):
         record_event(self.home, correlation, {
             "status": "failed",
             "failure_class": "auth",
-            "message": "Bearer " + "S" * 40 + " on 10.255." + "255.1 under /home/" + "example/private",
+            "message": "Bearer " + "S" * 40 + " on 192.168." + "7.8 under /home/" + "example/private",
         })
         output = self.home / "diagnostics.zip"
         result = collect(self.home, correlation, output)
@@ -94,7 +94,7 @@ class MeetingDiagnosticsTests(IsolatedHomeTestCase):
         with zipfile.ZipFile(output) as archive:
             joined = b"\n".join(archive.read(name) for name in archive.namelist() if not name.endswith("/"))
         self.assertNotIn(b"S" * 40, joined)
-        self.assertNotIn(b"10.255.", joined)
+        self.assertNotIn(b"192.168.", joined)
         self.assertNotIn(b"/home/example", joined)
 
     def test_diagnostics_compare(self) -> None:

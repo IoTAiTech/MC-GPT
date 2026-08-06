@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iot-ai.tech/schemas/worktree-run-v1.schema.json",
+  "title": "IOT-AI Worktree Run",
+  "type": "object",
+  "required": ["schema", "run_id", "goal_sha256", "repository", "base_sha", "workers", "automatic_merge"],
+  "properties": {
+    "schema": {"const": "iot-ai.worktree-plan.v1"},
+    "run_id": {"type": "string", "pattern": "^wt-[a-f0-9]{10}-[a-f0-9]{6}$"},
+    "goal": {"type": "string", "minLength": 1},
+    "goal_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "base_sha": {"type": "string", "pattern": "^[a-f0-9]{40,64}$"},
+    "automatic_merge": {"const": false},
+    "human_promotion_required": {"const": true},
+    "repository": {
+      "type": "object",
+      "required": ["root", "head", "branch", "dirty", "repo_id"],
+      "additionalProperties": true
+    },
+    "workers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["agent", "branch", "path", "base_sha", "status"],
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

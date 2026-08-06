@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Evidence-bound EU AI Act controls for the IOT-AI Suite.
 
 This module implements technical controls and evidence contracts.  It does not
@@ -33,7 +33,7 @@ from .util import atomic_json, atomic_text, exclusive_lock, load_json, sha256_by
 
 LEGAL_BASELINE: dict[str, Any] = {
     "schema": "iot-ai.eu-ai-act-legal-baseline.v1",
-    "assessment_date": "2026-08-05",
+    "assessment_date": "2026-08-06",
     "primary_regulation": "Regulation (EU) 2024/1689",
     "amendment": "Regulation (EU) 2026/1744",
     "current_milestones": {
@@ -272,7 +272,7 @@ def default_system_card() -> dict[str, Any]:
     """Return the exact public developer-preview system card."""
     return {
         "schema": "iot-ai.ai-system-card.v1",
-        "system_id": "ai-iot-tech.iot-ai-coder-suite",
+        "system_id": "iot-ai-tech.iot-ai-coder-suite",
         "name": "IOT-AI Suite",
         "version": SUITE_VERSION,
         "component_versions": {"iot-ai-mc-gpt": MC_GPT_VERSION},

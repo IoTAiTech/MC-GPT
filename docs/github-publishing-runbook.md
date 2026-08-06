@@ -1,58 +1,72 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.5.0-beta.2 | Date: 2026-08-05 -->
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.6.0-beta.3 | Date: 2026-08-06 -->
 
 # GitHub Publishing Runbook
 
-## Publication boundary
+## What the coder is allowed to publish
 
-Publish only the generated Community repository and its Community release assets. Never publish the complete private review bundle, Enterprise Customer source/wheel, vendor licensing issuer tools, private evidence, customer material, internal paths, hostnames, private IPs or credentials.
+From the private complete delivery, publish exactly:
 
-## Mandatory pre-publication gate
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m pytest -q
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -W error -m pytest -q
-python3 -m compileall -q src tools tests
-find . -type d -name __pycache__ -prune -exec rm -rf {} +
-find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 tools/eu_ai_act_release_gate.py . --profile developer-preview
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 tools/static_security_audit.py .
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 tools/public_boundary_check.py . --git-history
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 tools/check_license_headers.py .
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 tools/verify_repository.py . --check-sbom
+```text
+01_PUBLIC_GITHUB_REPOSITORY/       → Git repository content
+04_RELEASE_ASSETS/COMMUNITY/       → GitHub prerelease assets
 ```
 
-## Git preparation
+Never upload the complete delivery ZIP. Never copy Enterprise Customer source, vendor licensing tools, private evidence, customer material, internal infrastructure or credentials into the public Git tree—even in a temporary commit.
+
+## Exact instruction to give a coder
+
+Use `06_CODER_AND_GIT_COMMANDS/CODER_PUBLISH_PUBLIC_GITHUB_PROMPT.md` from the complete private delivery. It is the canonical publication prompt and contains the immutable allowlist, required gates, Founder confirmation and final-response contract.
+
+## Prepare locally—no push
 
 ```bash
-git init
-git checkout -b main
-git add --all
-git commit -m "feat(release): publish v6.5.0-beta.2 developer preview"
-git tag -a v6.5.0-beta.2 -m "IOT-AI Suite v6.5.0-beta.2 Developer Preview"
+export GIT_AUTHOR_NAME="Dr.-Ing. Babak Sorkhpour"
+export GIT_AUTHOR_EMAIL="<PUBLIC_GITHUB_NOREPLY_EMAIL>"
+
+bash 06_CODER_AND_GIT_COMMANDS/PREPARE_PUBLIC_GITHUB.sh \
+  01_PUBLIC_GITHUB_REPOSITORY \
+  /tmp/iot-ai-public-v6.6.0-beta.3
 ```
 
-Use a public no-reply email and verify the complete history, not only the working tree.
+This creates a fresh Git history, runs unit, pytest, warnings-as-errors, compile, identity, security, licence, public-boundary and repository gates, commits once and creates an annotated prerelease tag. It does not push.
+
+## Publish directly to GitHub
+
+Only after Founder review, set the literal confirmation and exact repository URL:
+
+```bash
+export IOT_AI_FOUNDER_CONFIRM="FOUNDER_PUBLISH_DEVELOPER_PREVIEW"
+
+bash 06_CODER_AND_GIT_COMMANDS/PUBLISH_PUBLIC_GITHUB.sh \
+  /tmp/iot-ai-public-v6.6.0-beta.3 \
+  04_RELEASE_ASSETS/COMMUNITY \
+  "https://github.com/<OWNER>/<REPOSITORY>.git"
+```
+
+The script refuses non-GitHub remotes, dirty worktrees, lightweight/missing tags, identity failures, public-boundary failures or missing Founder confirmation. It pushes `main`, pushes the annotated tag and uses `gh release create --prerelease --verify-tag` for Community assets.
+
+## Mandatory gate details
+
+```bash
+python3 -m unittest discover -s tests -p 'test_*.py'
+python3 -m pytest -q
+python3 -W error -m pytest -q
+python3 tools/brand_identity_check.py .
+python3 tools/eu_ai_act_release_gate.py . --profile developer-preview
+python3 tools/static_security_audit.py .
+python3 tools/public_boundary_check.py . --git-history
+python3 tools/check_license_headers.py .
+python3 tools/verify_repository.py . --check-sbom
+```
 
 ## Clone-back verification
 
-Push first to a local bare test remote, clone into a fresh directory, then rerun unit/pytest/security/boundary/repository verification from the clone. The real GitHub release workflow must accept only an existing annotated tag and must attest the exact downloaded artifacts.
+The private delivery tests the same tree against a local bare remote and a fresh clone. The real GitHub Actions run is still an external gate and must attest the exact release assets downloaded from the GitHub prerelease.
 
 ## README comparison rules
 
-Competitor claims must:
+Competitor claims must use official documentation, carry a comparison date, distinguish measurable facts from interpretation, use `not evidenced in reviewed public documentation`, and avoid universal superiority claims. The Orca comparison explicitly records where Orca is stronger today and where IOT-AI is designed to differentiate.
 
-- use official vendor documentation;
-- carry an `as_of` date;
-- distinguish quantitative facts from qualitative interpretation;
-- use `not evidenced in reviewed public documentation`, not `unsupported` or `cannot`;
-- avoid universal superiority claims;
-- compare unlike product categories only with explicit caveats.
+## Legal and compliance claim boundary
 
-## Compliance claims
-
-Do not publish a global `EU_AI_ACT_COMPLIANT` flag. Publish the exact system card, intended purpose, control matrix, claim/evidence register and remaining external gates. Article 50, AI literacy, model-supplier and high-risk obligations remain version/use-case/deployment specific.
-
-## Commercial separation
-
-The Enterprise Customer Edition and vendor licensing issuer kit use independent private roots and repositories. Public history must never contain them, even in removed commits or tags.
+Do not publish a global `EU_AI_ACT_COMPLIANT` flag. The repository provides technical controls and evidence for the declared Developer Preview. Customer, high-risk, safety-critical and materially modified deployments require separate classification, legal review and runtime evidence.

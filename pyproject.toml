@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iot-ai-coder-suite"
-version = "6.5.0b2"
+version = "6.6.0b3"
 description = "Evidence-bound multi-coder orchestration with typed roles, Ollama Cloud, diagnostics and portable knowledge."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "LicenseRef-PolyForm-Strict-1.0.0"
+license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
 license-files = ["LICENSE", "LICENSE-COMMERCIAL.md", "LICENSE_POLICY.json", "NOTICE"]
 authors = [
   {name = "Dr.-Ing. Babak Sorkhpour"}
@@ -39,12 +39,15 @@ iot-ai-help = "iot_ai.entrypoints:help_main"
 iot-ai-status = "iot_ai.entrypoints:status_main"
 iot-ai-settings = "iot_ai.entrypoints:settings_main"
 iot-ai-update = "iot_ai.entrypoints:update_main"
+iot-ai-meeting = "iot_ai.entrypoints:meeting_main"
+iot-ai-tasks = "iot_ai.entrypoints:tasks_main"
+iot-ai-multi-coder = "iot_ai.entrypoints:multicoder_main"
 
 [project.urls]
-Homepage = "https://github.com/IoTAiTech/MC-GPT"
-Documentation = "https://github.com/IoTAiTech/MC-GPT/tree/main/docs"
-Issues = "https://github.com/IoTAiTech/MC-GPT/issues"
-Commercial = "https://ai-iot.tech"
+Homepage = "https://iot-ai.tech"
+Documentation = "https://iot-ai.tech"
+Issues = "https://iot-ai.tech"
+Commercial = "https://iot-ai.tech"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -59,6 +62,7 @@ iot_ai = ["data/*.json"]
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true

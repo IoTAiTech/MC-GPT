@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Run a disposable end-to-end package, installer, rollback and CLI smoke test."""
 from __future__ import annotations
 
@@ -66,14 +66,14 @@ def main() -> int:
         # Seed one recognised older active runtime, one canonical old package,
         # and unrelated/customer material. A clean install must archive only
         # the managed code/package and preserve everything else.
-        state_root = home / ".local" / "share" / "ai-iot-tech" / "iot-ai-suite" / "v1"
+        state_root = home / ".local" / "share" / "iot-ai-tech" / "iot-ai-suite" / "v1"
         old_runtime = state_root / "suite" / "6.4.0-beta.1"
         (old_runtime / "venv" / "bin").mkdir(parents=True)
         (old_runtime / "venv" / "bin" / "iot-ai").write_text("#!/bin/sh\n", encoding="utf-8")
         (old_runtime / "PACKAGE_METADATA.json").write_text(
             json.dumps({
                 "schema": "iot-ai.suite-package.v1",
-                "product_id": "ai-iot-tech.iot-ai-coder-suite",
+                "product_id": "iot-ai-tech.iot-ai-coder-suite",
                 "version": "6.4.0-beta.1",
             }),
             encoding="utf-8",
@@ -87,7 +87,7 @@ def main() -> int:
         package_store = base / "package-store"
         package_archive = base / "package-archive"
         package_store.mkdir()
-        old_package = package_store / "AI-IoT-Tech-iot-ai-Coder-Suite-v6.4.0-beta.1-ALL-IN-ONE.zip"
+        old_package = package_store / "IoT-AI-Tech-iot-ai-Coder-Suite-v6.4.0-beta.1-ALL-IN-ONE.zip"
         old_package.write_bytes(b"old managed package")
         old_package_sha = hashlib.sha256(old_package.read_bytes()).hexdigest()
         old_package_sidecar = old_package.with_name(old_package.name + ".sha256")
@@ -141,7 +141,7 @@ def main() -> int:
         })
 
         cli = home / ".local" / "bin" / "iot-ai"
-        runtime = home / ".local" / "share" / "ai-iot-tech" / "iot-ai-suite" / "v1" / "suite" / "6.5.0-beta.2"
+        runtime = home / ".local" / "share" / "iot-ai-tech" / "iot-ai-suite" / "v1" / "suite" / "6.6.0-beta.3"
         venv_cli = runtime / "venv" / "bin" / "iot-ai"
         if not cli.is_file() or not venv_cli.is_file():
             raise RuntimeError("installed wrapper/runtime missing")
@@ -218,7 +218,7 @@ def main() -> int:
             "embedded": mark_payload.get("receipt", {}).get("embedded"),
             "transparency_profile": verify_payload.get("transparency_profile"),
         })
-        if "6.5.0-beta.2" not in str(run([str(cli), "--version"], env={**env, "PYTHONPATH": ""})["stdout"]):
+        if "6.6.0-beta.3" not in str(run([str(cli), "--version"], env={**env, "PYTHONPATH": ""})["stdout"]):
             raise RuntimeError("installed version mismatch")
 
         for host, root in {
@@ -269,7 +269,7 @@ def main() -> int:
             timeout=600,
         )
         require(component_install, "component lifecycle install")
-        component_runtime = home_component / ".local" / "share" / "ai-iot-tech" / "iot-ai-suite" / "v1" / "suite" / "6.5.0-beta.2"
+        component_runtime = home_component / ".local" / "share" / "iot-ai-tech" / "iot-ai-suite" / "v1" / "suite" / "6.6.0-beta.3"
         component_venv_cli = component_runtime / "venv" / "bin" / "iot-ai"
         uninstall = run(
             [str(component_venv_cli), "--home", str(home_component), "package", "uninstall", "--apply"],

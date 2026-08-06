@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 
 from __future__ import annotations
 from copy import deepcopy
@@ -16,7 +16,7 @@ DEFAULTS: dict[str, Any] = {
     "cloud": {"enabled": False, "privacy_mode": "strict", "allow_private_network_data": False},
     "providers": {p: {"enabled": True} for p in ("claude", "codex", "gemini", "grok", "ollama")},
     "models": {"all_enabled": True, "disabled": [], "local_enabled": False, "cloud_preferred": True},
-    "meeting": {"default_quorum": 3, "max_revision_rounds": 2, "max_seats_community": 3},
+    "meeting": {"default_quorum": 3, "max_revision_rounds": 2, "max_seats_community": 3, "seat_selector": "auto", "require_ollama_cloud_when_available": True},
     "multi_coder": {"max_repair_rounds": 2, "max_effort_community": "medium"},
     "telemetry": {"enabled": True, "store_raw_prompts": False, "store_raw_outputs": False, "retention_days": 30},
     "dashboard": {"planned": True, "enabled": False},

@@ -1,7 +1,7 @@
-# SPDX-License-Identifier: LicenseRef-PolyForm-Strict-1.0.0
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.5.0-beta.2 | Date: 2026-08-05
+# Version: 6.6.0-beta.3 | Date: 2026-08-06
 """Verify the public repository contract before publication."""
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 REQUIRED = {
-    "README.md", "LICENSE", "SECURITY.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md",
+    "README.md", "CONTACT.md", "LICENSE", "SECURITY.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md",
     "SUPPORT.md", "GOVERNANCE.md", "TRADEMARKS.md", "NOTICE", "THIRD_PARTY_NOTICES.md",
     "CITATION.cff", "SBOM.cdx.json", "CHANGELOG.md", "PUBLIC_REPOSITORY_NOTICE.md",
     "pyproject.toml", ".github/CODEOWNERS", ".github/PULL_REQUEST_TEMPLATE.md",
@@ -30,6 +30,10 @@ REQUIRED = {
     "schemas/ai-system-card-v1.schema.json", "schemas/ai-content-provenance-v1.schema.json",
     "schemas/eu-ai-act-conformance-v1.schema.json", "tools/eu_ai_act_release_gate.py",
     "tools/mark_ai_content.py",
+    "tools/brand_identity_check.py", "LEGACY_IDENTITY_ALLOWLIST.json",
+    "docs/brand-identity-migration.md", "docs/worktree-orchestration.md",
+    "docs/comparison/ORCA_COMPARISON.md", "docs/comparison/ORCA_COMPARISON.json",
+    "schemas/worktree-run-v1.schema.json",
 }
 
 

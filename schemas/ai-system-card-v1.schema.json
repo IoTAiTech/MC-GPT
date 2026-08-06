@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ai-iot.tech/schemas/ai-system-card-v1.schema.json",
+  "$id": "https://iot-ai.tech/schemas/ai-system-card-v1.schema.json",
   "title": "IOT-AI AI System Card",
   "type": "object",
   "required": ["schema", "system_id", "name", "version", "provider", "operator_roles", "intended_purpose", "excluded_purposes", "interaction_profile", "risk_classification", "human_oversight", "assessment_date"],

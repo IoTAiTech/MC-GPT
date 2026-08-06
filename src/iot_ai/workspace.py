@@ -453,6 +453,8 @@ def connect_write(user_home: Path) -> sqlite3.Connection:
         path.parent.chmod(0o700)
     except OSError:
         pass
+    from .product_boundary import assert_not_product_database
+    assert_not_product_database(path, context="workspace.connect")
     conn = sqlite3.connect(path, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")

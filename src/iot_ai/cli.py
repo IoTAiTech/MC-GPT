@@ -35,7 +35,16 @@ from .capability_pack import build_pack as capability_build_pack, verify_pack as
 from .knowledge_plane import list_artifacts, write_canvas
 from .licensing import current
 from .logging_config import append_event, log_locations
-from .meeting import approve as meeting_approve, create_task_from_meeting, list_meetings, run as meeting_run, show as meeting_show, start as meeting_start
+from .meeting import (
+    approve as meeting_approve,
+    create_task_from_meeting,
+    list_meetings,
+    project_meeting_view,
+    run as meeting_run,
+    show as meeting_show,
+    start as meeting_start,
+)
+from .export_gate import assert_export_safe
 from .mesh import delegate as mesh_delegate
 from .multicoder import run as multicoder_run
 from .paths import home
@@ -315,10 +324,10 @@ def parser() -> argparse.ArgumentParser:
 
     meeting = commands.add_parser("meeting", help=argparse.SUPPRESS)
     mops = meeting.add_subparsers(dest="op", required=True)
-    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto", help="auto | all-coders | all-coders+ollama-clouds | comma-separated seats"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--max-parallel", type=int); ms.add_argument("--exclude-ollama", action="store_true", help="Explicitly omit Ollama and record the exception"); ms.add_argument("--allow-missing-ollama", action="store_true", help="Allow an all-coders+ollama-clouds plan to continue when no Ollama cloud seat is configured"); ms.add_argument("--execute", action="store_true")
-    mplan = mops.add_parser("seat-plan"); mplan.add_argument("--seats", default="auto"); mplan.add_argument("--max-parallel", type=int); mplan.add_argument("--exclude-ollama", action="store_true"); mplan.add_argument("--allow-missing-ollama", action="store_true")
+    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto", help="auto | all-coders | all-coders+ollama-clouds | comma-separated seats"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--max-parallel", type=int, help="Thread pool concurrency for seat dispatch (does not cap seat count)"); ms.add_argument("--max-seats", type=int, help="Hard seat count cap; default is edition max_providers; not tied to --max-parallel"); ms.add_argument("--exclude-ollama", action="store_true", help="Explicitly omit Ollama and record the exception"); ms.add_argument("--allow-missing-ollama", action="store_true", help="Allow an all-coders+ollama-clouds plan to continue when no Ollama cloud seat is configured"); ms.add_argument("--execute", action="store_true")
+    mplan = mops.add_parser("seat-plan"); mplan.add_argument("--seats", default="auto"); mplan.add_argument("--max-parallel", type=int); mplan.add_argument("--max-seats", type=int); mplan.add_argument("--exclude-ollama", action="store_true"); mplan.add_argument("--allow-missing-ollama", action="store_true")
     mops.add_parser("list")
-    mshow = mops.add_parser("show"); mshow.add_argument("meeting_id")
+    mshow = mops.add_parser("show"); mshow.add_argument("meeting_id"); mshow.add_argument("--view", choices=("brief", "simple", "full", "complete"), default="full")
     mrun = mops.add_parser("run"); mrun.add_argument("meeting_id")
     mapprove = mops.add_parser("approve"); mapprove.add_argument("meeting_id")
     mcreate = mops.add_parser("create-task"); mcreate.add_argument("meeting_id"); mcreate.add_argument("--title")
@@ -524,7 +533,7 @@ def main(argv: list[str] | None = None) -> int:
                     a.seats,
                     exclude_ollama=bool(a.exclude_ollama),
                     allow_missing_ollama=bool(a.allow_missing_ollama),
-                    max_seats=a.max_parallel,
+                    max_seats=getattr(a, "max_seats", None),
                 )
                 if a.op == "seat-plan":
                     emit(plan.to_dict())
@@ -553,11 +562,36 @@ def main(argv: list[str] | None = None) -> int:
                     max_parallel=a.max_parallel,
                 ))
             elif a.op == "list": emit({"meetings": list_meetings(h)})
-            elif a.op == "show": emit(meeting_show(h, a.meeting_id))
+            elif a.op == "show":
+                payload = meeting_show(h, a.meeting_id)
+                emit(project_meeting_view(payload, getattr(a, "view", "full") or "full"))
             elif a.op == "run": emit(meeting_run(h, a.meeting_id))
             elif a.op == "approve": emit(meeting_approve(h, a.meeting_id))
             elif a.op == "create-task": emit(create_task_from_meeting(h, a.meeting_id, a.title))
-            else: emit(export_workspace(h, Path(a.output), meeting_show(h, a.meeting_id)["task_id"]))
+            else:
+                out_path = Path(a.output)
+                exported = export_workspace(h, out_path, meeting_show(h, a.meeting_id)["task_id"])
+                # Fail-closed export gate on produced text artifacts under output root
+                gate_results = []
+                scan_root = out_path if out_path.is_dir() else out_path.parent
+                if scan_root.exists():
+                    for path in scan_root.rglob("*"):
+                        if path.is_file() and path.suffix.lower() in {".md", ".json", ".csv", ".txt", ".log"}:
+                            gate_results.append(assert_export_safe(path))
+                blocked = [row for row in gate_results if row.get("decision") == "block"]
+                if blocked:
+                    raise PermissionError(
+                        f"export gate blocked {len(blocked)} file(s) with residual secrets; "
+                        "keep private; sanitize before public share"
+                    )
+                emit({
+                    **(exported if isinstance(exported, dict) else {"export": exported}),
+                    "export_gate": {
+                        "scanned": len(gate_results),
+                        "blocked": len(blocked),
+                        "findings": sorted({f for row in gate_results for f in (row.get("findings") or [])}),
+                    },
+                })
             return 0
         if a.cmd == "tasks":
             if a.op == "status": emit(workspace_status(h))

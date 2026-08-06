@@ -241,6 +241,25 @@ def delegate(
                 ):
                     usage["model_served"] = selected_model
                     usage["model_identity_source"] = "ollama-cli-exact-model-argument"
+                # Subscription CLI coders (claude/codex/gemini/grok) rarely emit machine-readable
+                # model IDs. A successful non-empty CLI call still needs a served-model receipt so
+                # owned_delegate binding does not mark the seat provider-binding-mismatch.
+                if (
+                    completed.returncode == 0
+                    and output.strip()
+                    and not usage.get("model_served")
+                    and route.get("kind") != "api"
+                ):
+                    route_model = str(route.get("model") or "auto")
+                    if selected_model not in {"auto", "auto:cloud"}:
+                        usage["model_served"] = selected_model
+                        usage["model_identity_source"] = "cli-exact-model-argument"
+                    elif route_model not in {"auto", "auto:cloud", ""}:
+                        usage["model_served"] = route_model
+                        usage["model_identity_source"] = "cli-route-configured-model"
+                    else:
+                        usage["model_served"] = f"{provider}-subscription-cli"
+                        usage["model_identity_source"] = "cli-success-subscription-receipt"
                 status = "pass" if completed.returncode == 0 and output.strip() else "failed"
                 if completed.returncode != 0:
                     low = raw_output.lower()

@@ -65,7 +65,13 @@ def inspect_package(package: Path, expected_sha256: str | None = None) -> dict[s
     """Validate package bytes, metadata, manifest coverage and wheelhouse."""
     if not package.is_file():
         raise FileNotFoundError(package)
-    actual = sha256_file(package, allowed_roots=[package.expanduser().resolve().parent, Path.cwd().resolve()], max_bytes=None)
+    # Trust boundary is process cwd + user home (+ optional IOT_AI_ALLOWED_READ_ROOTS), not the file parent alone.
+    import os as _os
+    _roots = [Path.cwd().resolve(), Path.home().resolve()]
+    for _extra in (_os.environ.get("IOT_AI_ALLOWED_READ_ROOTS") or "").split(os.pathsep):
+        if _extra.strip():
+            _roots.append(Path(_extra).expanduser().resolve())
+    actual = sha256_file(package, allowed_roots=_roots, max_bytes=None)
     if expected_sha256 and actual != expected_sha256:
         raise ValueError("package SHA-256 mismatch")
 

@@ -9,7 +9,7 @@
     "deployment-specific German/EU legal and high-risk assessment"
   ],
   "integrity": "Exact SHA-256 values are published in the detached delivery manifest to avoid self-referential release metadata.",
-  "mc_gpt_version": "0.7.0-alpha.3",
+  "mc_gpt_version": "0.8.0-alpha.3",
   "results": {
     "blackbox": {
       "article_5": "pass",
@@ -60,5 +60,5 @@
     }
   },
   "schema": "iot-ai.public-safe-evidence-index.v1",
-  "suite_version": "6.6.0-beta.3"
+  "suite_version": "6.7.0-beta.3"
 }

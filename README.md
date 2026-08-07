@@ -4,7 +4,7 @@
   <img src="assets/brand/MC-GPT-Logo-Master-1024.png" alt="MC-GPT official product logo" width="240" />
 </p>
 
-> **Suite v6.6.0-beta.3 · MC-GPT v0.7.0-alpha.3**
+> **Suite v6.7.0-beta.3 · MC-GPT v0.8.0-alpha.3**
 > **Community Developer Preview:** personal and noncommercial use, research, modification, forks and redistribution under the repository licence.
 > **Enterprise Customer Edition:** private, contract-bound, signed-entitlement distribution for licensed organisations.
 
@@ -65,8 +65,8 @@ They do not create a second updater or a second state authority.
 ### Linux
 
 ```bash
-sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.6.0-beta.3-ALL-IN-ONE.zip.sha256
-unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.6.0-beta.3-ALL-IN-ONE.zip -d iot-ai-suite
+sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.3-ALL-IN-ONE.zip.sha256
+unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.3-ALL-IN-ONE.zip -d iot-ai-suite
 cd iot-ai-suite
 ./installers/install.sh --home "$HOME" --hosts all --apply
 iot-ai setup discover
@@ -143,7 +143,7 @@ Every applied installation is a **clean transactional installation**:
 
 ```bash
 iot-ai update apply \
-  --package IoT-AI-Tech-iot-ai-Coder-Suite-v6.6.0-beta.3-ALL-IN-ONE.zip \
+  --package IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.3-ALL-IN-ONE.zip \
   --expected-sha256 <exact-sha256> \
   --package-store "$HOME/ai-iot/Install/MC-GPT" \
   --package-archive "$HOME/ai-iot/Archive/MC-GPT" \
@@ -267,7 +267,7 @@ The full Orca assessment and machine-readable comparison are in `docs/comparison
 
 ### Quantitative product-surface comparison
 
-| Public characteristic | IOT-AI v6.6.0-beta.3 | Stably Orca | Claude Code Agent Teams | GitHub Copilot Fleet | AgentGem | ServiceNow AI Control Tower |
+| Public characteristic | IOT-AI v6.7.0-beta.3 | Stably Orca | Claude Code Agent Teams | GitHub Copilot Fleet | AgentGem | ServiceNow AI Control Tower |
 |---|---:|---:|---:|---:|---:|---:|
 | Normal-user executables | **5** | Desktop + CLI + mobile surfaces | Claude Code commands | Copilot CLI command | Web/CLI product | Web platform |
 | Named coder adapter families in this release | **4** + Ollama model gateway | **29 named examples** plus arbitrary CLI-agent support documented | **1** vendor family | **1** Copilot runtime | Multiple capture/materialisation paths | Vendor-neutral AI inventory |

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 """Build the deterministic Community ALL-IN-ONE installer package."""
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ import zipfile
 from pathlib import Path
 
 FIXED_TIME = (2026, 8, 4, 0, 0, 0)
-SUITE_VERSION = "6.6.0-beta.3"
-MC_GPT_VERSION = "0.7.0-alpha.3"
+SUITE_VERSION = "6.7.0-beta.3"
+MC_GPT_VERSION = "0.8.0-alpha.3"
 ROOT_FILES = {
     "AGENTS.md", "CHANGELOG.md", "COMMERCIAL.md", "CONTACT.md", "COMPONENT_REGISTRY.json", "EDITION_BOUNDARY.json",
     "FINAL_TEST_SUMMARY.json", "LEGACY_IDENTITY_ALLOWLIST.json", "LICENSE", "LICENSE-COMMERCIAL.md", "LICENSE_POLICY.json", "MODEL_POLICY.json",
@@ -24,7 +24,7 @@ ROOT_FILES = {
     "RELEASE_NOTES.md", "RELEASE_STATUS.json", "REVIEW_SCOPE.md", "ROADMAP.md", "SBOM.cdx.json", "SECURITY.md",
     "THIRD_PARTY_NOTICES.md", "TRADEMARKS.md",
 }
-DIRECTORIES = ("docs", "skills", "installers", "examples", "schemas", "assets")
+DIRECTORIES = ("docs", "skills", "installers", "examples", "schemas", "assets", "npm")
 
 
 def _copy_tree(source: Path, destination: Path) -> None:

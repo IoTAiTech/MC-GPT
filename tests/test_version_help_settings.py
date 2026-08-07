@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 from __future__ import annotations
 
 import unittest
@@ -18,9 +18,9 @@ from tests.common import IsolatedHomeTestCase
 
 class VersionHelpSettingsTests(IsolatedHomeTestCase):
     def test_versions_are_aligned(self) -> None:
-        self.assertEqual(__version__, "6.6.0-beta.3")
+        self.assertEqual(__version__, "6.7.0-beta.3")
         self.assertEqual(SUITE_VERSION, __version__)
-        self.assertEqual(MC_GPT_VERSION, "0.7.0-alpha.3")
+        self.assertEqual(MC_GPT_VERSION, "0.8.0-alpha.3")
         self.assertEqual(COMPONENT_ID, "iot-ai-mc-gpt")
 
     def test_natural_language_normalization(self) -> None:

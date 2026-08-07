@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 """Canonical standalone task, meeting, evidence and telemetry workspace."""
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from typing import Any, Iterable
 from .paths import data_root, db_path
 from .util import utc_now
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 CLOSED_STATUSES = {"completed", "closed", "cancelled", "rejected"}
 OPEN_STATUSES = {"backlog", "queued", "ready", "claimed", "active", "needs-work", "blocked", "meeting", "awaiting_founder"}
 
@@ -287,6 +287,120 @@ CREATE TABLE IF NOT EXISTS task_validations(
 );
 CREATE INDEX IF NOT EXISTS idx_task_validation_task ON task_validations(task_id,created_at);
 CREATE INDEX IF NOT EXISTS idx_task_validation_status ON task_validations(status);
+
+CREATE TABLE IF NOT EXISTS calendar_events(
+ id TEXT PRIMARY KEY,
+ title TEXT NOT NULL,
+ topic TEXT NOT NULL,
+ topic_sha256 TEXT NOT NULL,
+ kind TEXT NOT NULL DEFAULT 'meeting',
+ surface TEXT,
+ project_id TEXT,
+ org_id TEXT,
+ starts_at TEXT NOT NULL,
+ ends_at TEXT,
+ timezone TEXT NOT NULL DEFAULT 'Europe/Berlin',
+ all_day INTEGER NOT NULL DEFAULT 0,
+ rrule TEXT,
+ rrule_until TEXT,
+ parent_event_id TEXT,
+ requested_seats TEXT NOT NULL,
+ quorum INTEGER NOT NULL DEFAULT 2,
+ mode TEXT NOT NULL DEFAULT 'consult',
+ depth TEXT NOT NULL DEFAULT 'deep',
+ effort TEXT NOT NULL DEFAULT 'high',
+ privacy_policy TEXT NOT NULL DEFAULT 'strict',
+ auth_mode TEXT NOT NULL DEFAULT 'auto',
+ synthesizer_seat TEXT,
+ max_parallel INTEGER,
+ timeout_seconds INTEGER,
+ status TEXT NOT NULL DEFAULT 'scheduled',
+ auto_start INTEGER NOT NULL DEFAULT 0,
+ meeting_id TEXT,
+ last_run_at TEXT,
+ next_run_at TEXT,
+ failure_reason TEXT,
+ created_by TEXT NOT NULL,
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL,
+ FOREIGN KEY(meeting_id) REFERENCES meetings(id) ON DELETE SET NULL,
+ FOREIGN KEY(parent_event_id) REFERENCES calendar_events(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_calendar_next_run ON calendar_events(status,next_run_at);
+CREATE INDEX IF NOT EXISTS idx_calendar_scope ON calendar_events(org_id,project_id,starts_at);
+CREATE TABLE IF NOT EXISTS calendar_participants(
+ id TEXT PRIMARY KEY,
+ event_id TEXT NOT NULL,
+ seat TEXT NOT NULL,
+ seat_type TEXT NOT NULL,
+ surface TEXT,
+ required INTEGER NOT NULL DEFAULT 1,
+ response_status TEXT NOT NULL DEFAULT 'invited',
+ last_checked_at TEXT,
+ created_at TEXT NOT NULL,
+ UNIQUE(event_id,seat),
+ FOREIGN KEY(event_id) REFERENCES calendar_events(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS calendar_reminders(
+ id TEXT PRIMARY KEY,
+ event_id TEXT NOT NULL,
+ offset_minutes INTEGER NOT NULL,
+ channel TEXT NOT NULL,
+ target TEXT,
+ sent_at TEXT,
+ created_at TEXT NOT NULL,
+ FOREIGN KEY(event_id) REFERENCES calendar_events(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS agent_seat_registry(
+ seat TEXT PRIMARY KEY,
+ surface TEXT NOT NULL,
+ agent_id TEXT NOT NULL,
+ display_name TEXT,
+ capabilities TEXT NOT NULL DEFAULT '[]',
+ model_binding TEXT,
+ risk_class TEXT,
+ control_level TEXT,
+ endpoint_ref TEXT,
+ reachable INTEGER NOT NULL DEFAULT 0,
+ last_probe_at TEXT,
+ last_probe_detail TEXT,
+ refreshed_at TEXT NOT NULL,
+ UNIQUE(surface,agent_id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_seat_surface ON agent_seat_registry(surface,reachable);
+CREATE TABLE IF NOT EXISTS meeting_webhooks(
+ id TEXT PRIMARY KEY,
+ subscriber TEXT NOT NULL,
+ url TEXT NOT NULL,
+ event_types TEXT NOT NULL,
+ secret_ref TEXT,
+ active INTEGER NOT NULL DEFAULT 1,
+ last_delivery_at TEXT,
+ last_status TEXT,
+ consecutive_failures INTEGER NOT NULL DEFAULT 0,
+ created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS meeting_webhook_deliveries(
+ id TEXT PRIMARY KEY,
+ webhook_id TEXT NOT NULL,
+ meeting_id TEXT,
+ event_type TEXT NOT NULL,
+ payload_sha256 TEXT NOT NULL,
+ attempt INTEGER NOT NULL DEFAULT 1,
+ status TEXT NOT NULL,
+ response_code INTEGER,
+ created_at TEXT NOT NULL,
+ FOREIGN KEY(webhook_id) REFERENCES meeting_webhooks(id) ON DELETE CASCADE,
+ FOREIGN KEY(meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS meeting_api_idempotency(
+ idempotency_key TEXT PRIMARY KEY,
+ operation TEXT NOT NULL,
+ resource_id TEXT NOT NULL,
+ response_json TEXT NOT NULL,
+ created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS projection_jobs(
  id TEXT PRIMARY KEY,
  task_id TEXT,

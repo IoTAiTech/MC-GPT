@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 """Build the pure-Python Community wheel deterministically without network access."""
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from pathlib import Path
 
 FIXED_TIME = (2026, 8, 4, 0, 0, 0)
 DIST_NAME = "iot_ai_coder_suite"
-PYTHON_VERSION = "6.6.0b3"
+PYTHON_VERSION = "6.7.0b3"
 DIST_INFO = f"{DIST_NAME}-{PYTHON_VERSION}.dist-info"
 WHEEL_NAME = f"{DIST_NAME}-{PYTHON_VERSION}-py3-none-any.whl"
 

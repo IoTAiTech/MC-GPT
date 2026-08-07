@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 """Deep multi-provider meeting workflow linked to the task store.
 
 A successful command is never interpreted as an accepted plan.  Empty seats,
@@ -310,50 +310,65 @@ def start(
     return run(user_home, meeting_id) if execute else result
 
 
+def _summary(text: str, limit: int = 320) -> str:
+    compact = " ".join(str(text or "").split())
+    return compact if len(compact) <= limit else compact[: limit - 1].rstrip() + "…"
 
 
 def project_meeting_view(payload: dict[str, Any], view: str = "full") -> dict[str, Any]:
-    """Project a meeting payload as brief/simple or full/complete."""
+    """Render brief/simple or complete/full views without falsifying seat status."""
     mode = (view or "full").strip().lower()
     if mode in {"full", "complete", "detailed", "all"}:
         return {**payload, "view": "full"}
     meeting = dict(payload.get("meeting") or {})
-    contributions = meeting.get("contributions") or []
-    seat_table = []
+    contributions = list(meeting.get("contributions") or [])
+    by_seat: dict[str, dict[str, Any]] = {}
     for item in contributions:
-        if item.get("kind") not in {None, "opinion", "contribution"}:
-            if item.get("kind") != "opinion":
-                continue
-        seat_table.append({
-            "seat": item.get("seat"),
-            "status": item.get("status"),
-            "model_served": item.get("model_served"),
-            "quality_score": item.get("quality_score"),
-            "failure_class": item.get("failure_class"),
-            "body_len": len(str(item.get("text") or item.get("body") or "")),
-        })
-    seen: set[str] = set()
-    seats = []
-    for row in seat_table:
-        s = str(row.get("seat") or "")
-        if not s or s in seen:
+        seat = str(item.get("seat") or "")
+        if not seat:
             continue
-        seen.add(s)
-        seats.append(row)
+        row = by_seat.setdefault(seat, {
+            "seat": seat,
+            "status": "not-observed",
+            "model_requested": None,
+            "model_served": None,
+            "quality_score": None,
+            "failure_class": None,
+            "opinion_summary": "",
+            "critique_count": 0,
+            "final_review_summary": "",
+        })
+        if item.get("kind") == "opinion" and not row["opinion_summary"]:
+            row.update({
+                "status": item.get("status"),
+                "model_requested": item.get("model_requested"),
+                "model_served": item.get("model_served"),
+                "quality_score": item.get("quality_score"),
+                "failure_class": item.get("failure_class"),
+                "opinion_summary": _summary(str(item.get("text") or "")),
+            })
+        elif item.get("kind") == "critique":
+            row["critique_count"] += 1
+        elif item.get("kind") == "final-review":
+            row["final_review_summary"] = _summary(str(item.get("text") or ""))
+    hard_gates = payload.get("hard_gates") or {}
     return {
         "view": "brief",
         "meeting_id": meeting.get("id") or payload.get("meeting_id"),
+        "task_id": meeting.get("task_id") or payload.get("task_id"),
+        "topic": _summary(str(meeting.get("topic") or ""), 500),
         "status": meeting.get("status") or payload.get("status"),
         "final_decision": meeting.get("final_decision") or payload.get("decision"),
-        "substantive_seats": meeting.get("substantive_seats"),
         "requested_seats": meeting.get("requested_seats"),
-        "topic_preview": str(meeting.get("topic") or "")[:400],
-        "seat_table": seats,
-        "hard_gates": payload.get("hard_gates"),
-        "seat_coverage": payload.get("seat_coverage"),
-        "task_id": meeting.get("task_id") or payload.get("task_id"),
-        "blockers": [k for k, v in (payload.get("hard_gates") or {}).items() if v is False],
-        "synthesis_present": bool(meeting.get("synthesis")),
+        "substantive_seats": meeting.get("substantive_seats"),
+        "participants": list(by_seat.values()),
+        "synthesis_summary": _summary(str(meeting.get("synthesis") or ""), 800),
+        "hard_gates": hard_gates,
+        "blockers": [name for name, passed in hard_gates.items() if passed is False],
+        "founder_approval": bool(payload.get("founder_approval")),
+        "plan_digest": payload.get("plan_digest"),
+        "created_at": meeting.get("created_at"),
+        "updated_at": meeting.get("updated_at"),
     }
 
 
@@ -408,9 +423,14 @@ def show(user_home: Path, meeting_id: str) -> dict[str, Any]:
         else None
     )
     hard_gates = acceptance.get("hard_gates", {}) or {}
-    gates_ok = bool(hard_gates) and all(hard_gates.values())
-    honest_decision = "pass" if (meeting.get("user_approved") or (meeting.get("status") == "awaiting-user-decision" and gates_ok)) else ("needs-work" if meeting.get("status") in {"needs-review", "blocked", "failed"} or not gates_ok else "pass")
-    # command_execution_status remains pass when the CLI finished; decision reflects acceptance quality
+    gates_ok = bool(hard_gates) and all(bool(value) for value in hard_gates.values())
+    honest_decision = (
+        "pass"
+        if meeting.get("user_approved") or (meeting.get("status") == "awaiting-user-decision" and gates_ok)
+        else "needs-work"
+        if meeting.get("status") in {"needs-review", "blocked", "failed"} or not gates_ok
+        else "pass"
+    )
     return {
         "decision": honest_decision,
         "command_execution_status": "pass",
@@ -453,51 +473,32 @@ def _delegate_safe(
     timeout: int,
     effort: str = "high",
 ) -> dict[str, Any]:
+    if seat.startswith("agent:"):
+        from .agent_seats import delegate_agent_seat
+        return delegate_agent_seat(user_home, seat, prompt, stage, run_id, role, timeout, effort)
     last: dict[str, Any] | None = None
     for attempt in range(2):
         try:
             result = owned_delegate(
-                user_home,
-                seat,
-                prompt,
-                stage,
-                run_id=run_id,
-                role=role,
-                timeout=timeout,
-                effort=effort,
-                privacy_class="D1",
-                meeting_id=run_id,
-                delegate_fn=delegate,
+                user_home, seat, prompt, stage,
+                run_id=run_id, role=role, timeout=timeout, effort=effort,
+                privacy_class="D1", meeting_id=run_id, delegate_fn=delegate,
             )
-            # Normalize seat provider family for ollama@model seats
-            if seat.startswith("ollama@"):
-                result.setdefault("provider", "ollama")
-            else:
-                result.setdefault("provider", seat.split("@", 1)[0])
+            result.setdefault("provider", seat.split("@", 1)[0])
             if result.get("failure_class") == "OSError" and attempt == 0:
                 last = result
                 continue
             return result
         except OSError as exc:
             last = {
-                "status": "failed",
-                "output": "",
-                "failure_class": "OSError",
-                "error": str(exc),
-                "provider": seat.split("@", 1)[0],
-                "model_requested": None,
-                "model_served": None,
+                "status": "failed", "output": "", "failure_class": "OSError",
+                "error": str(exc), "provider": seat.split("@", 1)[0],
+                "model_requested": None, "model_served": None,
             }
             if attempt == 0:
                 continue
             return last
-    return last or {
-        "status": "failed",
-        "output": "",
-        "failure_class": "OSError",
-        "provider": seat.split("@", 1)[0],
-        "model_served": None,
-    }
+    return last or {"status": "failed", "output": "", "failure_class": "OSError", "model_served": None}
 
 
 def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
@@ -513,7 +514,6 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
         conn_meta.close()
     created_payload = json.loads(created_meta["payload_json"]) if created_meta else {}
     max_parallel = max(1, min(int(created_payload.get("max_parallel") or 8), len(seats)))
-    critique_parallel = max(1, min(3, max_parallel, len(seats)))  # avoid OSError under multi-ollama fanout
     run_id = meeting_id
     opinions: list[dict[str, Any]] = []
     raw: list[tuple[str, dict[str, Any]]] = []
@@ -573,7 +573,7 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
     for round_no in range(1, current_record["rounds"] + 1):
         critiques: list[dict[str, Any]] = []
         buffered: list[tuple[str, dict[str, Any], dict[str, Any] | None]] = []
-        with ThreadPoolExecutor(max_workers=min(critique_parallel, len(good))) as pool:
+        with ThreadPoolExecutor(max_workers=min(max_parallel, len(good))) as pool:
             futures = {
                 pool.submit(
                     _delegate_safe,
@@ -620,27 +620,6 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
         f"TOPIC:\n{topic}\nMATERIAL:\n{previous}"
     )
     synthesis_result = _delegate_safe(user_home, synthesis_provider, synthesis_prompt, "meeting-synthesis", run_id, "plan-synthesizer", 1200)
-    if synthesis_result.get("status") != "pass" or synthesis_result.get("failure_class") == "OSError":
-        # Fail-closed for provider synthesis, but preserve a usable deterministic digest so
-        # later stages and audits do not hang on empty synthesis after provider OSError.
-        fallback_body = (
-            "HOST_DETERMINISTIC_SYNTHESIS\n"
-            f"topic: {topic[:500]}\n"
-            f"substantive_seats: {', '.join(sorted(good_by_seat))}\n"
-            "peer_excerpts:\n"
-            + "\n---\n".join(peer_texts[:6])[:12000]
-            + "\n\nnote: provider synthesis failed; this is an evidence-preserving host fallback, not multi-coder consensus."
-        )
-        synthesis_result = {
-            "status": "pass",
-            "output": fallback_body,
-            "provider": synthesis_provider if synthesis_provider.startswith("ollama") else "host",
-            "model_requested": "host-deterministic-synthesis-fallback",
-            "model_served": "host-deterministic-synthesis-fallback",
-            "failure_class": None,
-            "fallback_used": True,
-            "model_identity_source": "host-deterministic-synthesis-fallback",
-        }
     synthesis_quality = score_response(topic, synthesis_result.get("output", ""), peer_texts) if synthesis_result.get("status") == "pass" else None
     if synthesis_quality and synthesis_result.get("contribution_id"):
         update_quality(user_home, synthesis_result["contribution_id"], synthesis_quality)
@@ -676,7 +655,7 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
             f"PLAN_DIGEST:{plan_digest}\nPLAN:\n{synthesis_text}"
         )
         buffered_reviews: list[tuple[str, dict[str, Any]]] = []
-        with ThreadPoolExecutor(max_workers=min(critique_parallel, len(good))) as pool:
+        with ThreadPoolExecutor(max_workers=min(max_parallel, len(good))) as pool:
             futures = {
                 pool.submit(_delegate_safe, user_home, item["seat"], prompt, "meeting-final-review", run_id, "independent-judge", 900): item["seat"]
                 for item in good
@@ -736,7 +715,6 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
                 "plan_digest": plan_digest,
                 "acceptance_matrix": acceptance_matrix,
                 "hard_gates": hard_gates,
-                "decision_honest": all(hard_gates.values()) if hard_gates else False,
                 "unsatisfied_requested_seats": unsatisfied_requested,
                 "command_execution_status": "pass",
                 "meeting_status": status,

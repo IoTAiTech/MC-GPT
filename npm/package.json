@@ -1,0 +1,21 @@
+{
+  "bin": {
+    "iot-ai-bootstrap": "bin/iot-ai-bootstrap.mjs"
+  },
+  "description": "Verified bootstrap for the IoT-AI.Tech IOT-AI Suite / MC-GPT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "license": "SEE LICENSE IN LICENSE",
+  "name": "@iot-ai-tech/iot-ai",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "version": "6.7.0-beta.3"
+}

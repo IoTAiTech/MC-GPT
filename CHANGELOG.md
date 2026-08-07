@@ -2,6 +2,26 @@
 
 All notable changes are documented here. The project follows semantic versioning for the Suite and preserves the independent MC-GPT component version.
 
+## [6.7.0-beta.3] — 2026-08-07
+
+### Added
+- Canonical cross-meeting reports in JSON, CSV, Markdown and XLSX.
+- Authenticated loopback Meeting API, calendar records and read-only dashboard-agent seats.
+- Exact `provider@model` admission for all fresh qualified cloud-model receipts.
+- SHA-bound curl and npx/npm bootstraps that invoke the canonical installer.
+- Gated sanitized-history preparation and force-with-lease replacement tooling.
+
+### Fixed
+- Removed real private-path/IP literals from public test fixtures.
+- Reconciled installer documentation with `--package-archive` and current-package handling.
+- Installed Meeting, Tasks and Multi-Coder host commands on all supported coder hosts.
+- Separated command completion from honest meeting acceptance and improved brief participant summaries.
+
+### Security
+- PMD/dashboard integration remains API-only; direct cross-product database access is rejected.
+- Dashboard-agent seats are read-only and fail on any reported write.
+- Public history replacement requires explicit Founder confirmation and remote-SHA lease matching.
+
 ## [Unreleased]
 
 ## [6.6.0-beta.3] — 2026-08-06

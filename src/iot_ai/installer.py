@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 """Transactional host-adapter and command-surface installer."""
 from __future__ import annotations
 
@@ -25,6 +25,9 @@ PUBLIC_SKILLS = (
     "iot-ai-status",
     "iot-ai-settings",
     "iot-ai-update",
+    "iot-ai-meeting",
+    "iot-ai-tasks",
+    "iot-ai-multi-coder",
 )
 SKILLS = PUBLIC_SKILLS
 
@@ -36,6 +39,9 @@ def _skill_content(skill: str) -> str:
         "iot-ai-status": "show Suite, coder, provider, model, effort and workflow health",
         "iot-ai-settings": "manage portable Suite and provider settings",
         "iot-ai-update": "use the single transactional update authority",
+        "iot-ai-meeting": "run governed provider and dashboard-agent meetings",
+        "iot-ai-tasks": "manage founder-authorized tasks, evidence and leases",
+        "iot-ai-multi-coder": "coordinate independent coder roles with honest receipts",
     }
     return (
         "---\n"
@@ -80,6 +86,9 @@ def _wrapper_specs() -> dict[str, list[str]]:
         "iot-ai-status": ["status"],
         "iot-ai-settings": ["settings"],
         "iot-ai-update": ["update"],
+        "iot-ai-meeting": ["meeting"],
+        "iot-ai-tasks": ["tasks"],
+        "iot-ai-multi-coder": ["multi-coder"],
     }
 
 

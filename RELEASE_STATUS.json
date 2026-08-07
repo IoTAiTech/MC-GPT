@@ -16,7 +16,7 @@
     "production_ready": false,
     "requires_signed_entitlement": true,
     "supports_signed_revocation": true,
-    "version": "1.1.0-alpha.2"
+    "version": "1.2.0-alpha.2"
   },
   "eu_ai_act": {
     "developer_preview_release_wording": "Technical current-obligation controls verified for the declared Community Developer Preview; no legal certification or blanket deployment conformity claim.",
@@ -38,23 +38,27 @@
     ]
   },
   "external_gates": [
-    "real Windows on-device qualification",
-    "live provider-account and exact-served-model qualification",
     "Enterprise target qualification with cryptography 50.x",
+    "German legal review before external commercial agreement",
     "PostgreSQL 18 forced-RLS and backup/restore drill",
+    "live provider-account and exact-served-model qualification",
     "real GitHub Actions execution and artifact attestation",
-    "German legal review before external commercial agreement"
+    "real GitHub Actions execution and artifact attestation for 6.7.0-beta.3",
+    "real Windows on-device qualification",
+    "sanitized Git history Founder replacement approval and force-with-lease publication"
   ],
-  "mc_gpt_version": "0.7.0-alpha.3",
+  "mc_gpt_version": "0.8.0-alpha.3",
   "personal_local_install_authorized": true,
   "production_or_fleet_install_authorized": false,
   "production_ready": false,
   "publication": {
-    "annotated_tag_simulated": "v6.6.0-beta.3",
-    "candidate_for_first_public_github_developer_preview": true,
+    "annotated_tag_simulated": "v6.7.0-beta.3",
+    "candidate_for_first_public_github_developer_preview": false,
     "detached_release_signature": "external-gate-pending",
     "git_history_and_clone_back": "pass-local-bare-remote-simulation-detached-evidence",
-    "real_github_push_performed": false
+    "history_replacement": "founder-confirmation-required",
+    "real_github_push_performed": false,
+    "sanitized_history_candidate": "ready-local-founder-replacement-required"
   },
   "runtime_architecture": {
     "context_ownership": "implemented",
@@ -67,34 +71,21 @@
     "tool_selection_ownership": "implemented"
   },
   "schema": "iot-ai.release-status.v3",
-  "suite_version": "6.6.0-beta.3",
+  "suite_version": "6.7.0-beta.3",
   "tests": {
-    "agent_runtime_benchmark": "pass-p95-1.042-ms-target-10.0-ms",
-    "agent_runtime_ownership": "pass-prompt-context-tools-control-flow-five-decisions",
-    "brand_legal_identity": "pass-IoT-AI.Tech-zero-unclassified-legacy-references",
-    "clean_install_old_version_cleanup": "pass-managed-only-archive-preserve-customer-data",
-    "compileall": "pass",
-    "coverage": "pass-73-percent-branch-aware",
-    "deterministic_dual_build": "pass",
-    "diagnostics_redaction": "pass",
-    "enterprise_entitlement_revocation": "pass-temporary-key-e2e",
-    "enterprise_regression": "pass-15-unittest-15-pytest-4-subtests",
-    "eu_ai_act_current_obligations_developer_preview": "pass-technical-gate-not-legal-certification",
-    "final_package_and_blackbox": "pass-15-of-15",
-    "git_history_and_clone_back": "pass",
-    "goal_loop_safety": "pass-bounded-stop-checkpoint-and-false-green-tests",
-    "license_headers": "pass-100-of-100",
-    "meeting_ollama_required_policy": "pass-silent-omission-blocked",
-    "normal_rollback_without_force": "pass",
-    "official_side_by_side_install": "pass",
-    "pep668_isolated_venv": "pass",
-    "public_boundary": "pass-zero-findings",
+    "all_in_one_clean_install": "pass-disposable-linux",
+    "brand_identity": "pass-zero-unclassified",
+    "curl_bootstrap_local_release_server": "pass",
+    "deterministic_dual_build": "pass-all-in-one-source-and-npm-byte-for-byte",
+    "host_command_discovery": "pass-claude-codex-gemini-grok",
+    "license_headers": "pass-111-of-111",
+    "normal_update_and_rollback": "pass-6.6-to-6.7-to-6.6",
+    "npx_bootstrap_local_package": "pass",
+    "public_boundary_current_tree": "pass-zero-findings",
     "repository_contract": "pass",
-    "shell_install_uninstall_rollback": "pass",
-    "source_regression": "pass-180-unittest-180-pytest",
-    "static_security": "pass-zero-high-95-files",
-    "task_validation_before_execution": "pass-user-confirmation-consensus-and-ollama",
-    "warnings_as_errors": "pass-180",
-    "worktree_orchestration": "pass-plan-create-list-show-review-dirty-cleanup-guards"
+    "sanitized_git_history": "pass-local-single-commit-history-zero-boundary-findings-clone-back-194-tests",
+    "source_pytest": "pass-194-of-194-warnings-as-errors",
+    "source_unittest": "pass-194-of-194-warnings-as-errors",
+    "static_security": "pass-zero-high-103-files"
   }
 }

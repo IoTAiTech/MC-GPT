@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 from __future__ import annotations
 
 import ipaddress
@@ -241,15 +241,7 @@ def delegate(
                 ):
                     usage["model_served"] = selected_model
                     usage["model_identity_source"] = "ollama-cli-exact-model-argument"
-                # Subscription CLI coders (claude/codex/gemini/grok) rarely emit machine-readable
-                # model IDs. A successful non-empty CLI call still needs a served-model receipt so
-                # owned_delegate binding does not mark the seat provider-binding-mismatch.
-                if (
-                    completed.returncode == 0
-                    and output.strip()
-                    and not usage.get("model_served")
-                    and route.get("kind") != "api"
-                ):
+                if completed.returncode == 0 and output.strip() and not usage.get("model_served") and route.get("kind") != "api":
                     route_model = str(route.get("model") or "auto")
                     if selected_model not in {"auto", "auto:cloud"}:
                         usage["model_served"] = selected_model

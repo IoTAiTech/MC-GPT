@@ -1,7 +1,7 @@
 # Public Repository Agent Rules
 
 Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-Version: 6.6.0-beta.3
+Version: 6.7.0-beta.3
 
 1. Read `LICENSE_POLICY.json`, `EDITION_BOUNDARY.json`, `SECURITY.md` and the nearest task scope before writing.
 2. Never infer MIT or another license. Resolve the project-specific license or stop.

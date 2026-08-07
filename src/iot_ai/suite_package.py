@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 """Transactional, PEP-668-safe installer for unified ALL-IN-ONE packages."""
 from __future__ import annotations
 
@@ -332,6 +332,7 @@ def clean_install_state(
     *,
     package_store: Path | None = None,
     current_package: Path | None = None,
+    package_archive: Path | None = None,
     apply: bool = False,
 ) -> dict[str, Any]:
     """Internal clean-install operation used by platform installers."""
@@ -343,7 +344,7 @@ def clean_install_state(
         packages = clean_package_store(
             package_store,
             current_package,
-            package_store / ".iot-ai-archive" / transaction_id,
+            (package_archive or package_store / ".iot-ai-archive" / transaction_id),
             apply=apply,
         )
     result = {

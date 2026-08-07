@@ -1,35 +1,22 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
-"""Policy-aware meeting seat resolution.
-
-Seat selection is explicit, auditable and Ollama-aware.  A meeting may request
-all coder families, every model-specific Ollama Cloud seat, or a bounded
-policy-selected subset.  The resolver never silently drops a requested seat.
-"""
+"""Auditable provider/model and dashboard-agent seat resolution."""
 from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
 from .licensing import current
+from .meeting_integration import list_agent_seats
 from .providers import load as load_routes, static_status
 from .readiness import discover_ollama_cloud_models, provider_candidates
 from .settings import load as load_settings
 
 CODER_PROVIDERS = ("claude", "codex", "gemini", "grok")
-ALL_WITH_OLLAMA_SELECTORS = {
-    "all",
-    "all-coders+ollama-clouds",
-    "all-coders-and-ollama-clouds",
-    "all-coders+ollama",
-    "coders+ollama",
-}
+ALL_WITH_OLLAMA_SELECTORS = {"all", "all-coders+ollama-clouds", "all-coders-and-ollama-clouds", "all-coders+ollama", "coders+ollama"}
 ALL_CODER_SELECTORS = {"all-coders", "coders", "all-coder"}
 OLLAMA_CLOUD_SELECTORS = {"ollama-clouds", "all-ollama-clouds", "ollama-cloud"}
-
+ALL_QUALIFIED_SELECTORS = {"all-qualified-cloud-models", "all-qualified-models", "qualified-cloud-models"}
 
 @dataclass(frozen=True)
 class SeatPlan:
@@ -43,278 +30,102 @@ class SeatPlan:
     max_seats: int
     decision: str
     reason: str | None = None
-
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "schema": "iot-ai.meeting-seat-plan.v1",
-            "selector": self.selector,
-            "requested_seats": list(self.requested_seats),
-            "resolved_seats": list(self.resolved_seats),
-            "candidate_status": [dict(item) for item in self.candidate_status],
-            "excluded": [dict(item) for item in self.excluded],
-            "ollama_cloud_available": self.ollama_cloud_available,
-            "ollama_cloud_included": self.ollama_cloud_included,
-            "max_seats": self.max_seats,
-            "decision": self.decision,
-            "reason": self.reason,
-        }
+        return {"schema":"iot-ai.meeting-seat-plan.v2","selector":self.selector,"requested_seats":list(self.requested_seats),"resolved_seats":list(self.resolved_seats),"candidate_status":[dict(item) for item in self.candidate_status],"excluded":[dict(item) for item in self.excluded],"ollama_cloud_available":self.ollama_cloud_available,"ollama_cloud_included":self.ollama_cloud_included,"max_seats":self.max_seats,"decision":self.decision,"reason":self.reason}
 
-
-def _split(value: str) -> list[str]:
-    return [item.strip().lower() for item in value.split(",") if item.strip()]
-
+def _split(value: str) -> list[str]: return [item.strip().lower() for item in value.split(",") if item.strip()]
 
 def _provider_routes(user_home: Path) -> list[dict[str, Any]]:
-    settings = load_settings(user_home)
-    result: list[dict[str, Any]] = []
+    settings = load_settings(user_home); result=[]
     for route in load_routes(user_home).get("routes", []):
-        provider = str(route.get("provider") or "")
-        if not route.get("enabled", False):
-            continue
-        if not settings.get("providers", {}).get(provider, {}).get("enabled", True):
-            continue
-        if bool(route.get("cloud", True)) and not settings.get("cloud", {}).get("enabled", False):
-            continue
+        provider=str(route.get("provider") or "")
+        if not route.get("enabled", False): continue
+        if not settings.get("providers", {}).get(provider, {}).get("enabled", True): continue
+        if bool(route.get("cloud", True)) and not settings.get("cloud", {}).get("enabled", False): continue
         result.append({**route, **static_status(route)})
     return result
 
-
 def _coder_seats(user_home: Path) -> tuple[list[str], list[dict[str, Any]]]:
-    routes = _provider_routes(user_home)
-    seats: list[str] = []
-    status: list[dict[str, Any]] = []
+    routes=_provider_routes(user_home); seats=[]; status=[]
     for provider in CODER_PROVIDERS:
-        matching = [route for route in routes if route.get("provider") == provider]
-        if not matching:
-            continue
-        seat = provider
-        if seat not in seats:
-            seats.append(seat)
-        best = sorted(matching, key=lambda row: int(row.get("priority", 100)))[0]
-        status.append(
-            {
-                "seat": seat,
-                "provider": provider,
-                "route_id": best.get("route_id"),
-                "installed": bool(best.get("installed")),
-                "live_ready": False,
-                "status_basis": best.get("status_basis", "static-only"),
-                "cloud": bool(best.get("cloud", True)),
-            }
-        )
-    return seats, status
-
+        matching=[route for route in routes if route.get("provider")==provider]
+        if not matching: continue
+        best=sorted(matching,key=lambda row:int(row.get("priority",100)))[0]
+        seats.append(provider); status.append({"seat":provider,"seat_type":"provider","provider":provider,"route_id":best.get("route_id"),"installed":bool(best.get("installed")),"live_ready":False,"status_basis":best.get("status_basis","static-only"),"cloud":bool(best.get("cloud",True))})
+    return seats,status
 
 def _ollama_cloud_seats(user_home: Path) -> tuple[list[str], list[dict[str, Any]]]:
-    settings = load_settings(user_home)
-    if not settings.get("cloud", {}).get("enabled", False):
-        return [], []
-    if not settings.get("providers", {}).get("ollama", {}).get("enabled", True):
-        return [], []
+    settings=load_settings(user_home)
+    if not settings.get("cloud",{}).get("enabled",False) or not settings.get("providers",{}).get("ollama",{}).get("enabled",True): return [],[]
+    routes=[route for route in _provider_routes(user_home) if route.get("provider")=="ollama" and route.get("cloud")]
+    if not routes: return [],[]
+    candidates=[item for item in provider_candidates(user_home,require_live=False,cloud_only=True) if item.get("provider")=="ollama" and item.get("cloud")]
+    models=list(dict.fromkeys([str(item.get("model")) for item in candidates if item.get("model") and not str(item.get("model")).startswith("auto")]+discover_ollama_cloud_models()))
+    if not models: models=["auto:cloud"]
+    by_model={str(item.get("model")):item for item in candidates if item.get("model")}; seats=[]; status=[]
+    for model in models:
+        seat=f"ollama@{model}"; item=by_model.get(model,{})
+        seats.append(seat); status.append({"seat":seat,"seat_type":"provider-model","provider":"ollama","route_id":item.get("route_id") or routes[0].get("route_id"),"model":model,"installed":bool(item.get("candidate_id") or routes[0].get("installed")),"live_ready":bool(item.get("live_ready")),"status_basis":"fresh-live-receipt" if item.get("live_ready") else "static-or-discovered","cloud":True})
+    return seats,status
 
-    # Include every exact model with a fresh live receipt.  If none exist,
-    # preserve one explicit auto:cloud seat so the meeting records an honest
-    # readiness/dispatch failure instead of silently omitting Ollama.
-    candidates = [
-        item
-        for item in provider_candidates(user_home, require_live=False, cloud_only=True)
-        if item.get("provider") == "ollama" and item.get("cloud")
-    ]
-    discovered = discover_ollama_cloud_models()
-    exact_models: list[str] = []
+def _qualified_cloud_seats(user_home: Path) -> tuple[list[str], list[dict[str, Any]]]:
+    candidates=provider_candidates(user_home,require_live=True,cloud_only=True); seats=[]; status=[]
     for item in candidates:
-        model = str(item.get("model") or "")
-        if model and not model.startswith("auto"):
-            exact_models.append(model)
-    exact_models.extend(discovered)
-    exact_models = list(dict.fromkeys(exact_models))
+        model=str(item.get("model") or "")
+        if not model or model.startswith("auto"): continue
+        seat=f"{item.get('provider')}@{model}"
+        if seat in seats: continue
+        seats.append(seat); status.append({"seat":seat,"seat_type":"provider-model","provider":item.get("provider"),"route_id":item.get("route_id"),"model":model,"installed":True,"live_ready":True,"status_basis":"fresh-live-receipt","cloud":True})
+    return seats,status
 
-    routes = [route for route in _provider_routes(user_home) if route.get("provider") == "ollama" and route.get("cloud")]
-    if not routes:
-        return [], []
+def _agent_candidates(user_home: Path, surface: str | None = None) -> tuple[list[str], list[dict[str, Any]]]:
+    records=list_agent_seats(user_home,surface=surface,reachable_only=False); seats=[]; status=[]
+    for record in records:
+        seats.append(record["seat"]); status.append({"seat":record["seat"],"seat_type":"agent","surface":record["surface"],"agent_id":record["agent_id"],"model":record.get("model_binding"),"live_ready":bool(record.get("reachable")),"risk_class":record.get("risk_class"),"status_basis":"agent-live-probe" if record.get("reachable") else "agent-registry-cache"})
+    return seats,status
 
-    if not exact_models:
-        seats = ["ollama@auto:cloud"]
-        route = sorted(routes, key=lambda row: int(row.get("priority", 100)))[0]
-        return seats, [
-            {
-                "seat": seats[0],
-                "provider": "ollama",
-                "route_id": route.get("route_id"),
-                "model": "auto:cloud",
-                "installed": bool(route.get("installed")),
-                "live_ready": False,
-                "status_basis": route.get("status_basis", "static-only"),
-                "cloud": True,
-            }
-        ]
-
-    by_model = {str(item.get("model")): item for item in candidates if item.get("model")}
-    seats: list[str] = []
-    status: list[dict[str, Any]] = []
-    for model in exact_models:
-        seat = f"ollama@{model}"
-        seats.append(seat)
-        item = by_model.get(model, {})
-        status.append(
-            {
-                "seat": seat,
-                "provider": "ollama",
-                "route_id": item.get("route_id") or routes[0].get("route_id"),
-                "model": model,
-                "installed": bool(item.get("candidate_id") or routes[0].get("installed")),
-                "live_ready": bool(item.get("live_ready")),
-                "status_basis": "fresh-live-receipt" if item.get("live_ready") else "static-or-discovered",
-                "cloud": True,
-            }
-        )
-    return seats, status
-
-
-def _explicit_seats(selector: str, ollama_clouds: list[str]) -> list[str]:
-    values: list[str] = []
+def _explicit_seats(selector: str, ollama: list[str], agents: dict[str,list[str]]) -> list[str]:
+    output=[]
     for item in _split(selector):
-        if item in OLLAMA_CLOUD_SELECTORS or item == "ollama":
-            values.extend(ollama_clouds or ["ollama@auto:cloud"])
-        else:
-            values.append(item)
-    return list(dict.fromkeys(values))
+        if item in OLLAMA_CLOUD_SELECTORS or item=="ollama": output.extend(ollama or ["ollama@auto:cloud"])
+        elif item=="all-agents": output.extend(agents.get("all",[]))
+        elif item.startswith("agents:"): output.extend(agents.get(item.split(":",1)[1],[]))
+        else: output.append(item)
+    return list(dict.fromkeys(output))
 
-
-def resolve_meeting_seats(
-    user_home: Path,
-    selector: str = "auto",
-    *,
-    exclude_ollama: bool = False,
-    allow_missing_ollama: bool = False,
-    max_seats: int | None = None,
-) -> SeatPlan:
-    """Resolve a selector without dispatching providers.
-
-    `auto` is bounded by the active entitlement and guarantees one Ollama Cloud
-    seat whenever the cloud family is configured.  The explicit
-    `all-coders+ollama-clouds` selector includes every configured coder and
-    every discovered model-specific Ollama Cloud seat.
-    """
-    normalized = (selector or "auto").strip().lower()
-    entitlement = current()
-    limit = int(max_seats or entitlement.max_providers)
-    if limit < 1:
-        raise ValueError("max_seats must be positive")
-
-    coders, coder_status = _coder_seats(user_home)
-    ollama, ollama_status = _ollama_cloud_seats(user_home)
-    ollama_available = bool(ollama)
-
-    if normalized in ALL_WITH_OLLAMA_SELECTORS:
-        requested = [*coders, *ollama]
-    elif normalized in ALL_CODER_SELECTORS:
-        requested = list(coders)
-    elif normalized in OLLAMA_CLOUD_SELECTORS:
-        requested = list(ollama)
-    elif normalized == "auto":
-        # Keep provider diversity under the edition limit and reserve one seat
-        # for first-class Ollama Cloud whenever available.
-        requested = []
-        coder_budget = limit - (1 if ollama_available and not exclude_ollama else 0)
-        requested.extend(coders[: max(0, coder_budget)])
-        if ollama_available and not exclude_ollama:
-            # Prefer a live-ready exact model, otherwise retain auto:cloud so
-            # the attempt/outage is recorded rather than hidden.
-            live = [row["seat"] for row in ollama_status if row.get("live_ready")]
-            requested.append((live or ollama)[0])
-    else:
-        requested = _explicit_seats(normalized, ollama)
-
-    requested = list(dict.fromkeys(requested))
-    settings = load_settings(user_home)
-    require_ollama = bool(settings.get("meeting", {}).get("require_ollama_cloud_when_available", True))
-    explicitly_allows_omission = exclude_ollama
-    if exclude_ollama:
-        requested = [seat for seat in requested if not seat.startswith("ollama@") and seat != "ollama"]
-
-    contains_ollama = any(seat.startswith("ollama@") or seat == "ollama" for seat in requested)
-    if (
-        ollama_available
-        and require_ollama
-        and not contains_ollama
-        and not explicitly_allows_omission
-        and normalized not in ALL_CODER_SELECTORS
-    ):
-        return SeatPlan(
-            selector=normalized,
-            requested_seats=tuple(requested),
-            resolved_seats=(),
-            candidate_status=tuple([*coder_status, *ollama_status]),
-            excluded=(),
-            ollama_cloud_available=True,
-            ollama_cloud_included=False,
-            max_seats=limit,
-            decision="block",
-            reason="OLLAMA_CLOUD_FIRST_CLASS_SEAT_OMITTED",
-        )
-
-    # A literal list containing every coder but no Ollama is the exact failure
-    # observed in prior meetings.  Block it when Ollama Cloud is configured.
-    literal = set(_split(normalized))
-    if (
-        ollama_available
-        and require_ollama
-        and not contains_ollama
-        and not explicitly_allows_omission
-        and set(CODER_PROVIDERS).issubset(literal)
-    ):
-        return SeatPlan(
-            selector=normalized,
-            requested_seats=tuple(requested),
-            resolved_seats=(),
-            candidate_status=tuple([*coder_status, *ollama_status]),
-            excluded=(),
-            ollama_cloud_available=True,
-            ollama_cloud_included=False,
-            max_seats=limit,
-            decision="block",
-            reason="OLLAMA_CLOUD_FIRST_CLASS_SEAT_OMITTED",
-        )
-
+def resolve_meeting_seats(user_home: Path, selector: str="auto", *, exclude_ollama: bool=False, allow_missing_ollama: bool=False, max_seats: int|None=None) -> SeatPlan:
+    normalized=(selector or "auto").strip().lower(); limit=int(max_seats or current().max_providers)
+    if limit<1: raise ValueError("max_seats must be positive")
+    coders,coder_status=_coder_seats(user_home); ollama,ollama_status=_ollama_cloud_seats(user_home); qualified,qualified_status=_qualified_cloud_seats(user_home)
+    all_agents,all_agent_status=_agent_candidates(user_home); agent_map={"all":all_agents}; agent_status=list(all_agent_status)
+    for surface in ("pmd","fcc","hid","healthlab","cws","dgx"):
+        seats,records=_agent_candidates(user_home,surface); agent_map[surface]=seats; agent_status.extend(records)
+    if normalized in ALL_QUALIFIED_SELECTORS: requested=list(qualified)
+    elif normalized=="all-agents": requested=list(all_agents)
+    elif normalized.startswith("agents:") and "," not in normalized and "+" not in normalized: requested=list(agent_map.get(normalized.split(":",1)[1],[]))
+    elif normalized.startswith("all-coders+agents:"):
+        surface=normalized.split(":",1)[1]; requested=[*coders,*ollama,*agent_map.get(surface,[])]
+    elif normalized in ALL_WITH_OLLAMA_SELECTORS: requested=[*coders,*ollama]
+    elif normalized in ALL_CODER_SELECTORS: requested=list(coders)
+    elif normalized in OLLAMA_CLOUD_SELECTORS: requested=list(ollama)
+    elif normalized=="auto":
+        requested=[]; reserve=1 if ollama and not exclude_ollama else 0; requested.extend(coders[:max(0,limit-reserve)])
+        if ollama and not exclude_ollama:
+            live=[row["seat"] for row in ollama_status if row.get("live_ready")]; requested.append((live or ollama)[0])
+    else: requested=_explicit_seats(normalized,ollama,agent_map)
+    requested=list(dict.fromkeys(requested)); ollama_available=bool(ollama)
+    if exclude_ollama: requested=[seat for seat in requested if not seat.startswith("ollama@") and seat!="ollama"]
+    contains_ollama=any(seat.startswith("ollama@") or seat=="ollama" for seat in requested)
+    settings=load_settings(user_home); require_ollama=bool(settings.get("meeting",{}).get("require_ollama_cloud_when_available",True))
     if normalized in ALL_WITH_OLLAMA_SELECTORS and not ollama_available and not allow_missing_ollama:
-        return SeatPlan(
-            selector=normalized,
-            requested_seats=tuple(requested),
-            resolved_seats=(),
-            candidate_status=tuple([*coder_status, *ollama_status]),
-            excluded=(),
-            ollama_cloud_available=False,
-            ollama_cloud_included=False,
-            max_seats=limit,
-            decision="block",
-            reason="NO_OLLAMA_CLOUD_SEAT_DISCOVERED",
-        )
-
-    if len(requested) > limit:
-        return SeatPlan(
-            selector=normalized,
-            requested_seats=tuple(requested),
-            resolved_seats=(),
-            candidate_status=tuple([*coder_status, *ollama_status]),
-            excluded=tuple({"seat": seat, "reason": "edition-seat-limit"} for seat in requested[limit:]),
-            ollama_cloud_available=ollama_available,
-            ollama_cloud_included=contains_ollama,
-            max_seats=limit,
-            decision="block",
-            reason=f"SEAT_LIMIT_EXCEEDED:{len(requested)}>{limit}",
-        )
-
-    status_by_seat = {item["seat"]: item for item in [*coder_status, *ollama_status]}
-    candidate_status = [status_by_seat.get(seat, {"seat": seat, "provider": seat.split("@", 1)[0], "status_basis": "explicit"}) for seat in requested]
-    return SeatPlan(
-        selector=normalized,
-        requested_seats=tuple(requested),
-        resolved_seats=tuple(requested),
-        candidate_status=tuple(candidate_status),
-        excluded=(),
-        ollama_cloud_available=ollama_available,
-        ollama_cloud_included=contains_ollama,
-        max_seats=limit,
-        decision="pass",
-    )
+        return SeatPlan(normalized,tuple(requested),(),tuple([*coder_status,*ollama_status,*qualified_status,*agent_status]),(),False,False,limit,"block","NO_OLLAMA_CLOUD_SEAT_DISCOVERED")
+    literal=set(_split(normalized))
+    if ollama_available and require_ollama and not contains_ollama and not exclude_ollama and set(CODER_PROVIDERS).issubset(literal):
+        return SeatPlan(normalized,tuple(requested),(),tuple([*coder_status,*ollama_status,*qualified_status,*agent_status]),(),True,False,limit,"block","OLLAMA_CLOUD_FIRST_CLASS_SEAT_OMITTED")
+    if not requested:
+        return SeatPlan(normalized,(),(),tuple([*coder_status,*ollama_status,*qualified_status,*agent_status]),(),ollama_available,False,limit,"block","NO_ELIGIBLE_SEATS")
+    if len(requested)>limit:
+        return SeatPlan(normalized,tuple(requested),(),tuple([*coder_status,*ollama_status,*qualified_status,*agent_status]),tuple({"seat":seat,"reason":"edition-seat-limit"} for seat in requested[limit:]),ollama_available,contains_ollama,limit,"block",f"SEAT_LIMIT_EXCEEDED:{len(requested)}>{limit}")
+    status_by={item["seat"]:item for item in [*coder_status,*ollama_status,*qualified_status,*agent_status]}
+    candidates=[status_by.get(seat,{"seat":seat,"seat_type":"agent" if seat.startswith("agent:") else "provider","provider":seat.split("@",1)[0],"status_basis":"explicit"}) for seat in requested]
+    return SeatPlan(normalized,tuple(requested),tuple(requested),tuple(candidates),(),ollama_available,contains_ollama,limit,"pass")

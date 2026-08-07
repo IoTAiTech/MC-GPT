@@ -1,13 +1,13 @@
 <!--
 Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-Version: 6.6.0-beta.3 | Date: 2026-08-06
+Version: 6.7.0-beta.3 | Date: 2026-08-06
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 # EU AI Act technical controls
 
 ## Scope and claim boundary
 
-This document maps technical controls in IOT-AI Suite v6.6.0-beta.3 to the declared Community Developer Preview purpose: supervised software-engineering collaboration. It is not legal advice, certification, CE marking, a conformity assessment, or a blanket conclusion for customer deployments.
+This document maps technical controls in IOT-AI Suite v6.7.0-beta.3 to the declared Community Developer Preview purpose: supervised software-engineering collaboration. It is not legal advice, certification, CE marking, a conformity assessment, or a blanket conclusion for customer deployments.
 
 Legal baseline:
 

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 from __future__ import annotations
 
 import io
@@ -33,7 +33,7 @@ class CliStatusSetupTests(IsolatedHomeTestCase):
         code, output = self._run_cli(["status", "--json"])
         self.assertEqual(code, 0)
         value = json.loads(output)
-        self.assertEqual(value["suite"]["version"], "6.6.0-beta.3")
+        self.assertEqual(value["suite"]["version"], "6.7.0-beta.3")
         self.assertIn("workflow_scores", value)
 
     def test_cli_settings_show(self) -> None:

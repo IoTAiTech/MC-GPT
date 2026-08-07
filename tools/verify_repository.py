@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 """Verify the public repository contract before publication."""
 from __future__ import annotations
 
@@ -33,7 +33,9 @@ REQUIRED = {
     "tools/brand_identity_check.py", "LEGACY_IDENTITY_ALLOWLIST.json",
     "docs/brand-identity-migration.md", "docs/worktree-orchestration.md",
     "docs/comparison/ORCA_COMPARISON.md", "docs/comparison/ORCA_COMPARISON.json",
-    "schemas/worktree-run-v1.schema.json",
+    "schemas/worktree-run-v1.schema.json", "docs/meeting-integration.md", "docs/bootstrap-installation.md",
+    "installers/bootstrap.sh", "npm/package.json", "npm/bin/iot-ai-bootstrap.mjs",
+    "scripts/PREPARE_SANITIZED_HISTORY.sh", "scripts/REPLACE_PUBLIC_HISTORY.sh",
 }
 
 

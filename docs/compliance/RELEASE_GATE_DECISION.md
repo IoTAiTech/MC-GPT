@@ -2,7 +2,7 @@
 
 ## Scope
 
-This decision applies only to **IOT-AI Suite 6.6.0-beta.3 / MC-GPT 0.7.0-alpha.3** used for the declared Community Developer Preview purpose: developer-controlled planning, review, deterministic verification and diagnostics.
+This decision applies only to **IOT-AI Suite 6.7.0-beta.3 / MC-GPT 0.8.0-alpha.3** used for the declared Community Developer Preview purpose: developer-controlled planning, review, deterministic verification and diagnostics.
 
 ## Technical decision
 

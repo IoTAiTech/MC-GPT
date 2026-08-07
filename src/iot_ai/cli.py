@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.6.0-beta.3 | Date: 2026-08-06
+# Version: 6.7.0-beta.3 | Date: 2026-08-07
 """Unified IOT-AI command surface with backward-compatible advanced commands."""
 from __future__ import annotations
 
@@ -44,7 +44,16 @@ from .meeting import (
     show as meeting_show,
     start as meeting_start,
 )
-from .export_gate import assert_export_safe
+from .meeting_api import serve as meeting_api_serve
+from .meeting_integration import (
+    create_calendar_event,
+    list_agent_seats,
+    list_calendar_events,
+    register_agent_seat,
+    start_calendar_event,
+)
+from .meeting_reporting import write_report as write_meeting_report
+from .export_gate import assert_export_safe, rewrite_public_export
 from .mesh import delegate as mesh_delegate
 from .multicoder import run as multicoder_run
 from .paths import home
@@ -75,15 +84,8 @@ ADVANCED_COMMANDS = {"setup", "privacy", "provider", "mesh", "meeting", "tasks",
 ALL_COMMANDS = PUBLIC_COMMANDS | ADVANCED_COMMANDS
 
 SENSITIVE_KEYS = {
-    "secret",
-    "secret_env",
-    "secret_value",
-    "password",
-    "token",
-    "api_key",
-    "apikey",
-    "authorization",
-    "auth",
+    "secret", "secret_env", "secret_value", "password", "token",
+    "api_key", "apikey", "authorization", "auth",
 }
 
 
@@ -92,7 +94,10 @@ def _redact_sensitive(value: Any) -> Any:
         redacted: dict[Any, Any] = {}
         for key, item in value.items():
             key_text = str(key).casefold()
-            if key_text in SENSITIVE_KEYS or any(marker in key_text for marker in ("secret", "token", "password", "api_key", "authorization")):
+            if key_text in SENSITIVE_KEYS or any(
+                marker in key_text
+                for marker in ("secret", "token", "password", "api_key", "authorization")
+            ):
                 redacted[key] = "***REDACTED***"
             else:
                 redacted[key] = _redact_sensitive(item)
@@ -113,7 +118,7 @@ def _split(value: str | None) -> list[str]:
 
 
 
-MEETING_OPERATIONS = {"start", "seat-plan", "list", "show", "run", "approve", "create-task", "export"}
+MEETING_OPERATIONS = {"start", "seat-plan", "list", "show", "run", "approve", "create-task", "export", "report", "calendar-create", "calendar-list", "calendar-start", "agent-register", "agent-list", "api-serve"}
 
 
 def normalize_meeting_argv(argv: list[str]) -> list[str]:
@@ -324,14 +329,21 @@ def parser() -> argparse.ArgumentParser:
 
     meeting = commands.add_parser("meeting", help=argparse.SUPPRESS)
     mops = meeting.add_subparsers(dest="op", required=True)
-    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto", help="auto | all-coders | all-coders+ollama-clouds | comma-separated seats"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--max-parallel", type=int, help="Thread pool concurrency for seat dispatch (does not cap seat count)"); ms.add_argument("--max-seats", type=int, help="Hard seat count cap; default is edition max_providers; not tied to --max-parallel"); ms.add_argument("--exclude-ollama", action="store_true", help="Explicitly omit Ollama and record the exception"); ms.add_argument("--allow-missing-ollama", action="store_true", help="Allow an all-coders+ollama-clouds plan to continue when no Ollama cloud seat is configured"); ms.add_argument("--execute", action="store_true")
+    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto", help="auto | all-coders | all-coders+ollama-clouds | comma-separated seats"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--max-parallel", type=int, help="Thread pool concurrency; never a seat cap"); ms.add_argument("--max-seats", type=int, help="Explicit hard seat cap"); ms.add_argument("--exclude-ollama", action="store_true", help="Explicitly omit Ollama and record the exception"); ms.add_argument("--allow-missing-ollama", action="store_true", help="Allow an all-coders+ollama-clouds plan to continue when no Ollama cloud seat is configured"); ms.add_argument("--execute", action="store_true")
     mplan = mops.add_parser("seat-plan"); mplan.add_argument("--seats", default="auto"); mplan.add_argument("--max-parallel", type=int); mplan.add_argument("--max-seats", type=int); mplan.add_argument("--exclude-ollama", action="store_true"); mplan.add_argument("--allow-missing-ollama", action="store_true")
     mops.add_parser("list")
     mshow = mops.add_parser("show"); mshow.add_argument("meeting_id"); mshow.add_argument("--view", choices=("brief", "simple", "full", "complete"), default="full")
     mrun = mops.add_parser("run"); mrun.add_argument("meeting_id")
     mapprove = mops.add_parser("approve"); mapprove.add_argument("meeting_id")
     mcreate = mops.add_parser("create-task"); mcreate.add_argument("meeting_id"); mcreate.add_argument("--title")
-    mexport = mops.add_parser("export"); mexport.add_argument("meeting_id"); mexport.add_argument("--output", required=True)
+    mexport = mops.add_parser("export"); mexport.add_argument("meeting_id"); mexport.add_argument("--output", required=True); mexport.add_argument("--public", action="store_true")
+    mreport = mops.add_parser("report"); mreport.add_argument("--output", required=True); mreport.add_argument("--format", choices=("json","csv","markdown","xlsx"), default="json"); mreport.add_argument("--view", choices=("brief","simple","full","complete"), default="brief"); mreport.add_argument("--public", action="store_true"); mreport.add_argument("--from-time"); mreport.add_argument("--to-time"); mreport.add_argument("--status"); mreport.add_argument("--task-id"); mreport.add_argument("--provider"); mreport.add_argument("--agent"); mreport.add_argument("--decision")
+    mcal = mops.add_parser("calendar-create"); mcal.add_argument("--title", required=True); mcal.add_argument("--topic", required=True); mcal.add_argument("--starts-at", required=True); mcal.add_argument("--seats", required=True); mcal.add_argument("--created-by", default="local-user"); mcal.add_argument("--surface"); mcal.add_argument("--quorum", type=int, default=2); mcal.add_argument("--depth", default="deep"); mcal.add_argument("--effort", default="high"); mcal.add_argument("--rrule"); mcal.add_argument("--auto-start", action="store_true")
+    mcall = mops.add_parser("calendar-list"); mcall.add_argument("--status"); mcall.add_argument("--surface")
+    mcstart = mops.add_parser("calendar-start"); mcstart.add_argument("event_id")
+    mareg = mops.add_parser("agent-register"); mareg.add_argument("--surface", required=True); mareg.add_argument("--agent-id", required=True); mareg.add_argument("--display-name", required=True); mareg.add_argument("--model-binding"); mareg.add_argument("--endpoint-ref"); mareg.add_argument("--capability", action="append", default=[]); mareg.add_argument("--risk-class"); mareg.add_argument("--control-level", default="advisory"); mareg.add_argument("--reachable", action="store_true")
+    malist = mops.add_parser("agent-list"); malist.add_argument("--surface"); malist.add_argument("--reachable-only", action="store_true")
+    maserve = mops.add_parser("api-serve"); maserve.add_argument("--host", default="127.0.0.1"); maserve.add_argument("--port", type=int, default=8790); maserve.add_argument("--token-env", default="IOT_AI_MEETING_API_TOKEN")
 
     tasks = commands.add_parser("tasks", help=argparse.SUPPRESS)
     tops = tasks.add_subparsers(dest="op", required=True); tops.add_parser("status")
@@ -416,7 +428,7 @@ def parser() -> argparse.ArgumentParser:
     pu = pops.add_parser("upgrade"); pu.add_argument("--hosts", default="all"); pu.add_argument("--apply", action="store_true")
     pun = pops.add_parser("uninstall"); pun.add_argument("--force-drift", action="store_true"); pun.add_argument("--apply", action="store_true")
     prb = pops.add_parser("rollback"); prb.add_argument("--apply", action="store_true")
-    pcl = pops.add_parser("clean"); pcl.add_argument("--current-version", default=__version__); pcl.add_argument("--package-store"); pcl.add_argument("--current-package"); pcl.add_argument("--apply", action="store_true")
+    pcl = pops.add_parser("clean"); pcl.add_argument("--current-version", default=__version__); pcl.add_argument("--package-store"); pcl.add_argument("--current-package"); pcl.add_argument("--package-archive"); pcl.add_argument("--apply", action="store_true")
     pops.add_parser("status")
 
     report = commands.add_parser("report", help=argparse.SUPPRESS)
@@ -568,30 +580,26 @@ def main(argv: list[str] | None = None) -> int:
             elif a.op == "run": emit(meeting_run(h, a.meeting_id))
             elif a.op == "approve": emit(meeting_approve(h, a.meeting_id))
             elif a.op == "create-task": emit(create_task_from_meeting(h, a.meeting_id, a.title))
-            else:
-                out_path = Path(a.output)
-                exported = export_workspace(h, out_path, meeting_show(h, a.meeting_id)["task_id"])
-                # Fail-closed export gate on produced text artifacts under output root
-                gate_results = []
-                scan_root = out_path if out_path.is_dir() else out_path.parent
-                if scan_root.exists():
-                    for path in scan_root.rglob("*"):
-                        if path.is_file() and path.suffix.lower() in {".md", ".json", ".csv", ".txt", ".log"}:
-                            gate_results.append(assert_export_safe(path))
-                blocked = [row for row in gate_results if row.get("decision") == "block"]
-                if blocked:
-                    raise PermissionError(
-                        f"export gate blocked {len(blocked)} file(s) with residual secrets; "
-                        "keep private; sanitize before public share"
-                    )
-                emit({
-                    **(exported if isinstance(exported, dict) else {"export": exported}),
-                    "export_gate": {
-                        "scanned": len(gate_results),
-                        "blocked": len(blocked),
-                        "findings": sorted({f for row in gate_results for f in (row.get("findings") or [])}),
-                    },
-                })
+            elif a.op == "export":
+                exported = export_workspace(h, Path(a.output), meeting_show(h, a.meeting_id)["task_id"])
+                if a.public:
+                    from .export_gate import rewrite_public_export
+                    gate = rewrite_public_export(Path(a.output))
+                    if gate.get("decision") != "pass": raise PermissionError("public export blocked")
+                    emit({**exported, "public_export_gate": gate})
+                else: emit(exported)
+            elif a.op == "report":
+                report_result = write_meeting_report(h, Path(a.output), output_format=a.format, view=a.view, from_time=a.from_time, to_time=a.to_time, status=a.status, task_id=a.task_id, provider=a.provider, agent=a.agent, decision=a.decision)
+                if a.public:
+                    public_gate = rewrite_public_export(Path(a.output))
+                    report_result = {**report_result, "public_export": public_gate}
+                emit(report_result)
+            elif a.op == "calendar-create": emit(create_calendar_event(h, title=a.title, topic=a.topic, starts_at=a.starts_at, requested_seats=a.seats, created_by=a.created_by, surface=a.surface, quorum=a.quorum, depth=a.depth, effort=a.effort, auto_start=a.auto_start, rrule=a.rrule))
+            elif a.op == "calendar-list": emit({"events": list_calendar_events(h, status=a.status, surface=a.surface)})
+            elif a.op == "calendar-start": emit(start_calendar_event(h, a.event_id))
+            elif a.op == "agent-register": emit(register_agent_seat(h, surface=a.surface, agent_id=a.agent_id, display_name=a.display_name, model_binding=a.model_binding, endpoint_ref=a.endpoint_ref, capabilities=a.capability, risk_class=a.risk_class, control_level=a.control_level, reachable=a.reachable))
+            elif a.op == "agent-list": emit({"agents": list_agent_seats(h, surface=a.surface, reachable_only=a.reachable_only)})
+            else: meeting_api_serve(h, host=a.host, port=a.port, token_env=a.token_env)
             return 0
         if a.cmd == "tasks":
             if a.op == "status": emit(workspace_status(h))
@@ -701,6 +709,7 @@ def main(argv: list[str] | None = None) -> int:
                 h, a.current_version,
                 package_store=Path(a.package_store) if a.package_store else None,
                 current_package=Path(a.current_package) if a.current_package else None,
+                package_archive=Path(a.package_archive) if a.package_archive else None,
                 apply=a.apply,
             ))
             else: emit(package_rollback(h) if a.apply else {"decision": "plan", "operation": "rollback", "logs": log_locations(h)})

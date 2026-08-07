@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iot-ai-coder-suite"
-version = "6.6.0b3"
+version = "6.7.0b3"
 description = "Evidence-bound multi-coder orchestration with typed roles, Ollama Cloud, diagnostics and portable knowledge."
 readme = "README.md"
 requires-python = ">=3.11"

@@ -54,7 +54,7 @@ class LoggingAndCleanInstallTests(unittest.TestCase):
             stale = home / ".claude" / "skills" / "iot-ai-obsolete" / "SKILL.md"
             stale.parent.mkdir(parents=True, exist_ok=True)
             stale.write_text("managed old skill\n", encoding="utf-8")
-            state["files"].append({"path": str(stale), "sha256": sha256_file(stale)})
+            state["files"].append({"path": str(stale), "sha256": sha256_file(stale, allowed_roots=[home], max_bytes=None)})
             atomic_json(install_state_path(home), state)
             unknown = stale.parent.parent / "customer-owned" / "NOTE.md"
             unknown.parent.mkdir(parents=True, exist_ok=True)

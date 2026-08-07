@@ -17,12 +17,16 @@ from .workspace import connect_read, connect_write, excel_manifest_path, excel_p
 MANDATORY_TIERS=("unit","integration","smoke","ab","stress","security","e2e","quality")
 
 
-def _evidence_integrity(records:list[dict[str,Any]])->tuple[bool,list[str]]:
+def _evidence_integrity(user_home:Path,records:list[dict[str,Any]])->tuple[bool,list[str]]:
     findings=[]
+    roots=[Path(user_home).expanduser().resolve(), Path.cwd().resolve()]
     for row in records:
         path=Path(row["artifact_path"])
         if not path.is_file(): findings.append(f"missing-evidence:{row['id']}"); continue
-        if sha256_file(path)!=row["artifact_sha256"]: findings.append(f"evidence-hash-mismatch:{row['id']}")
+        try:
+            if sha256_file(path, allowed_roots=roots)!=row["artifact_sha256"]: findings.append(f"evidence-hash-mismatch:{row['id']}")
+        except Exception:
+            findings.append(f"evidence-hash-unreadable:{row['id']}")
     return not findings,findings
 
 
@@ -45,12 +49,12 @@ def audit_task(user_home:Path,task_id:str,*,record:bool=True)->dict[str,Any]:
     active_leases=rows(conn,"SELECT * FROM leases WHERE task_id=? AND status='active'",(task_id,))
     final_reviews=[row for row in contributions if row["stage"]=="final-review" and row["status"]=="pass"]
     conn.close()
-    evidence_ok,evidence_findings=_evidence_integrity(evidence)
+    evidence_ok,evidence_findings=_evidence_integrity(user_home,evidence)
     test_by_tier={row["tier"]:row for row in tests if row["decision"]=="pass" and row["exit_code"]==0}
     excel_ok=False; excel_sha=None
     if excel_path(user_home).is_file() and excel_manifest_path(user_home).is_file():
         manifest=json.loads(excel_manifest_path(user_home).read_text(encoding='utf-8'))
-        excel_sha=sha256_file(excel_path(user_home)); excel_ok=manifest.get("sha256")==excel_sha
+        excel_sha=sha256_file(excel_path(user_home), allowed_roots=[user_home]); excel_ok=manifest.get("sha256")==excel_sha
     chain=verify_event_chain(user_home)
     governed=task["risk_class"] in {"R2","R3","R4"} or bool(meetings)
     gates={

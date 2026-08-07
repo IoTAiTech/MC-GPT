@@ -65,7 +65,7 @@ def inspect_package(package: Path, expected_sha256: str | None = None) -> dict[s
     """Validate package bytes, metadata, manifest coverage and wheelhouse."""
     if not package.is_file():
         raise FileNotFoundError(package)
-    actual = sha256_file(package)
+    actual = sha256_file(package, allowed_roots=[package.expanduser().resolve().parent, Path.cwd().resolve()], max_bytes=None)
     if expected_sha256 and actual != expected_sha256:
         raise ValueError("package SHA-256 mismatch")
 
@@ -556,7 +556,7 @@ def install_package(
         "target": str(target),
         "target_backup": str(target_backup) if target_backup else None,
         "wrapper": str(wrapper),
-        "wrapper_sha256": sha256_file(wrapper) if wrapper.is_file() else None,
+        "wrapper_sha256": sha256_file(wrapper, allowed_roots=[user_home], max_bytes=None) if wrapper.is_file() else None,
         "prior_update_state": prior_update_state,
         "prior_install_state": prior_install_state,
         "activated_at": utc_now(),

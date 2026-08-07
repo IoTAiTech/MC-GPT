@@ -25,3 +25,10 @@ Use GitHub private vulnerability reporting. Do not disclose credentials, custome
 - Human-facing generated outputs must pass the applicable disclosure/marking gate before public export.
 
 These controls are defense-in-depth. They do not replace deployment-specific legal classification, secure provider configuration or independent penetration testing.
+
+## Path-constrained file hashing
+
+`iot_ai.util.sha256_file` and `open_secure` require explicit `allowed_roots`.
+Paths outside those roots, final-component symlinks, non-regular files, and
+oversized inputs are rejected. Do not reintroduce unrestricted `Path.open`
+hash sinks for untrusted paths.

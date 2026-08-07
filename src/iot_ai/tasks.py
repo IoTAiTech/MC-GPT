@@ -217,9 +217,14 @@ def record_progress(user_home:Path,task_id:str,stage:str,percent:int,summary:str
 
 
 def add_evidence(user_home:Path,task_id:str,artifact:Path,artifact_sha256:str|None=None,kind:str="artifact",work_unit_id:str|None=None,command:list[str]|None=None,exit_code:int|None=None,passed:bool|None=None,metadata:dict[str,Any]|None=None)->dict[str,Any]:
-    artifact=artifact.expanduser().resolve()
-    if not artifact.is_file() or artifact.is_symlink(): raise ValueError("evidence artifact must be a regular non-symlink file")
-    actual=sha256_file(artifact)
+    from .util import PathSecurityError
+    roots = [Path(user_home).expanduser().resolve(), Path.cwd().resolve()]
+    try:
+        artifact = Path(artifact)
+        actual = sha256_file(artifact, allowed_roots=roots)
+        artifact = artifact.expanduser().resolve(strict=True)
+    except PathSecurityError as exc:
+        raise ValueError(f"evidence artifact rejected: {exc}") from exc
     if artifact_sha256 and artifact_sha256!=actual: raise ValueError("evidence SHA-256 mismatch")
     conn=connect_write(user_home)
     try:

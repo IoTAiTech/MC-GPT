@@ -66,7 +66,7 @@ def root_digest(root: Path) -> str:
     for path in sorted(item for item in root.rglob("*") if item.is_file() and not item.is_symlink()):
         digest.update(path.relative_to(root).as_posix().encode())
         digest.update(b"\0")
-        digest.update(sha256_file(path).encode())
+        digest.update(sha256_file(path, allowed_roots=[root], max_bytes=None).encode())
         digest.update(b"\n")
     return digest.hexdigest()
 

@@ -24,6 +24,9 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+### Security
+- Fail-closed `sha256_file` / `open_secure`: require explicit `allowed_roots`, reject path traversal, absolute escapes, final-component symlinks, non-regular files, and oversized reads; hash via no-follow file descriptor where supported (CodeQL path-injection class).
+
 ### Changed
 - Renamed task-execution clarity: `tasks authorize-execution` is the honest validation-gate command; `tasks execute` remains a deprecated alias that does not implement code.
 - Added `tasks run --mode hybrid` as the unified UX path that performs Multi-Coder plan/critique/implement/test/review while keeping Tasks and Multi-Coder engines separate.

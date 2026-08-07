@@ -373,7 +373,7 @@ def mark_file(
         atomic_text(path, f"IOT-AI-PROVENANCE: {canonical}\n{label}\n\n{clean.decode('utf-8')}", mode=0o644)
         embedded = True
 
-    final_hash = sha256_file(path)
+    final_hash = sha256_file(path, allowed_roots=[path.parent.resolve(), Path.cwd().resolve()], max_bytes=None)
     receipt = {
         **base_payload,
         "source_content_sha256": initial_hash,
@@ -388,7 +388,7 @@ def mark_file(
         "decision": "pass" if embedded else "needs-work",
         "file": str(path),
         "sidecar": str(sidecar),
-        "sidecar_sha256": sha256_file(sidecar),
+        "sidecar_sha256": sha256_file(sidecar, allowed_roots=[path.parent.resolve(), Path.cwd().resolve()], max_bytes=None),
         "receipt": receipt,
     }
 
@@ -398,7 +398,7 @@ def verify_file(path: Path) -> dict[str, Any]:
     if not path.is_file() or not sidecar.is_file():
         return {"decision": "block", "errors": ["file-or-sidecar-missing"]}
     receipt = json.loads(sidecar.read_text(encoding="utf-8"))
-    current = sha256_file(path)
+    current = sha256_file(path, allowed_roots=[path.parent.resolve(), Path.cwd().resolve()], max_bytes=None)
     errors: list[str] = []
     if receipt.get("marked_content_sha256") != current:
         errors.append("marked-content-hash-mismatch")
@@ -435,7 +435,7 @@ def verify_file(path: Path) -> dict[str, Any]:
         "decision": "pass" if not errors else "block",
         "errors": errors,
         "file_sha256": current,
-        "sidecar_sha256": sha256_file(sidecar),
+        "sidecar_sha256": sha256_file(sidecar, allowed_roots=[path.parent.resolve(), Path.cwd().resolve()], max_bytes=None),
         "embedded": embedded is not None,
         "transparency_profile": receipt.get("transparency_profile"),
     }

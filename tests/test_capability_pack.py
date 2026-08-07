@@ -37,7 +37,7 @@ class CapabilityPackTests(unittest.TestCase):
             a = build_pack(spec, first)
             b = build_pack(spec, second)
             self.assertEqual(a["decision"], "pass")
-            self.assertEqual(sha256_file(first), sha256_file(second))
+            self.assertEqual(sha256_file(first, allowed_roots=[first.parent], max_bytes=None), sha256_file(second, allowed_roots=[second.parent], max_bytes=None))
             self.assertEqual(verify_pack(first)["decision"], "pass")
             payload = first.read_bytes()
             self.assertNotIn(b"top-secret", payload)

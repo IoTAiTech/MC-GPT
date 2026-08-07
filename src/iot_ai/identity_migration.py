@@ -48,7 +48,7 @@ def _tree_manifest(root: Path) -> list[dict[str, Any]]:
         if path.is_symlink():
             raise ValueError(f"symlink is not migratable: {path}")
         if path.is_file():
-            rows.append({"path": path.relative_to(root).as_posix(), "sha256": sha256_file(path), "size": path.stat().st_size})
+            rows.append({"path": path.relative_to(root).as_posix(), "sha256": sha256_file(path, allowed_roots=[root], max_bytes=None), "size": path.stat().st_size})
     return rows
 
 

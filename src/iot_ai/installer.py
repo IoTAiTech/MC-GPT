@@ -218,7 +218,7 @@ def install(user_home: Path, hosts: list[str], operation: str = "install") -> di
         str(path)
         for path in stale_managed
         if path.exists()
-        and sha256_file(path) != next(
+        and sha256_file(path, allowed_roots=[user_home], max_bytes=None) != next(
             str(item.get("sha256"))
             for item in existing.get("files", [])
             if str(item.get("path")) == str(path)
@@ -248,14 +248,14 @@ def install(user_home: Path, hosts: list[str], operation: str = "install") -> di
             _assert_safe_target(user_home, target)
             backup_target(target)
             atomic_text(target, _content(host, skill), 0o600)
-            files.append({"path": str(target), "sha256": sha256_file(target)})
+            files.append({"path": str(target), "sha256": sha256_file(target, allowed_roots=[user_home], max_bytes=None)})
 
     for name, args in _wrapper_specs().items():
         target = _wrapper_path(user_home, name)
         _assert_safe_target(user_home, target)
         backup_target(target)
         _write_wrapper(target, args, user_home)
-        files.append({"path": str(target), "sha256": sha256_file(target)})
+        files.append({"path": str(target), "sha256": sha256_file(target, allowed_roots=[user_home], max_bytes=None)})
 
     obsolete_removed: list[str] = []
     for target in stale_managed:
@@ -313,7 +313,7 @@ def verify(user_home: Path) -> dict[str, Any]:
         path = Path(item["path"])
         if not path.is_file():
             blockers.append(f"missing:{path}")
-        elif sha256_file(path) != item["sha256"]:
+        elif sha256_file(path, allowed_roots=[user_home], max_bytes=None) != item["sha256"]:
             blockers.append(f"drift:{path}")
     return {
         "decision": "pass" if not blockers else "needs-work",
@@ -362,7 +362,7 @@ def uninstall(user_home: Path, force_drift: bool = False) -> dict[str, Any]:
     drift = [
         str(path)
         for item in state.get("files", [])
-        if (path := Path(item["path"])).exists() and sha256_file(path) != item["sha256"]
+        if (path := Path(item["path"])).exists() and sha256_file(path, allowed_roots=[user_home], max_bytes=None) != item["sha256"]
     ]
     if drift and not force_drift:
         return {"decision": "block", "blockers": [f"drift:{path}" for path in drift]}
@@ -379,7 +379,7 @@ def uninstall(user_home: Path, force_drift: bool = False) -> dict[str, Any]:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, destination)
             snapshots.append(
-                {"target": str(path), "snapshot": str(destination), "sha256": sha256_file(destination)}
+                {"target": str(path), "snapshot": str(destination), "sha256": sha256_file(destination, allowed_roots=[user_home], max_bytes=None)}
             )
     receipt = {
         "schema": "iot-ai-suite.uninstall-rollback.v2",
@@ -431,7 +431,7 @@ def rollback(user_home: Path) -> dict[str, Any]:
             source = Path(item["snapshot"])
             target = Path(item["target"])
             _assert_safe_target(user_home, target)
-            if sha256_file(source) != item["sha256"]:
+            if sha256_file(source, allowed_roots=[user_home], max_bytes=None) != item["sha256"]:
                 return {"decision": "block", "blockers": [f"snapshot-drift:{source}"]}
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)

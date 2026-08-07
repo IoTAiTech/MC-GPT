@@ -162,7 +162,7 @@ def build_pack(spec: Mapping[str, Any], output: Path) -> dict[str, Any]:
     return {
         "decision": "pass",
         "path": str(output),
-        "sha256": sha256_file(output),
+        "sha256": sha256_file(output, allowed_roots=[Path.cwd().resolve(), Path.home().resolve(), output.parent.resolve()], max_bytes=None),
         "name": name,
         "version": version,
         "classification": classification,
@@ -204,6 +204,6 @@ def verify_pack(path: Path) -> dict[str, Any]:
     return {
         "decision": "pass" if not errors else "block",
         "path": str(path),
-        "sha256": sha256_file(path) if path.is_file() else None,
+        "sha256": sha256_file(path, allowed_roots=[Path.cwd().resolve(), Path.home().resolve(), path.parent.resolve()], max_bytes=None) if path.is_file() else None,
         "errors": errors,
     }

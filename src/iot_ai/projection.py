@@ -92,7 +92,7 @@ def export_workspace(user_home: Path, output: Path | None = None, task_id: str |
         temp = Path(temp_name)
         workbook.save(temp)
         os.replace(temp, output)
-        digest = sha256_file(output)
+        digest = sha256_file(output, allowed_roots=[user_home, output.parent.resolve()])
         manifest = {
             "schema": "iot-ai.excel-projection.v3",
             "generated_at": utc_now(),

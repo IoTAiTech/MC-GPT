@@ -249,7 +249,7 @@ def _run_tests(
         passed, failed, skipped = _parse_counts(output, exit_code)
         path = root / f"test-{tier['name']}.log"
         atomic_text(path, output, 0o600)
-        digest = sha256_file(path)
+        digest = sha256_file(path, allowed_roots=[user_home, root])
         test_id = new_id("test")
         if task_id:
             connection = connect_write(user_home)
@@ -323,12 +323,12 @@ def _write_evidence(
             user_home,
             task_id,
             path,
-            sha256_file(path),
+            sha256_file(path, allowed_roots=[user_home]),
             name,
             work_unit_id,
             metadata={"run_id": run_id},
         )
-    return {"artifact": str(path), "artifact_sha256": sha256_file(path)}
+    return {"artifact": str(path), "artifact_sha256": sha256_file(path, allowed_roots=[user_home])}
 
 
 def _extract_json(text: str) -> dict[str, Any]:

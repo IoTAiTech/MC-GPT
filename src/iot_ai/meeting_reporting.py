@@ -136,4 +136,4 @@ def write_report(user_home: Path, output: Path, *, output_format: str, view: str
             Path(temp_name).unlink(missing_ok=True)
     else:
         raise ValueError("format must be json, csv, markdown or xlsx")
-    return {"decision": "pass", "output": str(output), "format": fmt, "view": payload["view"], "meeting_count": payload["meeting_count"], "sha256": sha256_file(output)}
+    return {"decision": "pass", "output": str(output), "format": fmt, "view": payload["view"], "meeting_count": payload["meeting_count"], "sha256": sha256_file(output, allowed_roots=[user_home, output.parent.resolve()])}

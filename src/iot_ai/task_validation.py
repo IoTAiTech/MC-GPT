@@ -188,17 +188,21 @@ def gate(user_home: Path, task_id: str, trigger_action: str = "claim") -> dict[s
     }
 
 
-def _context_item(path: Path) -> dict[str, Any]:
-    candidate = path.expanduser().resolve()
-    if not candidate.is_file() or candidate.is_symlink():
-        raise ValueError(f"context must be a regular non-symlink file: {path}")
+def _context_item(path: Path, allowed_roots: list[Path]) -> dict[str, Any]:
+    from .util import PathSecurityError
+    try:
+        candidate = path.expanduser()
+        digest = sha256_file(candidate, allowed_roots=allowed_roots, max_bytes=MAX_CONTEXT_BYTES)
+        candidate = candidate.resolve(strict=True)
+    except PathSecurityError as exc:
+        raise ValueError(f"context rejected: {exc}") from exc
     size = candidate.stat().st_size
     if size > MAX_CONTEXT_BYTES:
         raise ValueError(f"context file exceeds {MAX_CONTEXT_BYTES} bytes: {candidate.name}")
     suffix = candidate.suffix.casefold()
     item: dict[str, Any] = {
         "name": candidate.name,
-        "sha256": sha256_file(candidate),
+        "sha256": digest,
         "size_bytes": size,
         "media_type": mimetypes.guess_type(candidate.name)[0] or "application/octet-stream",
         "kind": "image" if suffix in IMAGE_SUFFIXES else "text" if suffix in TEXT_SUFFIXES else "binary",
@@ -236,7 +240,8 @@ def build_context_manifest(user_home: Path, task_id: str, context_files: list[Pa
         (task_id,),
     )
     conn.close()
-    explicit = [_context_item(path) for path in (context_files or [])]
+    roots = [Path(user_home).expanduser().resolve(), Path.cwd().resolve()]
+    explicit = [_context_item(path, roots) for path in (context_files or [])]
     manifest = {
         "schema": "iot-ai.task-validation-context.v1",
         "task_id": task_id,

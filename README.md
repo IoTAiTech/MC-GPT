@@ -1,5 +1,12 @@
 # IOT-AI Coder Suite
 
+[![CI](https://github.com/IoTAiTech/MC-GPT/actions/workflows/ci.yml/badge.svg)](https://github.com/IoTAiTech/MC-GPT/actions/workflows/ci.yml)
+[![Security](https://github.com/IoTAiTech/MC-GPT/actions/workflows/security.yml/badge.svg)](https://github.com/IoTAiTech/MC-GPT/actions/workflows/security.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-lightgrey.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/IoTAiTech/MC-GPT?include_prereleases)](https://github.com/IoTAiTech/MC-GPT/releases)
+
+
 <p align="center">
   <img src="assets/brand/MC-GPT-Logo-Master-1024.png" alt="MC-GPT official product logo" width="240" />
 </p>
@@ -8,7 +15,7 @@
 > **Community Developer Preview:** personal and noncommercial use, research, modification, forks and redistribution under the repository licence.
 > **Enterprise Customer Edition:** private, contract-bound, signed-entitlement distribution for licensed organisations.
 
-IOT-AI turns one engineering goal into a privacy-gated, knowledge-first and dependency-aware execution graph. It binds a specialist identity and immutable mission to every agent, chooses live-ready coder or Ollama Cloud models, challenges competing plans, freezes one evidence-bound plan digest, executes only authorised work, verifies deterministic results and exports a sanitised diagnostic trail.
+Source-available multi-agent coding orchestration for Claude, Codex, Gemini, Grok and Ollama with governed execution, testing and audit. IOT-AI turns one engineering goal into a privacy-gated, knowledge-first and dependency-aware execution graph. It binds a specialist identity and immutable mission to every agent, chooses live-ready coder or Ollama Cloud models, challenges competing plans, freezes one evidence-bound plan digest, executes only authorised work, verifies deterministic results and exports a sanitised diagnostic trail.
 
 ## Overview
 
@@ -59,6 +66,42 @@ iot-ai-multi-coder  role-bound implementation and verification
 ```
 
 They do not create a second updater or a second state authority.
+
+They do not create a second updater or a second state authority.
+
+## Tasks vs Multi-Coder (keep separate, unify the UX)
+
+| Surface | Responsibility |
+| --- | --- |
+| **iot-ai-tasks** | Task registry, validation, work units, exclusive leases, progress telemetry, evidence, submit and audit |
+| **iot-ai-multi-coder** | Hybrid multi-provider planning, critique, synthesis, implementation, deterministic tests, repair rounds and independent final review |
+
+**Command semantics**
+
+| Command | Meaning |
+| --- | --- |
+| `tasks claim` | Reserves one work unit with an exclusive, expiring lease so two coders cannot write the same scope at once |
+| `tasks progress` | Audit telemetry only (stage, percent, summary). Does not execute and does not grant permission |
+| `tasks authorize-execution` | Validation gate only. Confirms the task is ready; does **not** implement code |
+| `tasks execute` | **Deprecated alias** of `authorize-execution` (kept for compatibility) |
+| `tasks run --mode hybrid` | **Actual execution** via Multi-Coder: plan → critique → implement → test → audit → submit path |
+
+Recommended public workflow:
+
+```bash
+# 1) validate / authorize (no code changes)
+iot-ai tasks authorize-execution --task-id <task-id>
+
+# 2) hybrid multi-coder execution (implementation + tests + review)
+iot-ai tasks run --task-id <task-id> --mode hybrid
+
+# advanced / debug equivalents remain available:
+iot-ai multi-coder run --task-id <task-id>
+iot-ai tasks solve-all --apply
+```
+
+Hybrid participation (Claude · Codex · Gemini · Grok · Ollama) improves review quality; it does not by itself guarantee success. Exact served-model receipts, independent critiques, frozen plan digests and deterministic test evidence remain the authority.
+
 
 ## Five-minute installation
 
@@ -112,6 +155,10 @@ iot-ai tasks prepare --task-id <task-id> --action review \
 # apply the optimised task only after explicit user approval
 iot-ai tasks prepare --task-id <task-id> --action approve \
   --validation-id <validation-id> --subject <user-or-founder-subject>
+
+# authorize (gate only) then hybrid-execute through Multi-Coder
+iot-ai tasks authorize-execution --task-id <task-id>
+iot-ai tasks run --task-id <task-id> --mode hybrid
 ```
 
 No lease is issued while validation or the user's decision is pending. Validation is bound to semantic task content; later edits invalidate it. See [`docs/task-validation.md`](docs/task-validation.md).

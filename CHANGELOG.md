@@ -24,6 +24,11 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+### Changed
+- Renamed task-execution clarity: `tasks authorize-execution` is the honest validation-gate command; `tasks execute` remains a deprecated alias that does not implement code.
+- Added `tasks run --mode hybrid` as the unified UX path that performs Multi-Coder plan/critique/implement/test/review while keeping Tasks and Multi-Coder engines separate.
+- Documented claim / progress / authorize / run semantics and GitHub SEO description priorities in the README.
+
 ## [6.6.0-beta.3] — 2026-08-06
 
 ### Added

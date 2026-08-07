@@ -373,7 +373,33 @@ def parser() -> argparse.ArgumentParser:
     ta = tops.add_parser("audit"); ta.add_argument("task_id")
     tx = tops.add_parser("export-excel"); tx.add_argument("--output", required=True)
     solve = tops.add_parser("solve-all"); solve.add_argument("query", nargs="?"); solve.add_argument("--providers", default="auto"); solve.add_argument("--quorum", type=int, default=2); solve.add_argument("--implementer"); solve.add_argument("--test-profile"); solve.add_argument("--cwd", default="."); solve.add_argument("--effort", default="high"); solve.add_argument("--confirm-critical", action="store_true"); solve.add_argument("--max-tasks", type=int); solve.add_argument("--apply", action="store_true")
-    texec = tops.add_parser("execute"); texec.add_argument("--task-id", required=True)
+    # authorize-execution = validation gate only (honest name). execute remains as deprecated alias.
+    tauth = tops.add_parser(
+        "authorize-execution",
+        help="Run the task-validation gate only; does not implement code",
+    )
+    tauth.add_argument("--task-id", required=True)
+    texec = tops.add_parser(
+        "execute",
+        help="Deprecated alias for authorize-execution (validation gate only; does not implement)",
+    )
+    texec.add_argument("--task-id", required=True)
+    # tasks run = actual hybrid execution via Multi-Coder (plan/critique/implement/test/review)
+    trun = tops.add_parser(
+        "run",
+        help="Execute a task through Multi-Coder hybrid verification (plan, critique, implement, test, review)",
+    )
+    trun.add_argument("--task-id", required=True)
+    trun.add_argument("--mode", choices=("hybrid", "multi-coder"), default="hybrid", help="Execution engine; hybrid routes through Multi-Coder")
+    trun.add_argument("--providers", default="auto")
+    trun.add_argument("--quorum", type=int, default=2)
+    trun.add_argument("--implementer")
+    trun.add_argument("--test-profile")
+    trun.add_argument("--test-argv", nargs="+")
+    trun.add_argument("--cwd", default=".")
+    trun.add_argument("--risk-class", default="R2")
+    trun.add_argument("--effort", default="high")
+    trun.add_argument("--max-repair-rounds", type=int)
 
     multi = commands.add_parser("multi-coder", help=argparse.SUPPRESS)
     mops = multi.add_subparsers(dest="op", required=True)
@@ -637,7 +663,56 @@ def main(argv: list[str] | None = None) -> int:
             elif a.op == "submit": emit(submit_task(h, a.task_id, a.work_unit_id, a.lease_id, a.lease_token, a.result_summary))
             elif a.op == "audit": emit(audit_task(h, a.task_id, record=True))
             elif a.op == "export-excel": emit(export_workspace(h, Path(a.output)))
-            elif a.op == "execute": emit(validation_gate(h, a.task_id, "execute"))
+            elif a.op in {"execute", "authorize-execution"}:
+                gate = validation_gate(h, a.task_id, "execute")
+                emit({
+                    **gate,
+                    "command": a.op,
+                    "command_semantics": "authorize-execution",
+                    "implements_code": False,
+                    "note": (
+                        "tasks execute is a deprecated alias for authorize-execution: "
+                        "validation gate only. Use tasks run --task-id ... --mode hybrid "
+                        "for Multi-Coder implementation."
+                        if a.op == "execute"
+                        else "authorize-execution runs the task-validation gate only; it does not implement code. "
+                        "Use tasks run --task-id ... --mode hybrid for Multi-Coder implementation."
+                    ),
+                })
+            elif a.op == "run":
+                if a.mode not in {"hybrid", "multi-coder"}:
+                    raise ValueError("unsupported tasks run mode")
+                providers = (
+                    [c["provider"] for c in provider_candidates(h, require_live=True)]
+                    if a.providers == "auto"
+                    else _split(a.providers)
+                )
+                providers = list(dict.fromkeys(providers))
+                if not providers:
+                    raise RuntimeError("no live-ready multi-coder providers")
+                record_disclosure(h, surface="cli:tasks-run", language="en")
+                result = multicoder_run(
+                    h,
+                    task=None,
+                    providers=providers,
+                    quorum=min(a.quorum, len(providers)),
+                    test_argv=a.test_argv,
+                    cwd=Path(a.cwd),
+                    task_id=a.task_id,
+                    implementer=a.implementer,
+                    test_profile=Path(a.test_profile) if a.test_profile else None,
+                    risk_class=a.risk_class,
+                    effort=a.effort,
+                    max_repair_rounds=a.max_repair_rounds,
+                )
+                emit({
+                    **result,
+                    "command": "tasks run",
+                    "mode": a.mode,
+                    "engine": "multi-coder",
+                    "command_semantics": "hybrid-execution",
+                    "implements_code": True,
+                })
             else:
                 plan = solve_all_plan(h, a.query, a.confirm_critical, a.max_tasks, require_validated=True)
                 if not a.apply: emit(plan)

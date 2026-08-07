@@ -1,0 +1,57 @@
+{
+  "artifacts": {
+    "component_manifest_sha256": "3a9ea78770936cbef08183c5a50cd6571e6a5c722165b6a684cf225fc7f3db41",
+    "component_sha256": "7fea1f6c4e56a7cc277eff23cdbb60fbf0c06a54ab7dc6c1e89a384159737f11",
+    "wheel_sha256": "bffae6c0ed7d1673892bd609e3efbabc655323286c7812a87e16b39cf2dc670f"
+  },
+  "classification": "private-release-candidate-publication-blocked",
+  "enterprise_addon_version": "1.2.0-alpha.2",
+  "mc_gpt_version": "0.8.0-alpha.3",
+  "pending": [
+    "Founder approval for force-with-lease replacement of public Git history",
+    "real GitHub Actions and release-asset attestation",
+    "real Windows on-device qualification",
+    "live provider and exact served-model qualification",
+    "deployment-specific PMD/customer and legal qualification"
+  ],
+  "production_claim": false,
+  "schema": "iot-ai.final-test-summary.v8",
+  "security": {
+    "brand_identity": "pass-zero-unclassified",
+    "license_headers": "pass-111-of-111",
+    "public_boundary_current_tree": "pass-zero-findings",
+    "public_history": "pass-local-sanitized-single-commit-candidate-zero-findings",
+    "repository_contract": "pass",
+    "static_security": "pass-zero-high-103-files"
+  },
+  "source": {
+    "baseline_package": "6.6.0-beta.3",
+    "github_main_sha": "7a69bcb08e2d653a8d4dc5c8f40610323c4d5540",
+    "github_repository": "IoTAiTech/MC-GPT"
+  },
+  "suite_version": "6.7.0-beta.3",
+  "tests": {
+    "all_in_one_clean_install": "pass",
+    "curl_bootstrap": "pass-local-release-server",
+    "deterministic_dual_build": "pass-all-in-one-source-npm",
+    "host_command_discovery": "pass-four-hosts-three-advanced-commands",
+    "normal_update_rollback": {
+      "after": "6.7.0-beta.3",
+      "before": "6.6.0-beta.3",
+      "decision": "pass",
+      "rollback": "6.6.0-beta.3"
+    },
+    "npx_bootstrap": "pass-local-package",
+    "pytest": {
+      "failed": 0,
+      "passed": 194,
+      "warnings_as_errors": true
+    },
+    "unittest": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 194,
+      "warnings_as_errors": true
+    }
+  }
+}

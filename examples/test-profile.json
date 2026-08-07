@@ -1,0 +1,76 @@
+{
+  "tiers": [
+    {
+      "tier": "unit",
+      "argv": [
+        "python",
+        "-c",
+        "print(\"pass\")"
+      ],
+      "timeout_seconds": 60
+    },
+    {
+      "tier": "integration",
+      "argv": [
+        "python",
+        "-c",
+        "print(\"pass\")"
+      ],
+      "timeout_seconds": 60
+    },
+    {
+      "tier": "smoke",
+      "argv": [
+        "python",
+        "-c",
+        "print(\"pass\")"
+      ],
+      "timeout_seconds": 60
+    },
+    {
+      "tier": "ab",
+      "argv": [
+        "python",
+        "-c",
+        "print(\"pass\")"
+      ],
+      "timeout_seconds": 60
+    },
+    {
+      "tier": "stress",
+      "argv": [
+        "python",
+        "-c",
+        "print(\"pass\")"
+      ],
+      "timeout_seconds": 60
+    },
+    {
+      "tier": "security",
+      "argv": [
+        "python",
+        "-c",
+        "print(\"pass\")"
+      ],
+      "timeout_seconds": 60
+    },
+    {
+      "tier": "e2e",
+      "argv": [
+        "python",
+        "-c",
+        "print(\"pass\")"
+      ],
+      "timeout_seconds": 60
+    },
+    {
+      "tier": "quality",
+      "argv": [
+        "python",
+        "-c",
+        "print(\"pass\")"
+      ],
+      "timeout_seconds": 60
+    }
+  ]
+}

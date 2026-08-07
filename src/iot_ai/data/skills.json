@@ -1,0 +1,45 @@
+{
+  "internal_engines": [
+    "meeting",
+    "mesh",
+    "multi-coder",
+    "tasks",
+    "diagnostics",
+    "knowledge",
+    "graph-compiler",
+    "graph-scheduler",
+    "provider-readiness",
+    "reporting",
+    "worktree-isolation"
+  ],
+  "notice": "Internal engines are invoked by iot-ai or through advanced subcommands; they are not separate public products.",
+  "public_skills": [
+    {
+      "example": "/iot-ai deeply investigate and safely solve this issue",
+      "id": "iot-ai",
+      "purpose": "Agentically solve a goal through knowledge reuse, typed roles, dependency graph, verification and diagnostics."
+    },
+    {
+      "example": "/iot-ai-help meeting",
+      "id": "iot-ai-help",
+      "purpose": "Explain the current public command surface, roles, policies and safe examples."
+    },
+    {
+      "example": "/iot-ai-status --window 24h",
+      "id": "iot-ai-status",
+      "purpose": "Show Suite, coder, provider/model readiness, effort, workflow scores and latest evidence."
+    },
+    {
+      "example": "/iot-ai-settings profile set ultracode --session-only",
+      "id": "iot-ai-settings",
+      "purpose": "Manage platform-independent settings, cloud/Ollama policy and orchestration profiles."
+    },
+    {
+      "example": "/iot-ai-update status",
+      "id": "iot-ai-update",
+      "purpose": "Use the single transactional update authority for plan, apply and rollback."
+    }
+  ],
+  "schema": "iot-ai.skill-catalog.v2",
+  "version": "6.7.0-beta.3"
+}

@@ -1,0 +1,24 @@
+{
+  "amendment": "Regulation (EU) 2026/1744",
+  "assessment_date": "2026-08-06",
+  "claim_boundary": "technical-compliance-enabling-controls-not-legal-certification",
+  "current_milestones": {
+    "annex_i_product_high_risk": "2028-08-02",
+    "annex_iii_high_risk": "2027-12-02",
+    "article_4_and_article_5": "2025-02-02",
+    "article_50_2_limited_transition_for_preexisting_systems": "2026-12-02",
+    "article_50_and_enforcement": "2026-08-02",
+    "gpai_provider_obligations": "2025-08-02"
+  },
+  "official_sources": [
+    "https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng",
+    "https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=oj:L_202601744",
+    "https://ai-act-service-desk.ec.europa.eu/en/ai-act/eu-ai-act-implementation-timeline",
+    "https://digital-strategy.ec.europa.eu/en/policies/guidelines-transparency-ai-generated-content",
+    "https://digital-strategy.ec.europa.eu/en/policies/contents-code-gpai",
+    "https://digital-strategy.ec.europa.eu/en/policies/guidelines-gpai-providers",
+    "https://digital-strategy.ec.europa.eu/en/library/commission-publishes-guidelines-prohibited-artificial-intelligence-ai-practices-defined-ai-act"
+  ],
+  "primary_regulation": "Regulation (EU) 2024/1689",
+  "schema": "iot-ai.eu-ai-act-legal-baseline.v1"
+}

@@ -1,0 +1,53 @@
+{
+  "entries": [
+    {
+      "code_of_practice_status": "verify-current-official-record",
+      "documentation_status": "runtime-and-contract-verification-required",
+      "exact_model_required_at_runtime": true,
+      "provider_family": "anthropic",
+      "role": "upstream-model-provider",
+      "suite_route": "claude"
+    },
+    {
+      "code_of_practice_status": "verify-current-official-record",
+      "documentation_status": "runtime-and-contract-verification-required",
+      "exact_model_required_at_runtime": true,
+      "provider_family": "openai",
+      "role": "upstream-model-provider",
+      "suite_route": "codex"
+    },
+    {
+      "code_of_practice_status": "verify-current-official-record",
+      "documentation_status": "runtime-and-contract-verification-required",
+      "exact_model_required_at_runtime": true,
+      "provider_family": "google",
+      "role": "upstream-model-provider",
+      "suite_route": "gemini"
+    },
+    {
+      "code_of_practice_status": "chapter-specific-verification-required",
+      "documentation_status": "runtime-and-contract-verification-required",
+      "exact_model_required_at_runtime": true,
+      "provider_family": "xai",
+      "role": "upstream-model-provider",
+      "suite_route": "grok"
+    },
+    {
+      "documentation_status": "per-model-dossier-required",
+      "exact_model_required_at_runtime": true,
+      "license_and_model_card_required": true,
+      "provider_family": "ollama-model-supplier-dependent",
+      "role": "model-distribution-and-routing-layer",
+      "suite_route": "ollama",
+      "underlying_model_provider_required": true
+    }
+  ],
+  "generated_at": "2026-08-06",
+  "policy": {
+    "requested_and_served_model_are_separate": true,
+    "silent_fallback_forbidden": true,
+    "unknown_model_blocks_required_role": true,
+    "upstream_compliance_is_not_inherited": true
+  },
+  "schema": "iot-ai.upstream-model-register.v1"
+}

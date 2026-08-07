@@ -1,0 +1,33 @@
+{
+  "community": {
+    "classification": "source-available-not-open-source",
+    "commercial_use": false,
+    "enterprise_source_present": false,
+    "license": "PolyForm Noncommercial License 1.0.0",
+    "noncommercial_derivative_works": true,
+    "noncommercial_forks": true,
+    "noncommercial_modification": true,
+    "noncommercial_redistribution": true,
+    "noncommercial_research": true,
+    "personal_noncommercial_use": true
+  },
+  "enterprise": {
+    "distribution": "private-contract-bound-only",
+    "license": "IoT-AI.Tech Commercial EULA",
+    "pmd_adapter": "optional-private-addon",
+    "production_requires_signed_entitlement": true
+  },
+  "public_export": {
+    "forbidden_roots": [
+      "enterprise/",
+      "private/",
+      "evidence-private/",
+      "secrets/",
+      "customer/"
+    ],
+    "private_git_history_forbidden": true,
+    "strategy": "explicit-allowlist"
+  },
+  "schema": "iot-ai.edition-boundary.v2",
+  "suite_version": "6.7.0-beta.3"
+}

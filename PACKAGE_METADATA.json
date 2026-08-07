@@ -1,0 +1,13 @@
+{
+  "classification": "private-release-candidate-publication-blocked",
+  "embedded_components": {
+    "iot-ai-mc-gpt": "0.8.0-alpha.3"
+  },
+  "product_id": "iot-ai-tech.iot-ai-coder-suite",
+  "production_claim": false,
+  "python_distribution": "iot-ai-coder-suite",
+  "python_version": "6.7.0b3",
+  "schema": "iot-ai.suite-package.v1",
+  "source_github_main_sha": "7a69bcb08e2d653a8d4dc5c8f40610323c4d5540",
+  "version": "6.7.0-beta.3"
+}

@@ -1,0 +1,21 @@
+{
+  "schema": "iot-ai.brand-asset.v1",
+  "product_id": "mc-gpt",
+  "product_name": "MC-GPT",
+  "asset_role": "canonical-product-logo",
+  "file": "MC-GPT-Logo-Master-1024.png",
+  "media_type": "image/png",
+  "width": 1024,
+  "height": 1024,
+  "color_space": "sRGB",
+  "alpha": true,
+  "sha256": "600dd068a64087c3e2f235915cc600e1acbd4f59170cd5f1751a4697484069b6",
+  "policy": {
+    "redraw": "forbidden",
+    "text_or_symbol_changes": "forbidden",
+    "aspect_ratio_changes": "forbidden",
+    "derived_sizes": "allowed-with-hash-manifest",
+    "public_use": "allowed-for-mc-gpt-branding",
+    "evidence_and_logs": "reference-by-brand-id-not-binary-embed"
+  }
+}

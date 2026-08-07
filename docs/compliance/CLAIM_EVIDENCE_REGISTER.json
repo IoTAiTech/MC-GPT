@@ -1,0 +1,28 @@
+{
+  "allowed_claims": [
+    {
+      "claim": "Designed with evidence-bound transparency, Article 5 screening, human-governance and public/private release controls.",
+      "evidence": [
+        "src/iot_ai/eu_ai_act.py",
+        "src/iot_ai/transparency.py",
+        "tests/test_eu_ai_act.py"
+      ]
+    },
+    {
+      "claim": "EU AI Act conformity assessment remains deployment-specific and is not legally certified by this developer preview.",
+      "evidence": [
+        "docs/compliance/AI_ACT_CLASSIFICATION.md",
+        "docs/compliance/INTENDED_PURPOSE_AND_LIMITATIONS.md"
+      ]
+    }
+  ],
+  "forbidden_claim_patterns": [
+    "fully EU AI Act compliant",
+    "EU AI Act certified",
+    "AI_ACT_COMPLIANT=true",
+    "all deployments compliant"
+  ],
+  "global_compliance_claim_allowed": false,
+  "schema": "iot-ai.claim-evidence-register.v1",
+  "system_version": "6.7.0-beta.3"
+}

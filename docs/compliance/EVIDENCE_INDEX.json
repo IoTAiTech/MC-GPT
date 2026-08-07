@@ -1,0 +1,64 @@
+{
+  "claim_boundary": "technical-controls-for-declared-community-developer-preview-not-legal-certification",
+  "external_gates": [
+    "real GitHub Actions run and artifact attestation",
+    "real Windows on-device qualification",
+    "live provider-account and exact-served-model qualification",
+    "role-based AI literacy completion receipt",
+    "exact upstream supplier dossiers and contracts",
+    "deployment-specific German/EU legal and high-risk assessment"
+  ],
+  "integrity": "Exact SHA-256 values are published in the detached delivery manifest to avoid self-referential release metadata.",
+  "mc_gpt_version": "0.8.0-alpha.3",
+  "results": {
+    "blackbox": {
+      "article_5": "pass",
+      "article_50": "pass",
+      "decision": "pass",
+      "detached_evidence": "blackbox_release.json"
+    },
+    "eu_ai_act_gate": {
+      "decision": "pass",
+      "detached_evidence": "eu_ai_act_gate.json"
+    },
+    "git_simulation": {
+      "decision": "pass",
+      "detached_evidence": "git_publication_simulation.json"
+    },
+    "license_headers": {
+      "checked": 71,
+      "decision": "pass",
+      "detached_evidence": "license_headers.json",
+      "missing": 0
+    },
+    "public_boundary": {
+      "decision": "pass",
+      "detached_evidence": "public_boundary.json",
+      "findings": 0
+    },
+    "pytest": {
+      "detached_evidence": "pytest.log",
+      "failed": 0,
+      "passed": 120,
+      "skipped": 0
+    },
+    "repository_contract": {
+      "decision": "pass",
+      "detached_evidence": "repository_verification.json"
+    },
+    "static_security": {
+      "decision": "pass",
+      "detached_evidence": "static_security.json",
+      "files": 66,
+      "high_findings": 0
+    },
+    "unittest": {
+      "detached_evidence": "unittest.log",
+      "failed": 0,
+      "passed": 120,
+      "skipped": 0
+    }
+  },
+  "schema": "iot-ai.public-safe-evidence-index.v1",
+  "suite_version": "6.7.0-beta.3"
+}

@@ -1,0 +1,54 @@
+{
+  "assessment_date": "2026-08-06",
+  "component_versions": {
+    "iot-ai-mc-gpt": "0.8.0-alpha.3"
+  },
+  "declared_context": "personal and professional software-development assistance under human control",
+  "excluded_purposes": [
+    "employment or worker scoring/monitoring decisions",
+    "medical diagnosis, treatment or emergency triage",
+    "law-enforcement, migration, asylum or judicial decision making",
+    "credit, insurance, benefits or essential-service eligibility decisions",
+    "biometric identification, categorisation or emotion recognition",
+    "social scoring, manipulative persuasion or vulnerability exploitation",
+    "autonomous safety-critical or critical-infrastructure control"
+  ],
+  "human_oversight": {
+    "material_actions_require_human_approval": true,
+    "stop_and_rollback_supported": true,
+    "technical_completion_is_not_founder_acceptance": true,
+    "writes_require_authorized_scope": true
+  },
+  "intended_purpose": "Developer-controlled multi-agent planning, code and architecture review, evidence-bound decision support, deterministic verification and diagnostics.",
+  "interaction_profile": {
+    "article_50_disclosure_required": true,
+    "direct_human_interaction": true,
+    "generative_image_audio_video": false,
+    "generative_text": true,
+    "machine_readable_marking_required_for_human_exposed_generated_content": true
+  },
+  "name": "IOT-AI Suite",
+  "operator_roles": [
+    "ai_system_provider",
+    "deployer",
+    "downstream_provider"
+  ],
+  "provider": "IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour",
+  "public_claim": "Designed with compliance-enabling transparency, safety, audit and human-governance controls; not legally certified.",
+  "reasonably_foreseeable_misuse": [
+    "over-reliance on unverified model output",
+    "sending private source code or infrastructure data to cloud providers",
+    "using generated code without human review and deterministic tests",
+    "using the tool outside the declared intended purpose without reclassification"
+  ],
+  "risk_classification": {
+    "annex_i_route": false,
+    "annex_iii_route": false,
+    "deployment_specific_reassessment_required": true,
+    "high_risk_mode_default": "blocked-until-classified",
+    "status": "not-high-risk-for-declared-intended-purpose"
+  },
+  "schema": "iot-ai.ai-system-card.v1",
+  "system_id": "iot-ai-tech.iot-ai-coder-suite",
+  "version": "6.7.0-beta.3"
+}

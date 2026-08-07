@@ -1,0 +1,59 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "openpyxl",
+      "scope": "required",
+      "type": "library",
+      "version": "3.1.5"
+    },
+    {
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "et_xmlfile",
+      "scope": "required",
+      "type": "library",
+      "version": "2.0.0"
+    },
+    {
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR BSD-3-Clause"
+        }
+      ],
+      "name": "cryptography",
+      "scope": "optional-enterprise",
+      "type": "library",
+      "version": ">=50.0.0,<51"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "licenses": [
+        {
+          "license": {
+            "name": "PolyForm Noncommercial License 1.0.0"
+          }
+        }
+      ],
+      "name": "iot-ai-coder-suite",
+      "type": "application",
+      "version": "6.7.0-beta.3"
+    },
+    "timestamp": "2026-08-07T00:00:00Z"
+  },
+  "specVersion": "1.5",
+  "version": 1
+}

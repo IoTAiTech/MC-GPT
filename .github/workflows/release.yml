@@ -1,0 +1,64 @@
+name: Developer Preview release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing annotated tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Resolve and verify annotated tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then TAG="${{ inputs.tag }}"; fi
+          git rev-parse --verify "refs/tags/${TAG}^{tag}"
+          printf 'TAG=%s\n' "$TAG" >> "$GITHUB_ENV"
+      - name: Install build dependencies
+        run: python -m pip install --upgrade pip build && python -m pip install -e ".[dev]"
+      - name: Verify
+        run: |
+          python -m unittest discover -s tests -p "test_*.py"
+          python -m pytest -q
+          python tools/public_boundary_check.py . --git-history
+          python tools/eu_ai_act_release_gate.py .
+          python tools/verify_repository.py . --check-sbom
+      - name: Build Python artifacts
+        run: python -m build --sdist --wheel
+      - name: Build deterministic repository archive
+        run: python tools/build_release.py . dist
+      - name: Create checksums
+        shell: bash
+        run: cd dist && sha256sum * > SHA256SUMS.txt
+      - name: Upload release evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-${{ env.TAG }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish GitHub Developer Preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: gh release create "$TAG" dist/* --verify-tag --prerelease --generate-notes --title "IOT-AI Developer Preview $TAG"

@@ -1,0 +1,19 @@
+{
+  "customer_legal_name": "Example GmbH",
+  "customer_id": "CUS-EXAMPLE",
+  "contract_id": "CTR-EXAMPLE",
+  "edition": "enterprise",
+  "environments": [
+    "staging",
+    "production"
+  ],
+  "requested_features": [
+    "commercial-use",
+    "pmd-adapter",
+    "fleet-management"
+  ],
+  "host_ids": [
+    "iotai-host-example"
+  ],
+  "requested_term_days": 365
+}

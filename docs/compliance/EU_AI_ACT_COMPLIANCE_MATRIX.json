@@ -1,0 +1,39 @@
+{
+  "assessment_profile": "public-community-developer-preview",
+  "component_versions": {
+    "iot-ai-mc-gpt": "0.8.0-alpha.3"
+  },
+  "controls": {
+    "article_4_ai_literacy": "implemented_unverified",
+    "article_50_first_interaction_disclosure": "verified",
+    "article_50_machine_readable_marking": "verified",
+    "article_50_visible_labelling_and_editorial_control": "verified",
+    "article_5_prohibited_practices": "verified",
+    "claim_evidence_control": "verified",
+    "human_oversight": "verified",
+    "operator_role_and_intended_purpose": "verified",
+    "post_market_and_incident_process": "implemented_unverified",
+    "public_private_data_boundary": "verified",
+    "upstream_model_and_gpai_dossier": "implemented_unverified"
+  },
+  "decision": "technical-current-obligations-gate-candidate",
+  "declared_purpose": "developer-controlled software engineering assistance",
+  "evidence_refs": [
+    "src/iot_ai/eu_ai_act.py",
+    "src/iot_ai/transparency.py",
+    "src/iot_ai/agentic.py",
+    "src/iot_ai/meeting.py",
+    "src/iot_ai/multicoder.py",
+    "tests/test_eu_ai_act.py"
+  ],
+  "global_compliance_claim_allowed": false,
+  "limitations": [
+    "No legal certification or blanket conformity claim.",
+    "Every customer deployment and intended-purpose change requires reassessment.",
+    "High-risk, medical, employment, law-enforcement, essential-service and safety-critical use remains blocked.",
+    "Live surfaces, provider contracts, exact models, AI literacy completion and customer incidents require runtime evidence."
+  ],
+  "schema": "iot-ai.eu-ai-act-compliance-matrix.v1",
+  "system_id": "iot-ai-tech.iot-ai-coder-suite",
+  "system_version": "6.7.0-beta.3"
+}

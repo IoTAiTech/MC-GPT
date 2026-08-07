@@ -1,0 +1,26 @@
+{
+  "canonical_company": "IoT-AI.Tech",
+  "entries": [
+    {
+      "classification": "approved-legacy-migration-implementation",
+      "path": "src/iot_ai/identity_migration.py",
+      "reason": "Reads the superseded company and state namespace only to migrate it transactionally."
+    },
+    {
+      "classification": "approved-legacy-migration-fixture",
+      "path": "tests/test_brand_identity_migration.py",
+      "reason": "Creates legacy paths to verify dry-run, apply, conflict and rollback behaviour."
+    },
+    {
+      "classification": "approved-operator-migration-documentation",
+      "path": "docs/brand-identity-migration.md",
+      "reason": "Explains migration from the superseded identity without using it as a current legal/operator identity."
+    },
+    {
+      "classification": "approved-historical-release-defect-record",
+      "path": "CHANGELOG.md",
+      "reason": "Records the superseded legal identity as the reason beta.1 was quarantined and never published."
+    }
+  ],
+  "schema": "iot-ai.legacy-identity-allowlist.v1"
+}

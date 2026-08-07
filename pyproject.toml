@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=75", "wheel>=0.45"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iot-ai-coder-suite"
+version = "6.7.0b3"
+description = "Evidence-bound multi-coder orchestration with typed roles, Ollama Cloud, diagnostics and portable knowledge."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE", "LICENSE-COMMERCIAL.md", "LICENSE_POLICY.json", "NOTICE"]
+authors = [
+  {name = "Dr.-Ing. Babak Sorkhpour"}
+]
+keywords = ["ai-agents", "multi-agent", "multi-coder", "ollama", "developer-tools", "agentic-workflows"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+  "openpyxl>=3.1.5,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+]
+
+[project.scripts]
+iot-ai = "iot_ai.entrypoints:suite_main"
+iot-ai-help = "iot_ai.entrypoints:help_main"
+iot-ai-status = "iot_ai.entrypoints:status_main"
+iot-ai-settings = "iot_ai.entrypoints:settings_main"
+iot-ai-update = "iot_ai.entrypoints:update_main"
+iot-ai-meeting = "iot_ai.entrypoints:meeting_main"
+iot-ai-tasks = "iot_ai.entrypoints:tasks_main"
+iot-ai-multi-coder = "iot_ai.entrypoints:multicoder_main"
+
+[project.urls]
+Homepage = "https://iot-ai.tech"
+Documentation = "https://iot-ai.tech"
+Issues = "https://iot-ai.tech"
+Commercial = "https://iot-ai.tech"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+iot_ai = ["data/*.json"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["iot_ai"]

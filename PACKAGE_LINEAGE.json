@@ -1,0 +1,41 @@
+{
+  "all_in_one_apply_allowed_after_founder_authorization": true,
+  "canonical_executable": "iot-ai",
+  "canonical_update_authority": "iot-ai update",
+  "embedded_components": {
+    "iot-ai-mc-gpt": "0.8.0-alpha.3"
+  },
+  "legacy_alias_policy": "not-installed-by-default",
+  "legacy_state_policy": "observe-and-snapshot-only; never delete or silently migrate",
+  "lineage": "iot-ai-suite",
+  "product_id": "iot-ai-tech.iot-ai-coder-suite",
+  "public_commands": [
+    "iot-ai",
+    "iot-ai-help",
+    "iot-ai-status",
+    "iot-ai-settings",
+    "iot-ai-update",
+    "iot-ai-meeting",
+    "iot-ai-tasks",
+    "iot-ai-multi-coder"
+  ],
+  "python_distribution": "iot-ai-coder-suite",
+  "python_version": "6.7.0b3",
+  "review_bundle_apply_allowed": false,
+  "schema": "iot-ai.package-lineage.v3",
+  "source_baseline": {
+    "github_main_sha": "7a69bcb08e2d653a8d4dc5c8f40610323c4d5540",
+    "github_repository": "IoTAiTech/MC-GPT",
+    "verified_package_baseline": "6.6.0-beta.3"
+  },
+  "state_namespace": "iot-ai-tech/iot-ai-suite/v1",
+  "suite_version": "6.7.0-beta.3",
+  "tombstones": [
+    {
+      "reason": "artifact-publication-failed",
+      "reusable": false,
+      "state": "aborted",
+      "version": "6.7.0-beta.2"
+    }
+  ]
+}

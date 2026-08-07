@@ -1,0 +1,23 @@
+{
+  "components": [
+    {
+      "archive": "components/iot-ai-mc-gpt/IOT-AI-MC-GPT-v0.8.0-alpha.3-COMPONENT.zip",
+      "component_id": "iot-ai-mc-gpt",
+      "enabled": true,
+      "entrypoint": "iot-ai",
+      "files": 100,
+      "manifest_sha256": "3a9ea78770936cbef08183c5a50cd6571e6a5c722165b6a684cf225fc7f3db41",
+      "product_id": "iot-ai-tech.iot-ai-mc-gpt",
+      "public": true,
+      "release_sha256": "7fea1f6c4e56a7cc277eff23cdbb60fbf0c06a54ab7dc6c1e89a384159737f11",
+      "state_namespace": "iot-ai-tech/iot-ai-suite/v1",
+      "suite_compatibility": {
+        "maximum_exclusive": "7.0.0",
+        "minimum": "6.7.0-beta.3"
+      },
+      "version": "0.8.0-alpha.3"
+    }
+  ],
+  "schema": "iot-ai.component-registry.v1",
+  "suite_version": "6.7.0-beta.3"
+}

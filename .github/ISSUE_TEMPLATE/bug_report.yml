@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible defect without credentials or customer data.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not paste API keys, OAuth/session/lease tokens, private IPs, internal hostnames, personal paths, customer data, or raw diagnostic dumps."
+  - type: input
+    id: version
+    attributes:
+      label: IOT-AI version
+      placeholder: 6.6.0-beta.3
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Use sanitized examples only.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [Linux, macOS, Windows, Other]
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed secrets, private infrastructure, personal paths, and customer data.
+          required: true

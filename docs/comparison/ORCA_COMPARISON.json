@@ -1,0 +1,65 @@
+{
+  "adopted_patterns": [
+    "worktree-native-isolation",
+    "parallel-worker-run-registry",
+    "human-reviewed-promotion",
+    "dirty-work-cleanup-block",
+    "github-publication-handoff",
+    "usage-and-status-visibility",
+    "visual-evidence-context-contract",
+    "provider-usage-and-rate-limit-status-roadmap",
+    "checkpoint-pause-resume-replay"
+  ],
+  "comparison_date": "2026-08-06",
+  "competitor": {
+    "licence": "MIT",
+    "name": "Stably Orca",
+    "repository": "https://github.com/stablyai/orca",
+    "source_code_copied": false
+  },
+  "iot_ai_strengths": [
+    "immutable-specialist-role-contract",
+    "provider-and-exact-model-qualification",
+    "ollama-model-specific-seats",
+    "same-plan-digest-acceptance",
+    "task-assignment-ack-lease-evidence-audit",
+    "sanitised-cross-workflow-diagnostics",
+    "public-private-customer-boundary",
+    "enterprise-entitlement-and-pmd-api",
+    "eu-ai-act-technical-release-gates"
+  ],
+  "iot_ai_version": "6.6.0-beta.3",
+  "not_claimed": [
+    "desktop-ide",
+    "mobile-companion",
+    "design-mode",
+    "integrated-diff-ui",
+    "full-orca-agent-list",
+    "universal-superiority"
+  ],
+  "orca_public_maturity_snapshot": {
+    "as_of": "2026-08-06",
+    "commits_displayed_approx": 8061,
+    "forks_approx": 2700,
+    "named_cli_agents_documented_minimum": 29,
+    "note": "Time-sensitive public repository indicators; not a performance or security benchmark.",
+    "stars_approx": 38100
+  },
+  "orca_strengths": [
+    "desktop-and-mobile-ux",
+    "broad-cli-agent-support",
+    "worktree-native-terminal-and-source-control",
+    "diff-annotation-and-design-mode",
+    "native-github-and-issue-integration",
+    "remote-and-headless-operator-experience",
+    "community-and-release-maturity"
+  ],
+  "roadmap_lessons": [
+    "desktop-and-mobile-control-surface",
+    "local-browser-design-capture-with-privacy-gate",
+    "provider-native-usage-window-parsers-with-freshness",
+    "interactive-diff-annotation",
+    "jira-linear-github-work-item-ui"
+  ],
+  "schema": "iot-ai.competitor-comparison.v1"
+}

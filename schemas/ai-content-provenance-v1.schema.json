@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iot-ai.tech/schemas/ai-content-provenance-v1.schema.json",
+  "title": "IOT-AI AI Content Provenance",
+  "type": "object",
+  "required": ["schema", "content_sha256", "content_type", "ai_generated", "ai_assisted", "human_reviewed", "generator_system", "generator_version", "generated_at", "transparency_profile"],
+  "properties": {
+    "schema": {"const": "iot-ai.ai-content-provenance.v1"},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "content_type": {"type": "string"},
+    "ai_generated": {"type": "boolean"},
+    "ai_assisted": {"type": "boolean"},
+    "human_reviewed": {"type": "boolean"},
+    "editorially_responsible_party": {"type": ["string", "null"]},
+    "generator_system": {"type": "string"},
+    "generator_version": {"type": "string"},
+    "model_providers": {"type": "array", "items": {"type": "string"}},
+    "model_ids": {"type": "array", "items": {"type": "string"}},
+    "generated_at": {"type": "string"},
+    "public_interest": {"type": "boolean"},
+    "deepfake": {"type": "boolean"},
+    "visible_label_present": {"type": "boolean"},
+    "transparency_profile": {"const": "eu-ai-act-article-50-v1"}
+  },
+  "additionalProperties": true
+}

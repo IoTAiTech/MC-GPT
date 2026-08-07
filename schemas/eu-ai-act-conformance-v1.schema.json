@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iot-ai.tech/schemas/eu-ai-act-conformance-v1.schema.json",
+  "title": "IOT-AI EU AI Act Control Matrix",
+  "type": "object",
+  "required": ["schema", "system_id", "system_version", "declared_purpose", "controls", "global_compliance_claim_allowed"],
+  "properties": {
+    "schema": {"const": "iot-ai.eu-ai-act-compliance-matrix.v1"},
+    "system_id": {"type": "string"},
+    "system_version": {"type": "string"},
+    "declared_purpose": {"type": "string"},
+    "controls": {"type": "object", "additionalProperties": {"enum": ["not_assessed", "not_applicable", "applicable_missing", "implemented_unverified", "verified", "expired", "blocked"]}},
+    "global_compliance_claim_allowed": {"const": false}
+  },
+  "additionalProperties": true
+}

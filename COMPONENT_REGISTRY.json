@@ -1,7 +1,7 @@
 {
   "components": [
     {
-      "archive": "components/iot-ai-mc-gpt/IOT-AI-MC-GPT-v0.8.0-alpha.3-COMPONENT.zip",
+      "archive": "components/iot-ai-mc-gpt/IOT-AI-MC-GPT-v0.8.0-alpha.4-COMPONENT.zip",
       "component_id": "iot-ai-mc-gpt",
       "enabled": true,
       "entrypoint": "iot-ai",
@@ -13,11 +13,11 @@
       "state_namespace": "iot-ai-tech/iot-ai-suite/v1",
       "suite_compatibility": {
         "maximum_exclusive": "7.0.0",
-        "minimum": "6.7.0-beta.3"
+        "minimum": "6.7.0-beta.4"
       },
-      "version": "0.8.0-alpha.3"
+      "version": "0.8.0-alpha.4"
     }
   ],
   "schema": "iot-ai.component-registry.v1",
-  "suite_version": "6.7.0-beta.3"
+  "suite_version": "6.7.0-beta.4"
 }

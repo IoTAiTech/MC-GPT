@@ -1,14 +1,13 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Verify the public repository contract before publication."""
 from __future__ import annotations
 
 import argparse
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -53,24 +52,8 @@ def main() -> int:
     for rel in sorted(REQUIRED):
         if not (root / rel).is_file():
             errors.append(f"missing:{rel}")
-    # Fail only when compiled artifacts are tracked by git (committed leakage).
-    # Runtime __pycache__ after `pip install -e .` in CI is expected and must not block.
-    try:
-        tracked = subprocess.check_output(
-            ["git", "-C", str(root), "ls-files", "-z"],
-            stderr=subprocess.DEVNULL,
-        ).split(b"\0")
-        for raw in tracked:
-            if not raw:
-                continue
-            name = raw.decode("utf-8", errors="replace")
-            if name.endswith(".pyc") or "/__pycache__/" in name or name.endswith("/__pycache__"):
-                errors.append("compiled-python-artifacts-present")
-                break
-    except (OSError, subprocess.SubprocessError):
-        # Offline tree without git: ignore ephemeral caches under __pycache__ only.
-        if any(p.suffix == ".pyc" and "__pycache__" not in p.parts for p in root.rglob("*.pyc")):
-            errors.append("compiled-python-artifacts-present")
+    if any(root.rglob("*.pyc")) or any(path.name == "__pycache__" for path in root.rglob("*")):
+        errors.append("compiled-python-artifacts-present")
     suite_source = (root / "src/iot_ai/suite_version.py").read_text(encoding="utf-8")
     match = re.search(r'SUITE_VERSION\s*=\s*"([^"]+)"', suite_source)
     version = match.group(1) if match else None

@@ -1,7 +1,7 @@
 {
   "assessment_date": "2026-08-06",
   "component_versions": {
-    "iot-ai-mc-gpt": "0.8.0-alpha.3"
+    "iot-ai-mc-gpt": "0.8.0-alpha.4"
   },
   "declared_context": "personal and professional software-development assistance under human control",
   "excluded_purposes": [
@@ -50,5 +50,5 @@
   },
   "schema": "iot-ai.ai-system-card.v1",
   "system_id": "iot-ai-tech.iot-ai-coder-suite",
-  "version": "6.7.0-beta.3"
+  "version": "6.7.0-beta.4"
 }

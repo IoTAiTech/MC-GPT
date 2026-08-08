@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Build the pure-Python Community wheel deterministically without network access."""
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ import re
 import zipfile
 from pathlib import Path
 
-FIXED_TIME = (2026, 8, 4, 0, 0, 0)
+FIXED_TIME = (2026, 8, 8, 0, 0, 0)
 DIST_NAME = "iot_ai_coder_suite"
-PYTHON_VERSION = "6.7.0b3"
+PYTHON_VERSION = "6.7.0b4"
 DIST_INFO = f"{DIST_NAME}-{PYTHON_VERSION}.dist-info"
 WHEEL_NAME = f"{DIST_NAME}-{PYTHON_VERSION}-py3-none-any.whl"
 
@@ -33,10 +33,10 @@ def _metadata(root: Path) -> bytes:
         "Metadata-Version: 2.4",
         "Name: iot-ai-coder-suite",
         f"Version: {PYTHON_VERSION}",
-        "Summary: Evidence-bound multi-coder orchestration with typed roles, Ollama Cloud, diagnostics and portable knowledge.",
+        "Summary: Governed multi-agent coding orchestration for Claude, Codex, Gemini, Grok and Ollama with task validation, meeting reports, deterministic testing and audit.",
         "Author: Dr.-Ing. Babak Sorkhpour",
         "License-Expression: LicenseRef-PolyForm-Noncommercial-1.0.0",
-        "Keywords: ai-agents,multi-agent,multi-coder,ollama,developer-tools,agentic-workflows",
+        "Keywords: ai-agents,multi-agent,multi-coder,agentic-coding,claude-code,openai-codex,gemini-cli,grok-cli,ollama,ai-governance,developer-tools,eu-ai-act",
         "Classifier: Development Status :: 3 - Alpha",
         "Classifier: Environment :: Console",
         "Classifier: Intended Audience :: Developers",
@@ -50,9 +50,10 @@ def _metadata(root: Path) -> bytes:
         "Requires-Dist: openpyxl<4,>=3.1.5",
         "Provides-Extra: dev",
         'Requires-Dist: pytest<10,>=8; extra == "dev"',
-        "Project-URL: Homepage, https://iot-ai.tech",
-        "Project-URL: Documentation, https://iot-ai.tech",
-        "Project-URL: Issues, https://iot-ai.tech",
+        "Project-URL: Homepage, https://github.com/IoTAiTech/MC-GPT",
+        "Project-URL: Documentation, https://github.com/IoTAiTech/MC-GPT#readme",
+        "Project-URL: Repository, https://github.com/IoTAiTech/MC-GPT",
+        "Project-URL: Issues, https://github.com/IoTAiTech/MC-GPT/issues",
         "Project-URL: Commercial, https://iot-ai.tech",
         "License-File: LICENSE",
         "License-File: LICENSE-COMMERCIAL.md",
@@ -72,6 +73,9 @@ def _entry_points() -> bytes:
         "iot-ai-settings = iot_ai.entrypoints:settings_main\n"
         "iot-ai-status = iot_ai.entrypoints:status_main\n"
         "iot-ai-update = iot_ai.entrypoints:update_main\n"
+        "iot-ai-meeting = iot_ai.entrypoints:meeting_main\n"
+        "iot-ai-tasks = iot_ai.entrypoints:tasks_main\n"
+        "iot-ai-multi-coder = iot_ai.entrypoints:multicoder_main\n"
     ).encode("utf-8")
 
 

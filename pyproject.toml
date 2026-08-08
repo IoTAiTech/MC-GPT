@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iot-ai-coder-suite"
-version = "6.7.0b3"
-description = "Evidence-bound multi-coder orchestration with typed roles, Ollama Cloud, diagnostics and portable knowledge."
+version = "6.7.0b4"
+description = "Governed multi-agent coding orchestration for Claude, Codex, Gemini, Grok and Ollama with task validation, meeting reports, deterministic testing and audit."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
@@ -13,7 +13,7 @@ license-files = ["LICENSE", "LICENSE-COMMERCIAL.md", "LICENSE_POLICY.json", "NOT
 authors = [
   {name = "Dr.-Ing. Babak Sorkhpour"}
 ]
-keywords = ["ai-agents", "multi-agent", "multi-coder", "ollama", "developer-tools", "agentic-workflows"]
+keywords = ["ai-agents", "multi-agent", "multi-coder", "agentic-coding", "claude-code", "openai-codex", "gemini-cli", "grok-cli", "ollama", "developer-tools", "agentic-workflows", "ai-governance", "eu-ai-act"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
@@ -44,9 +44,10 @@ iot-ai-tasks = "iot_ai.entrypoints:tasks_main"
 iot-ai-multi-coder = "iot_ai.entrypoints:multicoder_main"
 
 [project.urls]
-Homepage = "https://iot-ai.tech"
-Documentation = "https://iot-ai.tech"
-Issues = "https://iot-ai.tech"
+Homepage = "https://github.com/IoTAiTech/MC-GPT"
+Documentation = "https://github.com/IoTAiTech/MC-GPT#readme"
+Repository = "https://github.com/IoTAiTech/MC-GPT"
+Issues = "https://github.com/IoTAiTech/MC-GPT/issues"
 Commercial = "https://iot-ai.tech"
 
 [tool.setuptools]
@@ -62,6 +63,7 @@ iot_ai = ["data/*.json"]
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true

@@ -1,4 +1,4 @@
-# IOT-AI Coder Suite
+# MC-GPT / IOT-AI Coder Suite
 
 [![CI](https://github.com/IoTAiTech/MC-GPT/actions/workflows/ci.yml/badge.svg)](https://github.com/IoTAiTech/MC-GPT/actions/workflows/ci.yml)
 [![Security](https://github.com/IoTAiTech/MC-GPT/actions/workflows/security.yml/badge.svg)](https://github.com/IoTAiTech/MC-GPT/actions/workflows/security.yml)
@@ -6,16 +6,15 @@
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-lightgrey.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/IoTAiTech/MC-GPT?include_prereleases)](https://github.com/IoTAiTech/MC-GPT/releases)
 
-
 <p align="center">
   <img src="assets/brand/MC-GPT-Logo-Master-1024.png" alt="MC-GPT official product logo" width="240" />
 </p>
 
-> **Suite v6.7.0-beta.3 · MC-GPT v0.8.0-alpha.3**
+> **Suite v6.7.0-beta.4 · MC-GPT v0.8.0-alpha.4**
 > **Community Developer Preview:** personal and noncommercial use, research, modification, forks and redistribution under the repository licence.
 > **Enterprise Customer Edition:** private, contract-bound, signed-entitlement distribution for licensed organisations.
 
-Source-available multi-agent coding orchestration for Claude, Codex, Gemini, Grok and Ollama with governed execution, testing and audit. IOT-AI turns one engineering goal into a privacy-gated, knowledge-first and dependency-aware execution graph. It binds a specialist identity and immutable mission to every agent, chooses live-ready coder or Ollama Cloud models, challenges competing plans, freezes one evidence-bound plan digest, executes only authorised work, verifies deterministic results and exports a sanitised diagnostic trail.
+Source-available multi-agent coding orchestration for Claude, Codex, Gemini, Grok and Ollama with governed execution, testing, audit and privacy-safe reporting. IOT-AI turns one engineering goal into a privacy-gated, knowledge-first and dependency-aware execution graph. It binds a specialist identity and immutable mission to every agent, chooses live-ready coder or Ollama Cloud models, challenges competing plans, freezes one evidence-bound plan digest, executes only authorised work, verifies deterministic results and exports a sanitised diagnostic trail.
 
 ## Overview
 
@@ -67,49 +66,35 @@ iot-ai-multi-coder  role-bound implementation and verification
 
 They do not create a second updater or a second state authority.
 
-They do not create a second updater or a second state authority.
-
-## Tasks vs Multi-Coder (keep separate, unify the UX)
+## Tasks vs Multi-Coder: separate engines, unified workflow
 
 | Surface | Responsibility |
 | --- | --- |
 | **iot-ai-tasks** | Task registry, validation, work units, exclusive leases, progress telemetry, evidence, submit and audit |
 | **iot-ai-multi-coder** | Hybrid multi-provider planning, critique, synthesis, implementation, deterministic tests, repair rounds and independent final review |
 
-**Command semantics**
-
-| Command | Meaning |
+| Command | Exact meaning |
 | --- | --- |
-| `tasks claim` | Reserves one work unit with an exclusive, expiring lease so two coders cannot write the same scope at once |
-| `tasks progress` | Audit telemetry only (stage, percent, summary). Does not execute and does not grant permission |
-| `tasks authorize-execution` | Validation gate only. Confirms the task is ready; does **not** implement code |
-| `tasks execute` | **Deprecated alias** of `authorize-execution` (kept for compatibility) |
-| `tasks run --mode hybrid` | **Actual execution** via Multi-Coder: plan → critique → implement → test → audit → submit path |
-
-Recommended public workflow:
+| `iot-ai tasks claim` | Reserves one work unit with an exclusive, expiring lease |
+| `iot-ai tasks progress` | Audit telemetry only; does not execute or grant permission |
+| `iot-ai tasks authorize-execution` | Validation gate only; does **not** implement code |
+| `iot-ai tasks execute` | Deprecated compatibility alias of `authorize-execution` |
+| `iot-ai tasks run --mode hybrid` | Actual Multi-Coder implementation and verification path |
 
 ```bash
-# 1) validate / authorize (no code changes)
 iot-ai tasks authorize-execution --task-id <task-id>
-
-# 2) hybrid multi-coder execution (implementation + tests + review)
 iot-ai tasks run --task-id <task-id> --mode hybrid
-
-# advanced / debug equivalents remain available:
-iot-ai multi-coder run --task-id <task-id>
-iot-ai tasks solve-all --apply
 ```
 
-Hybrid participation (Claude · Codex · Gemini · Grok · Ollama) improves review quality; it does not by itself guarantee success. Exact served-model receipts, independent critiques, frozen plan digests and deterministic test evidence remain the authority.
-
+Hybrid participation improves challenge and review quality; it is not a success claim. Exact served-model receipts, substantive contribution checks, frozen plan digests and deterministic evidence remain authoritative.
 
 ## Five-minute installation
 
 ### Linux
 
 ```bash
-sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.3-ALL-IN-ONE.zip.sha256
-unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.3-ALL-IN-ONE.zip -d iot-ai-suite
+sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.4-ALL-IN-ONE.zip.sha256
+unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.4-ALL-IN-ONE.zip -d iot-ai-suite
 cd iot-ai-suite
 ./installers/install.sh --home "$HOME" --hosts all --apply
 iot-ai setup discover
@@ -126,6 +111,23 @@ iot-ai status --logs
 ```
 
 Run either installer without its apply flag to see the exact clean-install, managed-version cleanup and rollback plan. The installer preserves settings, databases, customer data and unknown files. See [`docs/installation.md`](docs/installation.md).
+
+### Verified curl / npx / npm bootstrap
+
+Every bootstrap requires the exact release SHA-256 and invokes the same transactional installer; none may patch an active installation in place.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/IoTAiTech/MC-GPT/main/installers/bootstrap.sh -o bootstrap.sh
+sh bootstrap.sh --sha256 <release-sha256> --apply
+```
+
+```bash
+npx @iot-ai-tech/iot-ai@6.7.0-beta.4 install --sha256 <release-sha256> --apply
+# equivalent after explicit npm install:
+npm exec --package=@iot-ai-tech/iot-ai@6.7.0-beta.4 -- iot-ai-bootstrap install --sha256 <release-sha256> --apply
+```
+
+A live GitHub Release download remains unverified until the `v6.7.0-beta.4` tag and release assets exist. Local clean-room curl/npx paths are verified during private release qualification. See [`docs/bootstrap-installation.md`](docs/bootstrap-installation.md).
 
 ## Task validation before claim or execution
 
@@ -155,10 +157,6 @@ iot-ai tasks prepare --task-id <task-id> --action review \
 # apply the optimised task only after explicit user approval
 iot-ai tasks prepare --task-id <task-id> --action approve \
   --validation-id <validation-id> --subject <user-or-founder-subject>
-
-# authorize (gate only) then hybrid-execute through Multi-Coder
-iot-ai tasks authorize-execution --task-id <task-id>
-iot-ai tasks run --task-id <task-id> --mode hybrid
 ```
 
 No lease is issued while validation or the user's decision is pending. Validation is bound to semantic task content; later edits invalidate it. See [`docs/task-validation.md`](docs/task-validation.md).
@@ -190,7 +188,7 @@ Every applied installation is a **clean transactional installation**:
 
 ```bash
 iot-ai update apply \
-  --package IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.3-ALL-IN-ONE.zip \
+  --package IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.4-ALL-IN-ONE.zip \
   --expected-sha256 <exact-sha256> \
   --package-store "$HOME/ai-iot/Install/MC-GPT" \
   --package-archive "$HOME/ai-iot/Archive/MC-GPT" \
@@ -262,6 +260,27 @@ iot-ai-meeting --max-parallel ask all coder and ollama clouds only deeply review
 
 `meeting show` reports requested, attempted, substantive and unsatisfied seats, including separate Ollama coverage. Intentional omission requires `--exclude-ollama` and remains visible in the meeting receipt.
 
+## Federated Meeting reporting
+
+Historical Meeting data may exist in separate `root` and `iot` user stores. Reporting federates only explicitly supplied legacy SQLite stores in read-only mode; it never merges them into the canonical control database and never opens PMD or another product database directly.
+
+```bash
+# Private/restricted evidence bundle: JSON + CSV + Markdown + XLSX + manifest
+IOT_AI_ALLOWED_READ_ROOTS=/path/to/approved/store/root \
+  iot-ai meeting report \
+  --legacy-db /path/to/approved/store/root/root-meetings.sqlite3 \
+  --legacy-db /path/to/approved/store/root/iot-meetings.sqlite3 \
+  --classification restricted --view brief --format bundle \
+  --stale-after-hours 24 --output IOT-AI-MEETING-REPORT.zip
+
+# Public export is D0 + explicit-meeting allowlist only
+iot-ai meeting report --classification public --view brief \
+  --public-meeting-id <approved-meeting-id> --format bundle \
+  --output IOT-AI-PUBLIC-MEETING-REPORT.zip
+```
+
+Reports identify stale `running` sessions, approval/status conflicts, ANSI/control-character cleanup and missing legacy `model_served` telemetry. Missing model identity is shown as **unverified** and never counted as a qualified model contribution. See [`docs/meeting-reporting.md`](docs/meeting-reporting.md).
+
 ## Portable capability packs
 
 The Suite can create deterministic, secret-safe capability archives from one operation contract and expose the same contract at three boundaries:
@@ -314,7 +333,7 @@ The full Orca assessment and machine-readable comparison are in `docs/comparison
 
 ### Quantitative product-surface comparison
 
-| Public characteristic | IOT-AI v6.7.0-beta.3 | Stably Orca | Claude Code Agent Teams | GitHub Copilot Fleet | AgentGem | ServiceNow AI Control Tower |
+| Public characteristic | IOT-AI v6.7.0-beta.4 | Stably Orca | Claude Code Agent Teams | GitHub Copilot Fleet | AgentGem | ServiceNow AI Control Tower |
 |---|---:|---:|---:|---:|---:|---:|
 | Normal-user executables | **5** | Desktop + CLI + mobile surfaces | Claude Code commands | Copilot CLI command | Web/CLI product | Web platform |
 | Named coder adapter families in this release | **4** + Ollama model gateway | **29 named examples** plus arbitrary CLI-agent support documented | **1** vendor family | **1** Copilot runtime | Multiple capture/materialisation paths | Vendor-neutral AI inventory |
@@ -414,6 +433,12 @@ A written IoT-AI.Tech commercial licence is required for company-internal operat
 **IoT-AI.Tech · Germany**
 **Email:** [info@iot-ai.tech](mailto:info@iot-ai.tech)
 **LinkedIn:** [https://www.linkedin.com/company/iot-ai-tech](https://www.linkedin.com/company/iot-ai-tech)
+
+## GitHub discoverability and release hygiene
+
+The public repository is prepared for GitHub search and external indexing through a descriptive README lead, package metadata, badges, repository map, citation metadata, structured issue templates and explicit release notes. Recommended repository description and topics are versioned in [`docs/github-seo-and-release.md`](docs/github-seo-and-release.md).
+
+Before every package or GitHub prerelease, the release operator must re-check current `main`, open pull requests, CodeQL/security findings, CI, public-tree and Git-history boundary scans, README/version alignment, release assets and clone-back verification. A private delivery is never uploaded to the public repository.
 
 ## Repository and GitHub publication
 

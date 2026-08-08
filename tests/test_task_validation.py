@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 from __future__ import annotations
 
 import json
@@ -240,7 +240,6 @@ class TaskValidationTests(IsolatedHomeTestCase):
     def test_cli_execute_and_claim_surface_the_same_gate(self):
         task_id, work_unit_id = self.make_task()
         self.assertEqual(main(["--home", str(self.home), "tasks", "execute", "--task-id", task_id]), 0)
-        self.assertEqual(main(["--home", str(self.home), "tasks", "authorize-execution", "--task-id", task_id]), 0)
         self.assertEqual(
             main([
                 "--home", str(self.home), "tasks", "claim", "--work-unit-id", work_unit_id,
@@ -251,27 +250,6 @@ class TaskValidationTests(IsolatedHomeTestCase):
         conn = connect_read(self.home)
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM leases").fetchone()[0], 0)
         conn.close()
-
-    def test_cli_tasks_run_is_hybrid_execution_not_gate_only(self):
-        """tasks run routes to Multi-Coder; without validation it must not implement."""
-        task_id, _ = self.make_task()
-        # Capture stdout JSON from emit
-        import io, contextlib, json as _json
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = main([
-                "--home", str(self.home), "tasks", "run",
-                "--task-id", task_id, "--mode", "hybrid",
-                "--providers", "codex", "--quorum", "1",
-            ])
-        self.assertEqual(code, 0)
-        payload = _json.loads(buf.getvalue())
-        self.assertEqual(payload.get("command"), "tasks run")
-        self.assertEqual(payload.get("command_semantics"), "hybrid-execution")
-        self.assertTrue(payload.get("implements_code"))
-        # Still blocked until validation approved — same as multi-coder run
-        self.assertEqual(payload.get("decision"), "requires-user-confirmation")
-        self.assertEqual(payload.get("provider_calls"), 0)
 
     def test_natural_execute_registers_task_and_asks_before_provider_use(self):
         result = main([

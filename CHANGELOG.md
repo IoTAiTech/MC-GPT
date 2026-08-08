@@ -2,6 +2,36 @@
 
 All notable changes are documented here. The project follows semantic versioning for the Suite and preserves the independent MC-GPT component version.
 
+## [Unreleased]
+
+## [6.7.0-beta.4] — 2026-08-08
+
+### Added
+- Federated read-only Meeting reporting across explicitly selected canonical/legacy stores with JSON, CSV, Markdown, XLSX and deterministic ZIP bundles.
+- Stale-session detection, approval/status conflict reporting, ANSI cleanup, source manifests and explicit legacy model-telemetry uncertainty.
+- `iot-ai tasks authorize-execution` for the validation-only gate and `iot-ai tasks run --mode hybrid` for actual Multi-Coder implementation.
+- GitHub SEO/release guidance, corrected CODEOWNERS, expanded package keywords and repository metadata.
+- Adversarial tests for trusted-root file hashing, legacy meeting federation, public D0 allowlisting and report-bundle integrity.
+
+### Changed
+- Public Meeting reports are brief-only, D0-only and require an explicit meeting-ID allowlist; private/restricted reports retain evidence under a separate classification.
+- Historical `running` sessions older than the configured threshold are shown as `stale` in reports without modifying source databases.
+- Missing legacy `model_requested`/`model_served` fields are labelled unverified rather than inferred from seat/provider names.
+- Release baseline advanced to GitHub `main@11fa3c840744d953cee183c529040ad27ffb7dbc` plus the verified private `6.7.0-beta.3` delivery.
+
+### Fixed
+- Closed the CodeQL path-injection class by requiring explicit allowed roots, rejecting symlinks/non-regular files and hashing through a no-follow file descriptor where available.
+- Prevented operator-selected package paths from widening trust to their own parent directory.
+- Restored secure worktree creation when the managed run directory does not yet exist.
+- Removed ambiguity between task validation and task implementation commands.
+- Corrected the public GitHub CODEOWNERS organisation handle.
+
+### Security
+- Legacy Meeting databases are opened read-only with `PRAGMA query_only=ON` and integrity checks; PMD/ProductX/customer databases remain API-only and outside the reporting boundary.
+- SHA-256 sidecars contain basenames only; public source manifests omit private absolute paths.
+- Public history, release assets and report exports remain allowlist-built and fail closed on secret/private-infrastructure findings.
+- Production, blanket EU AI Act compliance and live-provider availability claims remain false.
+
 ## [6.7.0-beta.3] — 2026-08-07
 
 ### Added
@@ -21,16 +51,6 @@ All notable changes are documented here. The project follows semantic versioning
 - PMD/dashboard integration remains API-only; direct cross-product database access is rejected.
 - Dashboard-agent seats are read-only and fail on any reported write.
 - Public history replacement requires explicit Founder confirmation and remote-SHA lease matching.
-
-## [Unreleased]
-
-### Security
-- Fail-closed `sha256_file` / `open_secure`: require explicit `allowed_roots`, reject path traversal, absolute escapes, final-component symlinks, non-regular files, and oversized reads; hash via no-follow file descriptor where supported (CodeQL path-injection class).
-
-### Changed
-- Renamed task-execution clarity: `tasks authorize-execution` is the honest validation-gate command; `tasks execute` remains a deprecated alias that does not implement code.
-- Added `tasks run --mode hybrid` as the unified UX path that performs Multi-Coder plan/critique/implement/test/review while keeping Tasks and Multi-Coder engines separate.
-- Documented claim / progress / authorize / run semantics and GitHub SEO description priorities in the README.
 
 ## [6.6.0-beta.3] — 2026-08-06
 

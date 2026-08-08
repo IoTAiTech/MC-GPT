@@ -28,7 +28,8 @@ These controls are defense-in-depth. They do not replace deployment-specific leg
 
 ## Path-constrained file hashing
 
-`iot_ai.util.sha256_file` and `open_secure` require explicit `allowed_roots`.
-Paths outside those roots, final-component symlinks, non-regular files, and
-oversized inputs are rejected. Do not reintroduce unrestricted `Path.open`
-hash sinks for untrusted paths.
+`iot_ai.util.sha256_file` and `open_secure` require explicit trusted roots. Paths outside those roots, final-component symlinks, non-regular files, filesystem-root trust, and oversized untrusted inputs are rejected. Do not reintroduce unrestricted file-hash sinks for user-controlled paths.
+
+## Meeting evidence boundary
+
+Legacy Meeting SQLite stores are accepted only as explicit read-only evidence sources. Public reports require D0 classification plus an explicit meeting-ID allowlist; raw databases and restricted/full reports must never enter public Git history or release assets.

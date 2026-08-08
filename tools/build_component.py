@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Build the public MC-GPT component archive deterministically."""
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ import os
 import zipfile
 from pathlib import Path
 
-FIXED_TIME = (2026, 8, 4, 0, 0, 0)
-COMPONENT_VERSION = "0.8.0-alpha.3"
-SUITE_VERSION = "6.7.0-beta.3"
+FIXED_TIME = (2026, 8, 8, 0, 0, 0)
+COMPONENT_VERSION = "0.8.0-alpha.4"
+SUITE_VERSION = "6.7.0-beta.4"
 SEED_MODULES = {
     "agentic.py", "capability_pack.py", "checkpoints.py", "context_compiler.py", "control_flow.py",
     "decision_receipts.py", "diagnostics.py", "eu_ai_act.py", "european_compliance.py", "goal_contract.py",

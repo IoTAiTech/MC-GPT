@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Article 50 interaction disclosure and machine-readable provenance marks."""
 from __future__ import annotations
 
@@ -54,23 +54,6 @@ VISIBLE_LABELS = {
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PNG_KEYWORD = b"IOT-AI-Provenance"
-
-
-def _hash_roots_for_path(path: Path) -> list[Path]:
-    """Operator-facing file hash roots: cwd, home, optional env, and the file parent only if under those."""
-    import os as _os
-    roots = [Path.cwd().resolve(), Path.home().resolve()]
-    for extra in (_os.environ.get("IOT_AI_ALLOWED_READ_ROOTS") or "").split(_os.pathsep):
-        if extra.strip():
-            roots.append(Path(extra).expanduser().resolve())
-    try:
-        parent = path.expanduser().resolve(strict=False).parent
-        # Only add the file parent when it already lies under a trusted root (do not widen upward).
-        if any(parent == r or r in parent.parents for r in roots):
-            roots.append(parent)
-    except OSError:
-        pass
-    return roots
 
 
 def disclosure_payload(*, surface: str, language: str = "en", provider: str = "IoT-AI.Tech") -> dict[str, Any]:
@@ -390,7 +373,7 @@ def mark_file(
         atomic_text(path, f"IOT-AI-PROVENANCE: {canonical}\n{label}\n\n{clean.decode('utf-8')}", mode=0o644)
         embedded = True
 
-    final_hash = sha256_file(path, allowed_roots=_hash_roots_for_path(path), max_bytes=None)
+    final_hash = sha256_file(path, allowed_roots=[path.parent.resolve()], max_bytes=None)
     receipt = {
         **base_payload,
         "source_content_sha256": initial_hash,
@@ -405,7 +388,7 @@ def mark_file(
         "decision": "pass" if embedded else "needs-work",
         "file": str(path),
         "sidecar": str(sidecar),
-        "sidecar_sha256": sha256_file(sidecar, allowed_roots=_hash_roots_for_path(path), max_bytes=None),
+        "sidecar_sha256": sha256_file(sidecar, allowed_roots=[sidecar.parent.resolve()], max_bytes=None),
         "receipt": receipt,
     }
 
@@ -415,7 +398,7 @@ def verify_file(path: Path) -> dict[str, Any]:
     if not path.is_file() or not sidecar.is_file():
         return {"decision": "block", "errors": ["file-or-sidecar-missing"]}
     receipt = json.loads(sidecar.read_text(encoding="utf-8"))
-    current = sha256_file(path, allowed_roots=_hash_roots_for_path(path), max_bytes=None)
+    current = sha256_file(path, allowed_roots=[path.parent.resolve()], max_bytes=None)
     errors: list[str] = []
     if receipt.get("marked_content_sha256") != current:
         errors.append("marked-content-hash-mismatch")
@@ -452,7 +435,7 @@ def verify_file(path: Path) -> dict[str, Any]:
         "decision": "pass" if not errors else "block",
         "errors": errors,
         "file_sha256": current,
-        "sidecar_sha256": sha256_file(sidecar, allowed_roots=_hash_roots_for_path(path), max_bytes=None),
+        "sidecar_sha256": sha256_file(sidecar, allowed_roots=[sidecar.parent.resolve()], max_bytes=None),
         "embedded": embedded is not None,
         "transparency_profile": receipt.get("transparency_profile"),
     }

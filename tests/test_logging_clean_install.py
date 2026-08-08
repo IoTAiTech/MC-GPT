@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 from __future__ import annotations
 
 import json
@@ -54,7 +54,7 @@ class LoggingAndCleanInstallTests(unittest.TestCase):
             stale = home / ".claude" / "skills" / "iot-ai-obsolete" / "SKILL.md"
             stale.parent.mkdir(parents=True, exist_ok=True)
             stale.write_text("managed old skill\n", encoding="utf-8")
-            state["files"].append({"path": str(stale), "sha256": sha256_file(stale, allowed_roots=[home], max_bytes=None)})
+            state["files"].append({"path": str(stale), "sha256": sha256_file(stale, allowed_roots=[home])})
             atomic_json(install_state_path(home), state)
             unknown = stale.parent.parent / "customer-owned" / "NOTE.md"
             unknown.parent.mkdir(parents=True, exist_ok=True)

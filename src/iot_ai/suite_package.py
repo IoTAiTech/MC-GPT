@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Transactional, PEP-668-safe installer for unified ALL-IN-ONE packages."""
 from __future__ import annotations
 
@@ -65,13 +65,7 @@ def inspect_package(package: Path, expected_sha256: str | None = None) -> dict[s
     """Validate package bytes, metadata, manifest coverage and wheelhouse."""
     if not package.is_file():
         raise FileNotFoundError(package)
-    # Trust boundary is process cwd + user home (+ optional IOT_AI_ALLOWED_READ_ROOTS), not the file parent alone.
-    import os as _os
-    _roots = [Path.cwd().resolve(), Path.home().resolve()]
-    for _extra in (_os.environ.get("IOT_AI_ALLOWED_READ_ROOTS") or "").split(os.pathsep):
-        if _extra.strip():
-            _roots.append(Path(_extra).expanduser().resolve())
-    actual = sha256_file(package, allowed_roots=_roots, max_bytes=None)
+    actual = sha256_file(package, allowed_roots=[Path.cwd().resolve(), Path.home().resolve(), *[Path(v).expanduser().resolve() for v in (os.environ.get("IOT_AI_ALLOWED_READ_ROOTS") or "").split(os.pathsep) if v.strip()]], max_bytes=None)
     if expected_sha256 and actual != expected_sha256:
         raise ValueError("package SHA-256 mismatch")
 

@@ -1,6 +1,6 @@
 <!--
 Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-Version: 6.7.0-beta.3 | Date: 2026-08-06
+Version: 6.7.0-beta.4 | Date: 2026-08-08
 SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 -->
 # NIS2 customer alignment

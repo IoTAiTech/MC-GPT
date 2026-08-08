@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 // Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 // Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-// Version: 6.7.0-beta.3 | Date: 2026-08-07
+// Version: 6.7.0-beta.4 | Date: 2026-08-08
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, copyFileSync, mkdirSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-const VERSION = "6.7.0-beta.3";
+const VERSION = "6.7.0-beta.4";
 const args = process.argv.slice(2);
 const get = (name, fallback = undefined) => { const i=args.indexOf(name); return i>=0 ? args[i+1] : fallback; };
 if ((args[0] || "install") !== "install") { console.error("usage: iot-ai-bootstrap install --package|--url ... --sha256 ... [--apply]"); process.exit(2); }

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Atomic Excel redundancy/projection for the standalone workspace."""
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ def export_workspace(user_home: Path, output: Path | None = None, task_id: str |
         temp = Path(temp_name)
         workbook.save(temp)
         os.replace(temp, output)
-        digest = sha256_file(output, allowed_roots=[user_home, output.parent.resolve()])
+        digest = sha256_file(output, allowed_roots=[user_home, output.parent.resolve()], max_bytes=None)
         manifest = {
             "schema": "iot-ai.excel-projection.v3",
             "generated_at": utc_now(),

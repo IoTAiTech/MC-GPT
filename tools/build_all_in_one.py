@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Build the deterministic Community ALL-IN-ONE installer package."""
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ import zipfile
 from pathlib import Path
 
 FIXED_TIME = (2026, 8, 8, 0, 0, 0)
-SUITE_VERSION = "6.7.0-beta.4"
-MC_GPT_VERSION = "0.8.0-alpha.4"
+SUITE_VERSION = "6.7.0-beta.5"
+MC_GPT_VERSION = "0.8.0-alpha.5"
 ROOT_FILES = {
     "AGENTS.md", "CHANGELOG.md", "CITATION.cff", "CODE_OF_CONDUCT.md", "COMMERCIAL.md", "CONTACT.md", "CONTRIBUTING.md", "GOVERNANCE.md", "COMPONENT_REGISTRY.json", "EDITION_BOUNDARY.json",
     "FINAL_TEST_SUMMARY.json", "LEGACY_IDENTITY_ALLOWLIST.json", "LICENSE", "LICENSE-COMMERCIAL.md", "LICENSE_POLICY.json", "MODEL_POLICY.json",

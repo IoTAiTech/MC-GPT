@@ -1,4 +1,4 @@
-# MC-GPT / IOT-AI Coder Suite
+# MC-GPT — Natural-Language Multi-Agent AI Coding Control Plane
 
 [![CI](https://github.com/IoTAiTech/MC-GPT/actions/workflows/ci.yml/badge.svg)](https://github.com/IoTAiTech/MC-GPT/actions/workflows/ci.yml)
 [![Security](https://github.com/IoTAiTech/MC-GPT/actions/workflows/security.yml/badge.svg)](https://github.com/IoTAiTech/MC-GPT/actions/workflows/security.yml)
@@ -7,214 +7,154 @@
 [![Release](https://img.shields.io/github/v/release/IoTAiTech/MC-GPT?include_prereleases)](https://github.com/IoTAiTech/MC-GPT/releases)
 
 <p align="center">
-  <img src="assets/brand/MC-GPT-Logo-Master-1024.png" alt="MC-GPT official product logo" width="240" />
+  <img src="assets/brand/MC-GPT-Logo-Master-1024.png" alt="MC-GPT official product logo" width="220" />
 </p>
 
-> **Suite v6.7.0-beta.4 · MC-GPT v0.8.0-alpha.4**
-> **Community Developer Preview:** personal and noncommercial use, research, modification, forks and redistribution under the repository licence.
-> **Enterprise Customer Edition:** private, contract-bound, signed-entitlement distribution for licensed organisations.
+> **IOT-AI Suite 6.7.0-beta.5 · MC-GPT 0.8.0-alpha.5**  
+> Community Developer Preview · `production_claim: false`
 
-Source-available multi-agent coding orchestration for Claude, Codex, Gemini, Grok and Ollama with governed execution, testing, audit and privacy-safe reporting. IOT-AI turns one engineering goal into a privacy-gated, knowledge-first and dependency-aware execution graph. It binds a specialist identity and immutable mission to every agent, chooses live-ready coder or Ollama Cloud models, challenges competing plans, freezes one evidence-bound plan digest, executes only authorised work, verifies deterministic results and exports a sanitised diagnostic trail.
+MC-GPT is a source-available, natural-language-first control plane for governed multi-agent software engineering with Claude Code, OpenAI Codex, Gemini CLI, Grok CLI and exact Ollama local/cloud seats. Describe the outcome once; MC-GPT resolves conversational context, selects the authoritative task backend, validates and optimises the work, runs full hybrid meetings, executes Multi-Coder implementation and deterministic tests, diagnoses failures, repairs and retests, audits the evidence, and continues until a truthful terminal state.
 
-## Overview
+<p align="center">
+  <img src="assets/brand/MC-GPT-Control-Plane-Infographic.webp" alt="MC-GPT natural-language Task, Meeting and Multi-Coder closed-loop control plane" width="100%" />
+</p>
 
-Multi-agent tools can create many messages without proving that the right specialists participated, the routes were usable, the plan converged, the implementation was authorised, or the result was safe to publish. IOT-AI separates:
+<p align="center"><sub>AI-generated visual supplied by the Founder; reviewed and approved by Dr.-Ing. Babak Sorkhpour. Provenance: <a href="assets/brand/MC-GPT-Control-Plane-Infographic.provenance.json">JSON</a>.</sub></p>
 
-- specialist role from provider and model;
-- true dependencies from narrative sequencing;
-- planning from execution authority;
-- model opinions from deterministic evidence;
-- private operational data from public release material;
-- portable knowledge from transactional workflow state;
-- named-adapter qualification from generic fallback readiness.
+## Table of contents
 
-```text
-Goal
-→ privacy + 5W1H intake
-→ prior-knowledge coverage check
-→ typed role/dependency/resource graph
-→ live-ready provider and exact-model selection
-→ independent analyses and adversarial challenge
-→ layered deterministic fan-in
-→ frozen plan digest
-→ required-role exact-digest acceptance
-→ authorised implementation and tests
-→ independent verification and audit
-→ database adapter + sealed XLSX projection
-→ versioned knowledge + sanitised diagnostics
-```
+- [Why MC-GPT](#why-mc-gpt)
+- [Natural-language closed loop](#natural-language-closed-loop)
+- [Install in 60 seconds](#install-in-60-seconds)
+- [What the final report contains](#what-the-final-report-contains)
+- [Safety and authority boundaries](#safety-and-authority-boundaries)
+- [Supported coders](#supported-coders)
+- [Ollama Cloud as a first-class provider](#ollama-cloud-as-a-first-class-provider)
+- [Federated Meeting reporting](#federated-meeting-reporting)
+- [Community and Enterprise editions](#community-and-enterprise-customer-editions)
+- [Competitive comparison](#competitive-comparison)
+- [European regulatory engineering](#european-regulatory-engineering)
+- [Testing](#testing)
+- [Licence and contact](#licence)
 
-## Public command surface
+## Why MC-GPT
 
-Normal users need five commands:
+Multi-agent coding tools can generate many messages while leaving the operator to remember task IDs, provider flags, quorum settings, repair commands and what still remains. MC-GPT treats Task, Meeting and Multi-Coder as one correlated lifecycle rather than three separate chores:
 
 ```text
-iot-ai             natural-language goal and advanced subcommands
-iot-ai-help        current commands, purposes and examples
-iot-ai-status      Suite, coder, model, workflow, compliance and log health
-iot-ai-settings    platform-independent settings and execution profiles
-iot-ai-update      one transactional update authority
+Natural-language goal
+→ conversation/context resolution
+→ authoritative backend and bounded WIP waves
+→ task validation and optimisation
+→ full hybrid planning meeting
+→ all eligible Multi-Coder seats
+→ one authorised writer
+→ deterministic tests
+→ automatic failure meeting
+→ bounded repair and retest
+→ independent final review and audit
+→ technical completion / Founder gate / exact external blocker
+→ JSON + Markdown + CSV + XLSX final report
 ```
 
-Meeting, Mesh, Multi-Coder, Tasks, Provider Discovery, Diagnostics and Capability Packs remain available as advanced workflow engines behind the main command. Three compatibility aliases remain visible because they are primary workflows for advanced users:
+A zero-eligible run is `noop`, progress telemetry cannot reopen `awaiting_founder`, one successful model is never called Multi-Coder consensus, and PMD/PRCS tasks are never silently copied into the Suite database.
 
-```text
-iot-ai-meeting      governed decision meeting
-iot-ai-tasks        task validation and lifecycle
-iot-ai-multi-coder  role-bound implementation and verification
-```
+## Natural-language closed loop
 
-They do not create a second updater or a second state authority.
-
-## Tasks vs Multi-Coder: separate engines, unified workflow
-
-| Surface | Responsibility |
-| --- | --- |
-| **iot-ai-tasks** | Task registry, validation, work units, exclusive leases, progress telemetry, evidence, submit and audit |
-| **iot-ai-multi-coder** | Hybrid multi-provider planning, critique, synthesis, implementation, deterministic tests, repair rounds and independent final review |
-
-| Command | Exact meaning |
-| --- | --- |
-| `iot-ai tasks claim` | Reserves one work unit with an exclusive, expiring lease |
-| `iot-ai tasks progress` | Audit telemetry only; does not execute or grant permission |
-| `iot-ai tasks authorize-execution` | Validation gate only; does **not** implement code |
-| `iot-ai tasks execute` | Deprecated compatibility alias of `authorize-execution` |
-| `iot-ai tasks run --mode hybrid` | Actual Multi-Coder implementation and verification path |
+The normal interface is one sentence—not a memorised parameter sequence:
 
 ```bash
-iot-ai tasks authorize-execution --task-id <task-id>
-iot-ai tasks run --task-id <task-id> --mode hybrid
+iot-ai "Finish all critical PMD tasks, use every eligible coder, hold a meeting on each failure, repair and retest until technical completion, then give me one complete table."
+
+iot-ai "Continue the remaining tasks from the last checkpoint and finish everything that can be completed safely."
+
+iot-ai "همه تسک‌های بحرانی PMD را تا پایان انجام بده، در هر خطا جلسه برگزار کن، از همه مدل‌های در دسترس استفاده کن و در آخر گزارش کامل بده."
 ```
 
-Hybrid participation improves challenge and review quality; it is not a success claim. Exact served-model receipts, substantive contribution checks, frozen plan digests and deterministic evidence remain authoritative.
+Execution verbs such as *finish*, *fix*, *repair*, *complete*, `تمام کن`, or `اصلاح کن` request a bounded run to terminal state. Review/report language remains read-only. Public release, production deployment, destructive mutation and Founder final acceptance remain explicit human gates.
 
-## Five-minute installation
+The loop automatically performs:
 
-### Linux
+1. intent compilation and reference resolution;
+2. Suite or authenticated PMD API authority selection;
+3. priority/WIP scheduling in waves;
+4. task validation and optimisation;
+5. full Meeting with all eligible coder/model seats;
+6. Multi-Coder plan, critique, frozen digest and one-writer implementation;
+7. deterministic tests and evidence collection;
+8. failure meeting, repair and retest when needed;
+9. independent final review, audit and technical submit;
+10. a complete terminal report and resumable checkpoint.
+
+Expert commands remain available for diagnostics, but they are not required for the standard workflow. The `run` verb executes by default; add `--plan` for a non-mutating preview:
 
 ```bash
-sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.4-ALL-IN-ONE.zip.sha256
-unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.4-ALL-IN-ONE.zip -d iot-ai-suite
-cd iot-ai-suite
-./installers/install.sh --home "$HOME" --hosts all --apply
-iot-ai setup discover
-iot-ai status --logs
+iot-ai tasks run --all --mode hybrid
+iot-ai tasks run --all --mode hybrid --plan
+
+iot-ai multi-coder run --task-id <task-id>
+iot-ai multi-coder run --task-id <task-id> --plan
 ```
 
-### Windows PowerShell
+See [Autonomous closed-loop orchestration](docs/autonomous-closed-loop.md).
 
-```powershell
-PowerShell -ExecutionPolicy Bypass -File .\installers\Install-IotAiSuite.ps1 `
-  -HomePath $HOME -Hosts all -Apply
-iot-ai setup discover
-iot-ai status --logs
-```
+## Install in 60 seconds
 
-Run either installer without its apply flag to see the exact clean-install, managed-version cleanup and rollback plan. The installer preserves settings, databases, customer data and unknown files. See [`docs/installation.md`](docs/installation.md).
+Every route verifies the exact SHA-256 and calls the same transactional clean installer. Omit `--apply` for a plan-only preview.
 
-### Verified curl / npx / npm bootstrap
-
-Every bootstrap requires the exact release SHA-256 and invokes the same transactional installer; none may patch an active installation in place.
+### curl
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/IoTAiTech/MC-GPT/main/installers/bootstrap.sh -o bootstrap.sh
-sh bootstrap.sh --sha256 <release-sha256> --apply
+sh bootstrap.sh --sha256 <ALL-IN-ONE-SHA256> --apply
 ```
+
+### npx
 
 ```bash
-npx @iot-ai-tech/iot-ai@6.7.0-beta.4 install --sha256 <release-sha256> --apply
-# equivalent after explicit npm install:
-npm exec --package=@iot-ai-tech/iot-ai@6.7.0-beta.4 -- iot-ai-bootstrap install --sha256 <release-sha256> --apply
+npx --yes @iot-ai-tech/iot-ai@6.7.0-beta.5 install --sha256 <ALL-IN-ONE-SHA256> --apply
 ```
 
-A live GitHub Release download remains unverified until the `v6.7.0-beta.4` tag and release assets exist. Local clean-room curl/npx paths are verified during private release qualification. See [`docs/bootstrap-installation.md`](docs/bootstrap-installation.md).
-
-## Task validation before claim or execution
-
-A tester report or user request may be correct, incomplete, stale or technically wrong. Before `claim`, `run --execute`, `multi-coder run --task-id`, `solve-all --apply` or equivalent host execution, IOT-AI asks whether the task should be validated and optimized by all required coder families and eligible model-specific Ollama Cloud seats.
-
-```text
-Task or user goal
-→ validate | use as-is | cancel
-→ visual/content/document/log/code review
-→ technical, UX, security, performance and EU AI Act challenge
-→ optimized task + advanced prompt + KPI/SLA + 10/10/10 cases
-→ required roles accept one exact plan digest
-→ user approves optimized/original/cancel
-→ claim and execution
-```
+### npm exec
 
 ```bash
-# show the validation gate and user question
-iot-ai tasks prepare --task-id <task-id> --action status
-
-# run the evidence-bound validation with all required coder families and model-specific Ollama Cloud seats
-iot-ai tasks prepare --task-id <task-id> --action review \
-  --context ./evidence/screenshot.png \
-  --context ./evidence/runtime.log \
-  --profile ultracode --effort xhigh
-
-# apply the optimised task only after explicit user approval
-iot-ai tasks prepare --task-id <task-id> --action approve \
-  --validation-id <validation-id> --subject <user-or-founder-subject>
+npm exec --yes --package=@iot-ai-tech/iot-ai@6.7.0-beta.5 -- \
+  iot-ai-bootstrap install --sha256 <ALL-IN-ONE-SHA256> --apply
 ```
 
-No lease is issued while validation or the user's decision is pending. Validation is bound to semantic task content; later edits invalidate it. See [`docs/task-validation.md`](docs/task-validation.md).
-
-### Worktree-native parallel execution
-
-For independent implementation or review lanes, IOT-AI can create one tracked-content-only Git worktree per coder. Untracked files and local secrets are not copied, dirty or unmerged work blocks cleanup, and the system produces a review plan rather than merging automatically.
+### Downloaded package
 
 ```bash
-iot-ai worktree plan --repo . --goal "Review the release" --agents codex,grok
-iot-ai worktree create --repo . --goal "Review the release" --agents codex,grok --apply
-iot-ai worktree review <run-id>
+sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip.sha256
+unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip -d iot-ai-suite
+cd iot-ai-suite
+./installers/install.sh --home "$HOME" --hosts all --apply
 ```
 
-See `docs/worktree-orchestration.md`.
+A live GitHub Release download and hosted attestation must be verified after the actual tag/assets exist; local clean-room curl/npx/npm qualification never substitutes for that live gate. See [Bootstrap installation](docs/bootstrap-installation.md).
 
-## Clean installation and upgrade
+## What the final report contains
 
-Every applied installation is a **clean transactional installation**:
+Every terminal run emits JSON, Markdown, CSV and XLSX with these tables:
 
-1. verify the exact package SHA-256 and sealed manifest;
-2. snapshot the current wrapper, managed adapters, component registry and qualification state;
-3. install into an isolated versioned virtual environment (PEP 668 safe);
-4. verify the new Suite and all selected host adapters;
-5. move recognised older active Suite/component versions and old canonical packages into the transaction rollback archive;
-6. preserve settings, databases, customer data, unknown directories and non-managed files;
-7. activate the wrapper atomically;
-8. emit a rollback receipt and exact log locations.
+| Task ID | Title | Backend / Authority | Priority | Initial | Acceptance Evidence | Meeting | Multi-Coder | Tests | Repairs / Iterations | Final State | Remaining Work | Next Actor / Action | Evidence |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 
-```bash
-iot-ai update apply \
-  --package IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.4-ALL-IN-ONE.zip \
-  --expected-sha256 <exact-sha256> \
-  --package-store "$HOME/ai-iot/Install/MC-GPT" \
-  --package-archive "$HOME/ai-iot/Archive/MC-GPT" \
-  --apply
-```
+The bundle also contains provider participation (`model_requested`, `model_served`, outage/fallback status and substantive contribution), every planning/repair iteration, human decisions, exact evidence pointers and a hash manifest.
 
-A prompt-driven installer must invoke the same `iot-ai update apply` transaction. It must not copy files directly, bypass the manifest, use `--break-system-packages`, or patch an installed version in place.
+## Safety and authority boundaries
 
-### Logs
-
-```bash
-iot-ai status --logs
-```
-
-Default Linux locations:
-
-```text
-~/.local/state/iot-ai-tech/iot-ai-suite/v1/logs/iot-ai.jsonl
-~/.local/state/iot-ai-tech/iot-ai-suite/v1/logs/audit.jsonl
-~/.local/state/iot-ai-tech/iot-ai-suite/v1/logs/transactions/
-~/.local/state/iot-ai-tech/iot-ai-suite/v1/logs/diagnostics/
-```
-
-If `XDG_STATE_HOME` is set, it replaces `~/.local/state`. On Windows, logs are below `%LOCALAPPDATA%\IoT-AI.Tech\IOT-AI-Suite\v1\logs`. Every installer, updater, repair, rollback and error response prints these paths.
+- One task ID has one authoritative backend.
+- `PMD-REQ-*` and `PRCS-*` use an authenticated, versioned PMD API adapter; direct PMD SQLite/PostgreSQL access is forbidden.
+- All eligible configured coder families, every exact configured cloud-model seat, and exact Ollama local/cloud seats are attempted at material gates; unavailable seats receive honest outage receipts.
+- At least two independent substantive seats are required for governed R2+ Multi-Coder decisions.
+- One designated implementer writes; reviewers remain read-only.
+- Founder Accept/Reject/Rework is never automated.
+- Public GitHub publication, history replacement, production deployment and destructive operations require explicit authority.
+- Loops are bounded by failure fingerprints, no-new-evidence limits, wall-clock/token budgets and truthful terminal states.
 
 ## Supported coders
+
 
 | Coder family | Main strengths in IOT-AI | Supported access |
 |---|---|---|
@@ -333,7 +273,7 @@ The full Orca assessment and machine-readable comparison are in `docs/comparison
 
 ### Quantitative product-surface comparison
 
-| Public characteristic | IOT-AI v6.7.0-beta.4 | Stably Orca | Claude Code Agent Teams | GitHub Copilot Fleet | AgentGem | ServiceNow AI Control Tower |
+| Public characteristic | IOT-AI v6.7.0-beta.5 | Stably Orca | Claude Code Agent Teams | GitHub Copilot Fleet | AgentGem | ServiceNow AI Control Tower |
 |---|---:|---:|---:|---:|---:|---:|
 | Normal-user executables | **5** | Desktop + CLI + mobile surfaces | Claude Code commands | Copilot CLI command | Web/CLI product | Web platform |
 | Named coder adapter families in this release | **4** + Ollama model gateway | **29 named examples** plus arbitrary CLI-agent support documented | **1** vendor family | **1** Copilot runtime | Multiple capture/materialisation paths | Vendor-neutral AI inventory |
@@ -445,3 +385,4 @@ Before every package or GitHub prerelease, the release operator must re-check cu
 The public repository explains every top-level directory in [`docs/repository-map.md`](docs/repository-map.md). From a complete private delivery, publish only `01_PUBLIC_GITHUB_REPOSITORY/` as Git content and `04_RELEASE_ASSETS/COMMUNITY/` as prerelease assets. Never upload the complete private kit, Enterprise source, vendor licensing tools, private evidence, customer material or internal infrastructure.
 
 See `PUBLIC_REPOSITORY_NOTICE.md`, `COMMERCIAL.md`, `LICENSE`, `SECURITY.md`, `THIRD_PARTY_NOTICES.md` and `docs/`.
+

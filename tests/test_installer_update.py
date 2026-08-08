@@ -1,18 +1,26 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
 import hashlib
 import json
 import os
 import unittest
+import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 from iot_ai.installer import _wrapper_path, install, plan, repair, rollback, status, uninstall, verify
 from iot_ai.paths import config_root, data_root, home as resolve_home
-from iot_ai.update_manager import default_index, load_index, plan as update_plan, status as update_status
+from iot_ai.update_manager import (
+    apply_local as update_apply_local,
+    default_index,
+    load_index,
+    plan as update_plan,
+    status as update_status,
+)
 
 from tests.common import IsolatedHomeTestCase
 
@@ -55,14 +63,76 @@ class InstallerUpdateTests(IsolatedHomeTestCase):
         os.environ["APPDATA"] = str(foreign / "AppData" / "Roaming")
         os.environ["LOCALAPPDATA"] = str(foreign / "AppData" / "Local")
         scoped = resolve_home(str(self.home))
-        self.assertEqual(config_root(scoped), config_root(self.home))
-        self.assertEqual(data_root(scoped), data_root(self.home))
-        # Explicit --home scope must not follow inherited XDG/AppData env roots.
-        self.assertTrue(str(config_root(scoped)).startswith(str(self.home)))
-        self.assertFalse(str(config_root(scoped)).startswith(str(foreign)))
-        install(scoped, ["grok"])
-        self.assertTrue((config_root(self.home) / "install-state.json").is_file())
+        self.assertEqual(config_root(scoped), self.home / ".config" / "iot-ai-tech/iot-ai-suite/v1")
+        self.assertEqual(data_root(scoped), self.home / ".local" / "share" / "iot-ai-tech/iot-ai-suite/v1")
+        install(scoped, ["grok"] )
+        self.assertTrue((self.home / ".config" / "iot-ai-tech/iot-ai-suite/v1" / "install-state.json").is_file())
         self.assertFalse(foreign.exists())
+
+
+    def test_complete_delivery_resolves_exactly_one_nested_all_in_one(self) -> None:
+        inner_name = "IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip"
+        inner_bytes = b"verified nested payload"
+        inner_sha = hashlib.sha256(inner_bytes).hexdigest()
+        outer = self.home / "complete-private-delivery.zip"
+        with zipfile.ZipFile(outer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            member = f"02_RELEASE_ASSETS/COMMUNITY/{inner_name}"
+            archive.writestr(member, inner_bytes)
+            archive.writestr(member + ".sha256", f"{inner_sha}  {inner_name}\n")
+        outer_sha = hashlib.sha256(outer.read_bytes()).hexdigest()
+
+        def fake_install(user_home, package, expected_sha256, **kwargs):
+            self.assertEqual(user_home, self.home)
+            self.assertEqual(Path(package).read_bytes(), inner_bytes)
+            self.assertEqual(expected_sha256, inner_sha)
+            self.assertFalse(kwargs["apply"])
+            return {"decision": "plan", "version": "6.7.0-beta.5"}
+
+        with patch("iot_ai.update_manager.install_package", side_effect=fake_install) as mocked:
+            result = update_apply_local(self.home, outer, outer_sha, apply=False)
+        self.assertEqual(mocked.call_count, 1)
+        self.assertEqual(result["decision"], "plan")
+        self.assertTrue(result["nested_package"])
+        self.assertEqual(result["outer_sha256"], outer_sha)
+        self.assertEqual(result["inner_sha256"], inner_sha)
+        self.assertTrue(result["inner_sha256_sidecar_verified"])
+        self.assertEqual(result["complete_delivery_extracted_members"], 1)
+        self.assertTrue(result["resolved_apply_package"].endswith(inner_name))
+
+    def test_complete_delivery_rejects_ambiguous_nested_packages(self) -> None:
+        outer = self.home / "ambiguous-private-delivery.zip"
+        with zipfile.ZipFile(outer, "w") as archive:
+            for suffix in ("a", "b"):
+                archive.writestr(
+                    f"{suffix}/IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip",
+                    suffix.encode(),
+                )
+        digest = hashlib.sha256(outer.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            update_apply_local(self.home, outer, digest, apply=False)
+
+    def test_complete_delivery_rejects_nested_sidecar_mismatch(self) -> None:
+        inner_name = "IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip"
+        outer = self.home / "mismatched-private-delivery.zip"
+        with zipfile.ZipFile(outer, "w") as archive:
+            member = f"02_RELEASE_ASSETS/COMMUNITY/{inner_name}"
+            archive.writestr(member, b"actual")
+            archive.writestr(member + ".sha256", f"{'0' * 64}  {inner_name}\n")
+        digest = hashlib.sha256(outer.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(ValueError, "nested ALL-IN-ONE package SHA-256 mismatch"):
+            update_apply_local(self.home, outer, digest, apply=False)
+
+    def test_update_rejects_outer_digest_mismatch_before_opening_nested_payload(self) -> None:
+        outer = self.home / "complete-private-delivery.zip"
+        with zipfile.ZipFile(outer, "w") as archive:
+            archive.writestr(
+                "02_RELEASE_ASSETS/COMMUNITY/IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip",
+                b"payload",
+            )
+        with patch("iot_ai.update_manager.install_package") as mocked:
+            with self.assertRaisesRegex(ValueError, "package SHA-256 mismatch"):
+                update_apply_local(self.home, outer, "f" * 64, apply=False)
+        mocked.assert_not_called()
 
     def test_update_index_is_explicit_when_unpublished(self) -> None:
         index = default_index()

@@ -5,96 +5,99 @@
   },
   "classification": "private-release-candidate-awaiting-founder-publication-decision",
   "enterprise_addon_version": "1.2.0-alpha.2",
-  "mc_gpt_version": "0.8.0-alpha.4",
+  "mc_gpt_version": "0.8.0-alpha.5",
   "pending": [
-    "Founder approval before public Git push, tag or GitHub Release",
-    "real GitHub Actions execution, provenance and artifact attestation",
-    "live GitHub Release download until the tag/assets exist",
+    "Founder approval before public Git push, tag, GitHub Release, metadata edit or branch cleanup",
+    "live hosted GitHub Actions CI/Security conclusion and provenance attestation",
+    "live GitHub Release asset download qualification after publication",
     "real Windows on-device qualification",
     "live provider-account and exact served-model qualification",
     "customer PMD/PostgreSQL deployment-specific qualification",
     "deployment-specific German/EU legal review"
   ],
   "production_claim": false,
-  "schema": "iot-ai.final-test-summary.v9",
+  "schema": "iot-ai.final-test-summary.v10",
   "security": {
-    "brand_identity": "pass-zero-unclassified",
-    "codeql_path_injection_class": "closed-with-explicit-roots-no-follow-regular-file-gate",
-    "cross_product_database_access": "forbidden-api-only",
-    "license_headers": "pass-113-of-113",
-    "public_boundary_current_tree": "pass-zero-findings",
-    "public_history": "pass-local-sanitized-history-and-clone-back-zero-findings",
-    "repository_contract": "pass",
-    "static_security": "pass-zero-findings-105-files"
+    "article_50_provenance_controls": "technical-gate-pass-no-blanket-compliance-claim",
+    "article_5_pre_provider_gate": "pass",
+    "complete_private_delivery_resolution": "outer-hash-bound-single-nested-all-in-one-only",
+    "cross_product_database_access": "forbidden-authenticated-versioned-api-only",
+    "full_history_gate": "required-before-real-publication-and-proved-in-local-git-simulation",
+    "public_private_customer_boundary": "pass-current-tree",
+    "unsafe_duplicate_symlink_or_ambiguous_nested_payload": "blocked"
   },
   "source": {
-    "github_main_sha": "11fa3c840744d953cee183c529040ad27ffb7dbc",
+    "github_hosted_ci_status_at_build": "unverified-by-available-connector",
+    "github_hosted_security_status_at_build": "unverified-by-available-connector",
+    "github_main_sha": "8b5f60616636e63d8310d4ace3057a28db46c1d3",
+    "github_release_page_status_at_build": "unverified-by-available-connector",
     "github_repository": "IoTAiTech/MC-GPT",
     "local_sanitized_candidate_commit": "emitted outside the source tree in GIT_SIMULATION.json",
-    "verified_private_baseline_sha256": "20a3687af01fab3b0409977a7117f4811accae23aeb8a635eca53fa77a522d81",
-    "verified_private_baseline_version": "6.7.0-beta.3"
+    "verified_private_baseline_sha256": "00d5961ba5fb33dc71ae81eecd7a0f06449293636d2bc050e2fe661fd125d3e9",
+    "verified_private_baseline_version": "6.7.0-beta.4"
   },
-  "suite_version": "6.7.0-beta.4",
+  "suite_version": "6.7.0-beta.5",
   "tests": {
-    "blackbox_release": {
+    "artifact_and_install_qualification": "emitted outside source tree in FINAL_INDEPENDENT_VERIFICATION.json",
+    "branch_aware_coverage_percent": 71,
+    "branch_coverage_percent": 56,
+    "eu_ai_act_technical_gate": {
       "decision": "pass",
-      "schema": "iot-ai.blackbox-release.v2",
-      "steps": 15
+      "global_compliance_claim_allowed": false
     },
-    "branch_aware_coverage_percent": 72,
-    "component_uninstall_rollback": "pass",
-    "curl_bootstrap": "pass-local-http-release-server",
-    "deterministic_dual_build": "pass-wheel-component-source-all-in-one-npm",
-    "focused_security_meeting_task_tests": {
+    "focused_task_meeting_multicoder_update": {
       "failed": 0,
-      "passed": 27
+      "passed": 44
     },
-    "git_simulation": {
-      "annotated_tag": "v6.7.0-beta.4-rc.1",
-      "bare_remote_clone_back": "pass",
-      "clone_pytest": 205,
-      "clone_unittest": 205,
+    "git_simulation": "emitted outside source tree in GIT_SIMULATION.json",
+    "license_headers": {
+      "checked": 123,
       "decision": "pass",
-      "tree_and_history_findings": 0
+      "missing": 0
     },
-    "meeting_reporting": {
-      "formats": [
-        "json",
-        "csv",
-        "markdown",
-        "xlsx",
-        "deterministic-zip"
-      ],
-      "founder_approval_status_conflicts": 17,
-      "legacy_model_telemetry_issue_meetings": 112,
-      "lifecycle_issues": 145,
-      "model_telemetry_complete_meetings": 5,
-      "participant_records": 522,
-      "participant_records_without_verified_model_served": 521,
-      "public_d0_allowlist_sample": "pass-one-meeting-no-private-path-or-network-literal",
-      "restricted_federated_meetings": 117,
-      "statuses": {
-        "blocked": 32,
-        "needs-review": 69,
-        "stale": 16
-      }
+    "public_boundary_current_tree": {
+      "decision": "pass",
+      "findings": 0
     },
-    "normal_update_rollback": "pass-beta3-byte-restore-and-customer-data-preservation",
-    "npm_install_bootstrap": "pass-local-project-install",
-    "npm_pack_dry_run": "pass-four-members",
-    "npx_bootstrap": "pass-local-tarball-and-package",
     "pytest": {
       "failed": 0,
-      "passed": 205,
+      "passed": 220,
       "warnings_as_errors": true
     },
-    "shell_install_uninstall_rollback": "pass",
-    "tampered_package_rejection": "pass-shell-and-node-exit-3",
+    "repository_contract": {
+      "decision": "pass",
+      "sbom_checked": true
+    },
+    "runtime_compiler_benchmark": {
+      "decision": "pass",
+      "iterations": 3000,
+      "p95_ms": 1.1738,
+      "target_p95_ms": 10.0
+    },
+    "statement_coverage_percent": 76,
+    "static_security": {
+      "decision": "pass",
+      "files": 113,
+      "findings": 0,
+      "high_findings": 0
+    },
     "unittest": {
       "errors": 0,
       "failed": 0,
-      "passed": 205
-    },
-    "wheel_clean_room_install": "pass-eight-command-entry-points"
+      "passed": 220
+    }
+  },
+  "workflow_closure": {
+    "acceptance_scorecard_overlap_or_stale_receipt": "blocked",
+    "all_eligible_exact_model_seats_at_material_gates": "required",
+    "awaiting_founder_progress_reopen": "blocked",
+    "conversation_state_and_reference_resolution": "pass",
+    "founder_final_acceptance": "human-only",
+    "meeting_on_provider_or_verification_failure": "automatic",
+    "natural_language_primary": true,
+    "single_engine_false_consensus": "blocked",
+    "task_backend_authority": "suite-or-authenticated-pmd-api-no-silent-dual-store",
+    "task_meeting_multicoder_loop": "implemented-bounded-self-correcting",
+    "zero_eligible_false_green": "noop-not-pass"
   }
 }

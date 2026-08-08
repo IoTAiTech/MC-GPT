@@ -1,0 +1,1360 @@
+{
+  "files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "53ab33f5cf28469ebd5679e01d1e9d2a1b654e2836b3bb25802b5f3884906456",
+      "size": 149
+    },
+    {
+      "path": ".github/CODEOWNERS",
+      "sha256": "ec23fc388a18399c2821fe90d5152afe518afe12bb70f59d077db3f742312d26",
+      "size": 364
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "sha256": "d6e79a4eb680038ae1f47d99e74c21cf377d4a612893ca508d7b00ecfb0e5ee6",
+      "size": 1269
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.yml",
+      "sha256": "12898d8bed1c80f5b99672548270c9e69c4670cdb1a1ac17ed754e1609c06efa",
+      "size": 838
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "sha256": "1919513fb708cee3a1583409afee6e517cf7faada2d9880f917214cfa7fdb532",
+      "size": 886
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "sha256": "3cd02b859c863b7cd4485978e68e18cc9550e126cfcdbf8a230c2ea04b6b66bb",
+      "size": 269
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "f7001908c920572436c86e6706f090c4802db27b5d2ae94f2b474d5c99c6cd6d",
+      "size": 3494
+    },
+    {
+      "path": ".github/workflows/public-boundary.yml",
+      "sha256": "d37ec434aa106512e2cabd4bc0f2f611ada79167eb8c43916c1697d882264fce",
+      "size": 674
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "sha256": "87f3e4df4d4f86a8d4176be009023aaf87509a1aebbec42cac328a16f2fd89c1",
+      "size": 3749
+    },
+    {
+      "path": ".github/workflows/security.yml",
+      "sha256": "098b2bf077c3b361eb4769724774dba7bad1f02a024d454a3e6c63526a3dddfe",
+      "size": 1200
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "c629eabfff1c993690e0427faad2d6cf60b63515961d475ebf33087aeeddc1c7",
+      "size": 428
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "5599bfbc882555f922258852b5486f332e6ed96d4c2344634abf94817da76652",
+      "size": 2374
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "812698d776520c4bcec8f8ac57feae53829b7ad920f0fd50cbcc31d6b37b6167",
+      "size": 19375
+    },
+    {
+      "path": "CITATION.cff",
+      "sha256": "6badb6543b43f02c12a62b5c5fbf6d40397e6150589524fe3aa2caeadfd3a538",
+      "size": 515
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "sha256": "5d0fc4b7bc26645e8edb1cc7e6bd0b95fc491c8013661071623a767bb051a80d",
+      "size": 350
+    },
+    {
+      "path": "COMMERCIAL.md",
+      "sha256": "1ccdad0154b60991756f4ec4d91a1a2f7062bdc87c59d0a17b47bf6154e1572c",
+      "size": 1170
+    },
+    {
+      "path": "COMPONENT_REGISTRY.json",
+      "sha256": "51b5733c42175786f3ea1b987ae7e4b44618417ac85c746fc6da7847354089e8",
+      "size": 774
+    },
+    {
+      "path": "CONTACT.md",
+      "sha256": "c095f941a2dd4389725cbaeaba330668daff193f1694d00c59fea30550af302d",
+      "size": 551
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "sha256": "8f39a5a6334595547f813197d3c0bd42e8b0990d4a52c7cd5a7c4c75a6d0aa4c",
+      "size": 1410
+    },
+    {
+      "path": "EDITION_BOUNDARY.json",
+      "sha256": "906d80329a8c6486c7b1b34a8854acb35600bb3a800e05f3f2de49cf0a440f86",
+      "size": 974
+    },
+    {
+      "path": "FINAL_TEST_SUMMARY.json",
+      "sha256": "d4d09a99e1ec0d296288e51f728f0c95d29cf5f9c15f22bc9d8ebed955ed4bef",
+      "size": 4084
+    },
+    {
+      "path": "GITHUB_REPOSITORY_METADATA.json",
+      "sha256": "e6cc6caf372b4dff283d2385c2550109768f1232a221361c042d8c2ee78f4575",
+      "size": 848
+    },
+    {
+      "path": "GOVERNANCE.md",
+      "sha256": "b3026ed7cb345d61b2acfec3dfcca8a5044e415859d26d810c36288fda9af0ea",
+      "size": 499
+    },
+    {
+      "path": "LEGACY_IDENTITY_ALLOWLIST.json",
+      "sha256": "57c0f77fb62c508b0dcee9c62cd31560918149c4741ee1bba41cd359dc359b8a",
+      "size": 1052
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "e14c0302676c4e86069d1290e9ea25fc71640fb90548eb78b10052b2d1c51690",
+      "size": 4716
+    },
+    {
+      "path": "LICENSE-COMMERCIAL.md",
+      "sha256": "09996145e686966bddc489dfb4c1f8dd2a128811235c2ba868a76cda130bb04d",
+      "size": 838
+    },
+    {
+      "path": "LICENSE_POLICY.json",
+      "sha256": "673c9e10a96937c5c88ca1c26aaf9dbc0ecf31be54d49664dde8a10a3830f851",
+      "size": 853
+    },
+    {
+      "path": "MANIFEST.in",
+      "sha256": "accd04f287076aeacc7c932138265dc37e8aa1d8beeab833a413d8bfe9c16cd5",
+      "size": 483
+    },
+    {
+      "path": "MODEL_POLICY.json",
+      "sha256": "5b27dda8217e986c9eefdfec62aa7ede43d9810c15849da1d31a16b049cac74e",
+      "size": 1353
+    },
+    {
+      "path": "NOTICE",
+      "sha256": "482ee1224d1f0684d5d610a4004b831c1a990e4bc884e98cce9b868a5b4ded8d",
+      "size": 677
+    },
+    {
+      "path": "PACKAGE_LINEAGE.json",
+      "sha256": "91c938b0e816663b3bf622e7e8404789ca9a1d9d502bf56b385a85d86441ce18",
+      "size": 1416
+    },
+    {
+      "path": "PACKAGE_METADATA.json",
+      "sha256": "52502d3e49d66dfc7ab2640f92fcb0a1f415ac5e8a3cc4a236fd260b367bc78c",
+      "size": 520
+    },
+    {
+      "path": "PUBLIC_REPOSITORY_NOTICE.md",
+      "sha256": "89c7d15755cc012b9ee33de43c57e32a23d2c64752c874640713b024a168a4e9",
+      "size": 1700
+    },
+    {
+      "path": "README.md",
+      "sha256": "25886c83ce46a0d8f747d8559a42d01ff16ae1de661628cced54995dce4332ee",
+      "size": 25479
+    },
+    {
+      "path": "RELEASE_NOTES.md",
+      "sha256": "1aceeec1f0f59ec6d8a15488fa51fb1e94df7d71bb343b94fd2c694325d5458a",
+      "size": 1444
+    },
+    {
+      "path": "RELEASE_STATUS.json",
+      "sha256": "3310c1cc0c3168fe8ddd7632dfbbab88b31a1105819097dea171cc7479fe4937",
+      "size": 4221
+    },
+    {
+      "path": "REVIEW_SCOPE.md",
+      "sha256": "2b2153f9fe95a51d721c19c1eda5ecdc15fb9f3b67a41d920921bd5984cac275",
+      "size": 1195
+    },
+    {
+      "path": "ROADMAP.md",
+      "sha256": "a7959c7f1f1ed61df768e175b48523c7fd62c3286a7431f135240d43b82879bf",
+      "size": 1240
+    },
+    {
+      "path": "SBOM.cdx.json",
+      "sha256": "a3b91a659c3a126388ff4bbbf6c208caa14161ae653c236e8fc47b8f5931fd33",
+      "size": 1110
+    },
+    {
+      "path": "SECURITY.md",
+      "sha256": "cc2aa2bd8da515fd50890ab55096873c9f65b8293f3a6b4781826f9739185367",
+      "size": 1918
+    },
+    {
+      "path": "SUPPORT.md",
+      "sha256": "b70b87590324530e795dba05c9c2e94aefbae12f6d0f29af102094a60266ed0d",
+      "size": 457
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "887bdfec847d5c3da181e7ad3f3171ffd877054fe3269452bed12b82d15bc0f6",
+      "size": 369
+    },
+    {
+      "path": "TRADEMARKS.md",
+      "sha256": "b08912be02c4367650ff70753a557b40d09abc656a55426c1f23f457527526a8",
+      "size": 224
+    },
+    {
+      "path": "assets/brand/MC-GPT-BRAND-MANIFEST.json",
+      "sha256": "4da989873c4beb806f44d351f874be9f2ef3cf254f33bb7fd69c7d9547a13988",
+      "size": 659
+    },
+    {
+      "path": "assets/brand/MC-GPT-Control-Plane-Infographic.provenance.json",
+      "sha256": "53f339786f911df39f174a6404dbce78f5b61d725093469d593caf564c091f07",
+      "size": 610
+    },
+    {
+      "path": "assets/brand/MC-GPT-Control-Plane-Infographic.webp",
+      "sha256": "1310dbb5034fb12964a1b096c33824cc73ee46398c1ec6e41729829558f01cc6",
+      "size": 286700
+    },
+    {
+      "path": "assets/brand/MC-GPT-Logo-Master-1024.png",
+      "sha256": "600dd068a64087c3e2f235915cc600e1acbd4f59170cd5f1751a4697484069b6",
+      "size": 1569756
+    },
+    {
+      "path": "assets/brand/MC-GPT-Social-Preview-1280x640.jpg",
+      "sha256": "ea0608c6a33bde561a9f0c50269d09e907c5d6b35dd43bdd8cf031966191583f",
+      "size": 199058
+    },
+    {
+      "path": "docs/CODER_DIRECTIVE_MC_GPT_BETA5_AUTONOMOUS_LOOP_v1.0.0.md",
+      "sha256": "a956e66e91ed0d65527f3be7d19695f467d3da51294b7a23b3670495c09e2f93",
+      "size": 5319
+    },
+    {
+      "path": "docs/MC-GPT-AUTONOMOUS-CLOSED-LOOP-ORCHESTRATION-SPEC-v1.0.0.md",
+      "sha256": "d75b9913e642697f3f1ef9dc8feeb3539f6cefc3fa286fb4d8b76107ab1ea99e",
+      "size": 17017
+    },
+    {
+      "path": "docs/PRODUCT_GUIDE.md",
+      "sha256": "6c5128aa4495d9dc860d76a73d06ab776b5bfb47e2b0b5210cdce182ab8ac01b",
+      "size": 3687
+    },
+    {
+      "path": "docs/agent-runtime.md",
+      "sha256": "cc63356cc1c8404bb6dfc3af7479b59a611b43de9bae0c5417ee4e57b2d04c5f",
+      "size": 2368
+    },
+    {
+      "path": "docs/architecture.md",
+      "sha256": "0e8e1347fcf87dbac628f70c8740b330c6350ed354dfc5293106be1844f25812",
+      "size": 4437
+    },
+    {
+      "path": "docs/autonomous-closed-loop.md",
+      "sha256": "b39777e1c1a18df5da8e28f7c48bb2373880ab6a972c1893c23a660fff1871bc",
+      "size": 2120
+    },
+    {
+      "path": "docs/bootstrap-installation.md",
+      "sha256": "abaa2578a9f05adefba883d25af046dd1a90c170596d81fb22686bfa859e2d4e",
+      "size": 936
+    },
+    {
+      "path": "docs/brand-identity-migration.md",
+      "sha256": "3984671e85a0fd4746e671a8eed3eeb67dc4f6bd3c8d2e3e188753d3dd3ce510",
+      "size": 1275
+    },
+    {
+      "path": "docs/capability-packs.md",
+      "sha256": "3d75347381e0b3befbedeb0731a2cc93a0afc4ad79b2a21a47be74500a73fc11",
+      "size": 826
+    },
+    {
+      "path": "docs/commercial-edition.md",
+      "sha256": "5d4c3f1bfdf0dbcf7e2363c836f4f0eb717a4ffd51273d0dff75ca7026d36080",
+      "size": 666
+    },
+    {
+      "path": "docs/commercial-license-request.md",
+      "sha256": "fcae1511a10d99ee3765a1d52e73cb9362999cf1078e3c6e410c4a93538c20af",
+      "size": 327
+    },
+    {
+      "path": "docs/comparison/ORCA_COMPARISON.json",
+      "sha256": "98181cf07e25cae31602784fdb98744f9a3043125fdce57bcbde76d13fb46baa",
+      "size": 2075
+    },
+    {
+      "path": "docs/comparison/ORCA_COMPARISON.md",
+      "sha256": "39860761cf92752c8110bb4f90b17259b0feebcb47da4ba7264bbfd407aea788",
+      "size": 8549
+    },
+    {
+      "path": "docs/competitor-patterns.md",
+      "sha256": "647c24064b591686d9e6549871a4279387252aed0042fcbd8c71f281eef6ca91",
+      "size": 3477
+    },
+    {
+      "path": "docs/compliance/AI_ACT_CLASSIFICATION.md",
+      "sha256": "c7cd4bed5b815942694e37ae5fffee01cf037e69c2151e0d4dcda917a2efde5b",
+      "size": 809
+    },
+    {
+      "path": "docs/compliance/AI_ACT_SYSTEM_CARD.json",
+      "sha256": "0fa37fe1b86189d88adad1fa78a681d01e36a8754bdfa75ffc4aa93f3989b080",
+      "size": 2404
+    },
+    {
+      "path": "docs/compliance/AI_ACT_SYSTEM_CARD.md",
+      "sha256": "cdf55678a56e5ddd0ef3bc8d6a43a7e96ddc7eb4826a8a579a53235db5112860",
+      "size": 840
+    },
+    {
+      "path": "docs/compliance/AI_GENERATED_CONTENT_MARKING.md",
+      "sha256": "f1e264ddda208e6c49c2506a7ac9bf488dc51d445e049bdad147590f75c045b5",
+      "size": 1241
+    },
+    {
+      "path": "docs/compliance/AI_INCIDENT_RESPONSE.md",
+      "sha256": "54096964d5ac08309191491f7b3e2283f14985c7fceb0ac26a6ac99bb62ccce6",
+      "size": 1385
+    },
+    {
+      "path": "docs/compliance/AI_INTERACTION_TRANSPARENCY.md",
+      "sha256": "ad17463bcedb3a21da1bd33dd33e5eb12442785b1cc5f27f5ffc71141e9782b0",
+      "size": 670
+    },
+    {
+      "path": "docs/compliance/AI_LITERACY_PROGRAM.md",
+      "sha256": "482923c3a08668778aa6e1dc35d2faa9d32a2cf5e171a4ea020c28f62267ca0e",
+      "size": 918
+    },
+    {
+      "path": "docs/compliance/CLAIM_EVIDENCE_REGISTER.json",
+      "sha256": "904b936699cba97f738b7fcb3e8a2a6214fcfbfcd8797be9c73e4b91b3cb851b",
+      "size": 889
+    },
+    {
+      "path": "docs/compliance/CRA_READINESS.md",
+      "sha256": "80ea2bf21239e15e283b8a8b09ad16bd6b866997d2ca353989e41e6045156ecd",
+      "size": 1637
+    },
+    {
+      "path": "docs/compliance/EU_AI_ACT_COMPLIANCE_MATRIX.json",
+      "sha256": "c65d6760b6f9f6366c1ac0916bc335651088de7484b56a6888553791f45cd2c5",
+      "size": 1694
+    },
+    {
+      "path": "docs/compliance/EU_AI_ACT_TECHNICAL_CONTROLS.md",
+      "sha256": "59d019b32f09ca1ed040f66c815317ff9e2e8c0a12696715bfc235017000013c",
+      "size": 3416
+    },
+    {
+      "path": "docs/compliance/EVIDENCE_INDEX.json",
+      "sha256": "4424d856778196112ff3d342410548ac65d1d9b2632e2deb177ecaea09b1b5b5",
+      "size": 1929
+    },
+    {
+      "path": "docs/compliance/GDPR_ENGINEERING_CONTROLS.md",
+      "sha256": "e7346670c3c180a3b4b8202135402618a7cdec43a0e556e9387b44816dcd3470",
+      "size": 1310
+    },
+    {
+      "path": "docs/compliance/HUMAN_OVERSIGHT.md",
+      "sha256": "45e0fcff7dd1469e9b190ef3f85b21c633901a7127925b1dd856a3d8523929b0",
+      "size": 540
+    },
+    {
+      "path": "docs/compliance/INTENDED_PURPOSE_AND_LIMITATIONS.md",
+      "sha256": "8a815fd560ca9a8ce15603c76cfd681b67212e2b86b2f9d2b7aa51c8d37d7cb4",
+      "size": 1185
+    },
+    {
+      "path": "docs/compliance/LEGAL_BASELINE.json",
+      "sha256": "0d846fe82b424ca7e55f612789e9faaf8c0a271219eadea39665761dc20a333f",
+      "size": 1270
+    },
+    {
+      "path": "docs/compliance/NIS2_CUSTOMER_ALIGNMENT.md",
+      "sha256": "ad4a0f3d9afad3d4902388dc475abf9dd8fac2df0418bb95fadc11c98a326134",
+      "size": 1306
+    },
+    {
+      "path": "docs/compliance/POST_MARKET_MONITORING.md",
+      "sha256": "eeae820c4cef509b2f1c35f181fcf2645f4df13a9e04f8d0071f4689a7825627",
+      "size": 680
+    },
+    {
+      "path": "docs/compliance/PROHIBITED_USES.md",
+      "sha256": "e1f679edee3d79063ad414599712e7cf9d8a2f2421461eca39942d517420b88d",
+      "size": 1087
+    },
+    {
+      "path": "docs/compliance/PUBLIC_PRIVATE_DATA_BOUNDARY.md",
+      "sha256": "f2a1e8c5fdfff3bf025bb059f8d0bc6ef3fb09148c97daf9bf8521a57e27702a",
+      "size": 625
+    },
+    {
+      "path": "docs/compliance/README.md",
+      "sha256": "bdbba643bb1c65a42b03004ce3ca0b3c01545c73aeb02f79bb80a51424a67d7c",
+      "size": 1412
+    },
+    {
+      "path": "docs/compliance/RELEASE_GATE_DECISION.md",
+      "sha256": "19bd019af7db258eaa698d89d4c95b826ed70c0a8a80c89742c06ca0cd50c323",
+      "size": 1256
+    },
+    {
+      "path": "docs/compliance/UPSTREAM_MODEL_REGISTER.json",
+      "sha256": "4222c4a438179fb264448aeaf28fd5a0a8dd0e58140f377501a50c474b2da440",
+      "size": 1913
+    },
+    {
+      "path": "docs/context-engineering.md",
+      "sha256": "385a595ad23cc8dde088863c7cea2605bf4543c32e83a47bbaecde0a3d57ea8b",
+      "size": 1581
+    },
+    {
+      "path": "docs/dashboard-roadmap.md",
+      "sha256": "9948623c930724662c2197e0067e23402fe914adb6c8cba268d744a58033515e",
+      "size": 354
+    },
+    {
+      "path": "docs/diagnostics.md",
+      "sha256": "852c78d6385dd477594e514b41a5a505357f0e756e515a425bd4096eeada52c4",
+      "size": 473
+    },
+    {
+      "path": "docs/first-public-release.md",
+      "sha256": "544aa2a859e3eff1d8be495cf0ea5c6e0a96397f7d19b39dba8d0d1fbb702c84",
+      "size": 2255
+    },
+    {
+      "path": "docs/github-publishing-runbook.md",
+      "sha256": "24705b47c58c70304ee2f19c9f2ff0f31e2727d0bfbf74754a26bb4e3dbc6227",
+      "size": 3419
+    },
+    {
+      "path": "docs/github-seo-and-release.md",
+      "sha256": "fbc08f040323fba410fb52f085d2673b0172ae188e65f1d361be7d72cd503df1",
+      "size": 3292
+    },
+    {
+      "path": "docs/global-project-release-standard.md",
+      "sha256": "6e26a47db6a25536b069ede80bf72916e7da2d3cf4c614b16000b294d77223c3",
+      "size": 505
+    },
+    {
+      "path": "docs/goal-first-orchestration.md",
+      "sha256": "3f11ebfd18c083600754167ae26a70187c3327c35609a38c4c8f1788d6bf9377",
+      "size": 1922
+    },
+    {
+      "path": "docs/installation.md",
+      "sha256": "f9df46d82d8593bcc0346e942b8db8b49f10f540b554b81b25db41493c7ebd7a",
+      "size": 3103
+    },
+    {
+      "path": "docs/knowledge-and-rag.md",
+      "sha256": "8f13e5e1268ea47794db83e902f7aba6a963444f38f9a2adb8050b630b68d696",
+      "size": 353
+    },
+    {
+      "path": "docs/licensing-and-forks.md",
+      "sha256": "3a3b3599653e0a28c888f3551186b6cea01838aadf5f5bba9cdddf761ce00d13",
+      "size": 1228
+    },
+    {
+      "path": "docs/meeting-integration.md",
+      "sha256": "b6970de9975564fb5b50e6babdda28edf13aa8309eaee6792121ef9061743edf",
+      "size": 1034
+    },
+    {
+      "path": "docs/meeting-reporting.md",
+      "sha256": "afd72a8658699a8d02355e50c72a2f989837269706ba78b5c3947eb8962a27ca",
+      "size": 2511
+    },
+    {
+      "path": "docs/meeting.md",
+      "sha256": "76abfa43bc589ff37b3bd206aee3285c9ce4a6a18241b4bc4e9b34011ab49eb9",
+      "size": 955
+    },
+    {
+      "path": "docs/multi-coder.md",
+      "sha256": "ba456e19d6b27e0bf7844cc60ca452b69b7be76c18030126a9d7c65c24ccd388",
+      "size": 1068
+    },
+    {
+      "path": "docs/platform-and-storage-ports.md",
+      "sha256": "ceefe3554bc14a68aa14f759f3d8aac6bdd044d05cb3f49f4aafaedb32b0f764",
+      "size": 412
+    },
+    {
+      "path": "docs/privacy-and-cloud.md",
+      "sha256": "a3b2944515b23544249b61ed17d704cc2e0eae04ab8c4e4916f0b03f366599b1",
+      "size": 397
+    },
+    {
+      "path": "docs/providers.md",
+      "sha256": "877d4085c07815a782d880289ca649418c7d6766e0a8107a9ab89d702e3156dd",
+      "size": 294
+    },
+    {
+      "path": "docs/quickstart.md",
+      "sha256": "df9254f4ee19bc619068be75729251f72489716bbe6d3a4856b1eefd008e779f",
+      "size": 687
+    },
+    {
+      "path": "docs/release-verification.md",
+      "sha256": "e7d5e2ecd113a6932ef532f5e1b29f638aa32c91f6187c86007837f455a43cdb",
+      "size": 835
+    },
+    {
+      "path": "docs/reporting.md",
+      "sha256": "15158d142e6c0065ff8b7f6a81df5753b679a04f1fa7ac7ba145d94f1aa05417",
+      "size": 623
+    },
+    {
+      "path": "docs/repository-map.md",
+      "sha256": "2ce7374503b90c13f105eccd2841bff1531acae3f7af15fde3710db81d4d31fd",
+      "size": 2005
+    },
+    {
+      "path": "docs/research/agentgem-adoption.md",
+      "sha256": "3e5190e06b9d50e86c416ed5069259dcf076de70e6714ea34b59980005918e05",
+      "size": 1443
+    },
+    {
+      "path": "docs/research/hanako-mahaximus-adoption.md",
+      "sha256": "d1a6b51097202bc6dcc611dce27ddea238a69117212490179acf302362186740",
+      "size": 2077
+    },
+    {
+      "path": "docs/research/x-post-2084625810112032849.md",
+      "sha256": "26c672c7bd2658e8996bffcc6e0bf1da6747c9a0439ece99758721f1fb6c1635",
+      "size": 1524
+    },
+    {
+      "path": "docs/security-sandbox.md",
+      "sha256": "b747da7a1191b27d6145e84ee9065157e3325fc7381a5a8a1944fe9aadc2e70a",
+      "size": 411
+    },
+    {
+      "path": "docs/settings.md",
+      "sha256": "f73f5d26f2b6b5b3e1b07e7bda1cfac1fa90d8645bd95f72a503419a8abc783e",
+      "size": 442
+    },
+    {
+      "path": "docs/setup.md",
+      "sha256": "f68784da2b1a0728c3cf3c463c65bc1647cd80aa07ca70f5c8840a989ed82707",
+      "size": 1399
+    },
+    {
+      "path": "docs/status.md",
+      "sha256": "b15e55f3df18970f51112bd5daa9225f38f1f203a3a4ea76ec67cc7a88219ec9",
+      "size": 957
+    },
+    {
+      "path": "docs/supported-coders-and-ollama.md",
+      "sha256": "9163668f09ae9167fca3ff027821f74b6f54586aab855fe64a37e1efec960e43",
+      "size": 2641
+    },
+    {
+      "path": "docs/task-validation.md",
+      "sha256": "5bee2fda0ca9eadf5c1a8d2d9f6d2281d442ee787783aaedc05b7b3a5dbef24e",
+      "size": 5959
+    },
+    {
+      "path": "docs/tasks.md",
+      "sha256": "e794ae45828caf4fae3a8fb43217bad83991134ae5dd21c7a47414e3c5516842",
+      "size": 1088
+    },
+    {
+      "path": "docs/telemetry.md",
+      "sha256": "5f78d74d3768a70017a6e19c459edd41f18d156a6402e72e083df9ed8420d8b9",
+      "size": 387
+    },
+    {
+      "path": "docs/testing-strategy.md",
+      "sha256": "41d1827929c0353680c703e2ee3c6bbee17af122951bcf4cbd374ff148b352f7",
+      "size": 424
+    },
+    {
+      "path": "docs/troubleshooting.md",
+      "sha256": "51142302599d073f5b90989b05f5253a523356c990647714c0feeaf1ea25868f",
+      "size": 558
+    },
+    {
+      "path": "docs/update.md",
+      "sha256": "0325f682c001d12dc41b16aa3a20b1c1b73216ddc8638b0eac3cc1426b3f725a",
+      "size": 2051
+    },
+    {
+      "path": "docs/upgrade-uninstall-rollback.md",
+      "sha256": "a0afd0c378a6f41473e9d5d40f7be70d38db5a3e33facba771b0beaa723709a5",
+      "size": 746
+    },
+    {
+      "path": "docs/worktree-orchestration.md",
+      "sha256": "a149934c1401b735f7a830e69a5f1b64426945f7e877b03948bc5a8d22b630f8",
+      "size": 1843
+    },
+    {
+      "path": "examples/IOT-AI-Settings-Tasks-Meeting-Reporting-v0.3.0-alpha.2.xlsx",
+      "sha256": "b41770329776f0ccf905ec33a23e8bfab8ad015d177e2b9753b645c040199675",
+      "size": 122760
+    },
+    {
+      "path": "examples/entitlement-request.json",
+      "sha256": "b6d26c6f65d40a806fcbbeb787a03e5d14de3cb51210ec219cfa4b31442e9389",
+      "size": 363
+    },
+    {
+      "path": "examples/test-profile.json",
+      "sha256": "e93ebd765afe7dcfb47e30b0f67030b19caf2ed073748bb6c7a64c5d685edaa0",
+      "size": 1202
+    },
+    {
+      "path": "installers/Install-IotAiMcGpt.ps1",
+      "sha256": "3e06a7b95c68e73b883a1c84da6931aff7a83db6b3dc8a092d2f4710c5dcc6a4",
+      "size": 634
+    },
+    {
+      "path": "installers/Install-IotAiSuite.ps1",
+      "sha256": "b7abe08fcc41206fb684f16762e0facd9715c2bf0459d3fcf0497995621a2fdb",
+      "size": 4910
+    },
+    {
+      "path": "installers/bootstrap.sh",
+      "sha256": "481a11acc75e740fd1a4f800892c3f5ff183d346babe6b25812e1b84d3cc2e6c",
+      "size": 2065
+    },
+    {
+      "path": "installers/install.sh",
+      "sha256": "8cefd1c8cfbce479fd11df47e86a34a85303f05f5d8b11d13d95c5c0ceea2e3f",
+      "size": 3803
+    },
+    {
+      "path": "installers/rollback-uninstall.sh",
+      "sha256": "0ee4c387b3d2d510aadd0f3502e77807f3b99c468f57905f570ccfe653c71ee0",
+      "size": 951
+    },
+    {
+      "path": "installers/uninstall.sh",
+      "sha256": "08560e7e803e358de430846e3267f0853ebc45b1961e4cda29431d677ab42cd5",
+      "size": 947
+    },
+    {
+      "path": "installers/wheels/et_xmlfile-2.0.0-py3-none-any.whl",
+      "sha256": "36e6f0447143d16ac5370f117a1ebb8903507033a96a2de2b45b00444de790ef",
+      "size": 18063
+    },
+    {
+      "path": "installers/wheels/openpyxl-3.1.5-py3-none-any.whl",
+      "sha256": "9f9c07e6b5ae3d443e59585d9b2dd4c758df5fbbfce2941a965962e22501074e",
+      "size": 250908
+    },
+    {
+      "path": "npm/LICENSE",
+      "sha256": "e14c0302676c4e86069d1290e9ea25fc71640fb90548eb78b10052b2d1c51690",
+      "size": 4716
+    },
+    {
+      "path": "npm/NOTICE",
+      "sha256": "482ee1224d1f0684d5d610a4004b831c1a990e4bc884e98cce9b868a5b4ded8d",
+      "size": 677
+    },
+    {
+      "path": "npm/bin/iot-ai-bootstrap.mjs",
+      "sha256": "135c00c30e25ae740895a396dabb75ed1bd3dcd0b377f4b81046bd01d5e1a77f",
+      "size": 3545
+    },
+    {
+      "path": "npm/package.json",
+      "sha256": "8a4a11b8f0a75f2ce603bf9b2b020e000a061896dbb6f12e4393834b31680bd1",
+      "size": 469
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "3378b89ea398d8bab2f5460ece1945a8e64a710659700a88a10f471813b97bad",
+      "size": 2399
+    },
+    {
+      "path": "schemas/MC-GPT-AUTONOMOUS-RUN-REPORT.schema.json",
+      "sha256": "a03bcc6ac7001f186001a74c8a843615725f2f684b3937b26c8e39207d46c681",
+      "size": 3383
+    },
+    {
+      "path": "schemas/ai-content-provenance-v1.schema.json",
+      "sha256": "998c898a1b95f930efd0306f73d6b2629f95bfc1b1389367ed9d3e019e9d50c3",
+      "size": 1272
+    },
+    {
+      "path": "schemas/ai-system-card-v1.schema.json",
+      "sha256": "be14cf23327873a99cc792e44b192fc45c7acd795460188d54c2efa5c34a5a71",
+      "size": 1080
+    },
+    {
+      "path": "schemas/capability-pack-v1.schema.json",
+      "sha256": "5b282595321eda46bee3e11a62c9101b1ec15110caf2e6c69ce9b82b9781655c",
+      "size": 1065
+    },
+    {
+      "path": "schemas/eu-ai-act-conformance-v1.schema.json",
+      "sha256": "15fa368f1c8728d9e5ba69a45e0f5f7801437bb396ccbf70fc398e68e7606c7d",
+      "size": 819
+    },
+    {
+      "path": "schemas/worktree-run-v1.schema.json",
+      "sha256": "e78077606a39a9fa833606ad8b005aca3ee5c00531cd30f3e0da3be809fedaa0",
+      "size": 1130
+    },
+    {
+      "path": "scripts/PREPARE_SANITIZED_HISTORY.sh",
+      "sha256": "a4ba38c49e5349e2d38d6205fc1c5b469320d68022a049a48d7b73c3c60d2743",
+      "size": 1344
+    },
+    {
+      "path": "scripts/REPLACE_PUBLIC_HISTORY.sh",
+      "sha256": "bec27d9e165e6e3ed38d0e4e302d5ed8a7dbfc53603009f87941e2dd8c47460b",
+      "size": 873
+    },
+    {
+      "path": "scripts/apply-github-metadata.sh",
+      "sha256": "b9bf7a21e49dd4592f3175576fe2ebfc699e365c432a97200e0786c430d6c149",
+      "size": 1359
+    },
+    {
+      "path": "scripts/cleanup-merged-release-branches.sh",
+      "sha256": "fa3f078bb2c109e480e9e452612e193b0f951e8dbd1fbf8333ee7ecf3b58926a",
+      "size": 2791
+    },
+    {
+      "path": "skills/iot-ai/SKILL.md",
+      "sha256": "c48116f32cf1456a1452a888689efe4d71b5ef1564db07be1d9a5aa3489d661a",
+      "size": 1710
+    },
+    {
+      "path": "skills/iot-ai-help/SKILL.md",
+      "sha256": "016f194c5b484d8609e94354cc70ba565868760c804efd5ed3f012f619eda0be",
+      "size": 702
+    },
+    {
+      "path": "skills/iot-ai-meeting/SKILL.md",
+      "sha256": "d617d7a81cad010451c0f6fc1c7b8c4d9d4450bf79a58adf27fdcaa0175b1d87",
+      "size": 1302
+    },
+    {
+      "path": "skills/iot-ai-multi-coder/SKILL.md",
+      "sha256": "507266c6337695921b35b943c1b73dc64713c4ab96ceb151be42de3c8a8cc0ac",
+      "size": 1137
+    },
+    {
+      "path": "skills/iot-ai-settings/SKILL.md",
+      "sha256": "d52da66b0a06ec948bec0acb65b678f68cc3e4f2057f37075245026ab74663c2",
+      "size": 652
+    },
+    {
+      "path": "skills/iot-ai-status/SKILL.md",
+      "sha256": "dd7684eabeaf91f614432a57e7bfe71e73f50544ffbca20b5c25081f3b4f890b",
+      "size": 657
+    },
+    {
+      "path": "skills/iot-ai-tasks/SKILL.md",
+      "sha256": "1db198abb3ee70a0f202fed4a29aa1a3f6498fb7514565fc72942850b1034272",
+      "size": 1222
+    },
+    {
+      "path": "skills/iot-ai-update/SKILL.md",
+      "sha256": "040789d7373bc48bf8c5267066ca023262936020e6c4519ef916f074fe8b316a",
+      "size": 935
+    },
+    {
+      "path": "src/iot_ai/__init__.py",
+      "sha256": "a5c3549e55ee789754966609e32eef3a224dbaf9968a7db322ecc1d286d27e75",
+      "size": 389
+    },
+    {
+      "path": "src/iot_ai/acceptance_scorecard.py",
+      "sha256": "dc3b984ab2d39b519c74dcc02bd0cf96809f3efa5dfbfb6852acc1cae18c1450",
+      "size": 5969
+    },
+    {
+      "path": "src/iot_ai/agent_contract_validation.py",
+      "sha256": "00b901f85369c274b8c2ad722714af4c96cf6fabe1a96f52c024d124cbbccb2b",
+      "size": 5078
+    },
+    {
+      "path": "src/iot_ai/agent_seats.py",
+      "sha256": "dd3ac30713bac5b4b94a4418b39e8548bb503de4d62cdf207c53232d3b52527e",
+      "size": 8019
+    },
+    {
+      "path": "src/iot_ai/agentic.py",
+      "sha256": "b7ff36e76e3fcb283f8a269d5c5cea3f59df427178f68aa02707938d24ca0589",
+      "size": 43749
+    },
+    {
+      "path": "src/iot_ai/audit.py",
+      "sha256": "45339155c8ecee954d55f554a6cd8be6d1f65564de2110a7d6940d87b5bdad09",
+      "size": 6273
+    },
+    {
+      "path": "src/iot_ai/autopilot.py",
+      "sha256": "c9ec110a20d44a421c2cc260de213bcc036ce3665427a9df77d63ac0dffe52f0",
+      "size": 35649
+    },
+    {
+      "path": "src/iot_ai/autopilot_reporting.py",
+      "sha256": "a99a78de602a84d7ff4b083bb167a528b00b8ee466426665b3f2722be23cb9ba",
+      "size": 12269
+    },
+    {
+      "path": "src/iot_ai/capability_pack.py",
+      "sha256": "aa4dea67a7fecb4345e13d799de9e9a2c8dad100cbe5cfa63e689b19d7460908",
+      "size": 9077
+    },
+    {
+      "path": "src/iot_ai/checkpoints.py",
+      "sha256": "835872ac2f8e3b4da22f67b59597d3d0efe7e734ed53ced80e681798fab74cfa",
+      "size": 2473
+    },
+    {
+      "path": "src/iot_ai/cli.py",
+      "sha256": "0622d442321036b2ddba8889866b74f6652b0b81d703ecb2623150561530d5c5",
+      "size": 62671
+    },
+    {
+      "path": "src/iot_ai/context_compiler.py",
+      "sha256": "788747f863b5732a99ad5ac0c4606483f85cdd0a4b334cfaf4ad78c3e9cb7894",
+      "size": 14982
+    },
+    {
+      "path": "src/iot_ai/control_flow.py",
+      "sha256": "a91f1aa429d8530909ea03e6fa8de3138283c6f073d20eb408b32f7e7fde85b6",
+      "size": 3936
+    },
+    {
+      "path": "src/iot_ai/conversation_state.py",
+      "sha256": "1821ce836ee5370ed9873ca4c8896913fe4db352eafab6d221a37f70b5a512a2",
+      "size": 3052
+    },
+    {
+      "path": "src/iot_ai/data/skills.json",
+      "sha256": "77059b05abbd0297ac0b0f611d1cea1b34a4f0be5f1ab1046f5fd8ed35cf9951",
+      "size": 2480
+    },
+    {
+      "path": "src/iot_ai/decision_receipts.py",
+      "sha256": "6460168d19d559a6573e1576b273a0580638d1f00f5856276fa676d985936ccc",
+      "size": 2750
+    },
+    {
+      "path": "src/iot_ai/diagnostics.py",
+      "sha256": "b9e83a6ac2d166d47758cc84de147f9befbb1461ede4bb30c83e849034fcd007",
+      "size": 17734
+    },
+    {
+      "path": "src/iot_ai/entrypoints.py",
+      "sha256": "6cc25bbf90891775672afc6d750796be3ffdb642b0d11b90505c39f1dba2c696",
+      "size": 1253
+    },
+    {
+      "path": "src/iot_ai/eu_ai_act.py",
+      "sha256": "396f0169879b8f680a1c336416fcc552fe1d5a12a7471d98d3db668e76a51351",
+      "size": 40426
+    },
+    {
+      "path": "src/iot_ai/european_compliance.py",
+      "sha256": "486338c5b8e804002b3dad79c9c9c069a159fe4c23aad5babbf8e091a16360ea",
+      "size": 3437
+    },
+    {
+      "path": "src/iot_ai/export_gate.py",
+      "sha256": "aa05834bfbc1acbf02d3db86b722a78fe41176c124b9757eed86da4da4845d71",
+      "size": 2777
+    },
+    {
+      "path": "src/iot_ai/goal_contract.py",
+      "sha256": "31620b3aaf73ca0a5b8652baf427d3076a97504c1ad18b3920de83e0c360e02b",
+      "size": 9650
+    },
+    {
+      "path": "src/iot_ai/graph_runtime.py",
+      "sha256": "9c5160bacbc8e9c70442a6c585b4d06e1d190d45d0d9877eebfa9e3fb75cb026",
+      "size": 39249
+    },
+    {
+      "path": "src/iot_ai/help_system.py",
+      "sha256": "b8aaa948863e18269e74f9cf5c752d86a5dabae30e11ff7be97b023efd799056",
+      "size": 5601
+    },
+    {
+      "path": "src/iot_ai/identity_migration.py",
+      "sha256": "11f871c43e2b7346f12cf043e931445b093dd2cbabba0b8c575ae73a1ef18e0b",
+      "size": 7588
+    },
+    {
+      "path": "src/iot_ai/installer.py",
+      "sha256": "2f706ef241c89ad215ac299258684506b1efaa21416454b74d24e6fb114da719",
+      "size": 18874
+    },
+    {
+      "path": "src/iot_ai/intent_router.py",
+      "sha256": "a438c12cf42fd2312e3ef48646fd71d80659f94d6dc2dd61090d496e44b878d7",
+      "size": 8979
+    },
+    {
+      "path": "src/iot_ai/knowledge.py",
+      "sha256": "ee6ff56dc7a05630d71e7593e9f2505a28e8091f65fda8505cc97d7abeb913c6",
+      "size": 2399
+    },
+    {
+      "path": "src/iot_ai/knowledge_plane.py",
+      "sha256": "ab6843d39034c62b67cf2dcdab8f283c612cea424339d857f658341312869ca1",
+      "size": 6391
+    },
+    {
+      "path": "src/iot_ai/licensing.py",
+      "sha256": "0daa1a51fcff2aafe77a9cb4cc12abd346f96bfe7c3adc5df4f0b56730755372",
+      "size": 2052
+    },
+    {
+      "path": "src/iot_ai/logging_config.py",
+      "sha256": "4821812f58f0dccf4750e26c3381d0dc15f4f8af4f3bc3655c91f411df84f6d8",
+      "size": 3324
+    },
+    {
+      "path": "src/iot_ai/meeting.py",
+      "sha256": "aeedb75ad22d519c56344bb30666cfcb511142a3eb39595d0283e5d8b44b803e",
+      "size": 37613
+    },
+    {
+      "path": "src/iot_ai/meeting_api.py",
+      "sha256": "89380e18632c4ac68d7a48ba756380cd0dfb648f76877466a941200ca6297730",
+      "size": 8904
+    },
+    {
+      "path": "src/iot_ai/meeting_integration.py",
+      "sha256": "464c21a46f097287d63d44686932e8d77e3cc8c4751506abd51be85cae4c5e6f",
+      "size": 10053
+    },
+    {
+      "path": "src/iot_ai/meeting_reporting.py",
+      "sha256": "5c144ed6bf1105dc5cd7ef059158233ce4df2d654a9d35bd984fc2de2f4bc35a",
+      "size": 33477
+    },
+    {
+      "path": "src/iot_ai/mesh.py",
+      "sha256": "61a15472c5276a8942176ef6d3d6abbcf6bbcb007cb92b1b0bcfba51457d5eac",
+      "size": 16153
+    },
+    {
+      "path": "src/iot_ai/model_policy.py",
+      "sha256": "a5b33e3fdf688ecc89681dd65b4d240586c38a75d4f778ac5b5ab95a40162eeb",
+      "size": 12126
+    },
+    {
+      "path": "src/iot_ai/multicoder.py",
+      "sha256": "50b6f729119ef9fcd87066d22101f926ccea60d4e747072ae18ce223b5b9478f",
+      "size": 33422
+    },
+    {
+      "path": "src/iot_ai/owned_delegate.py",
+      "sha256": "6af218c6d57d81631bd22794afa64abcd928e3568569b505500c9c57f33bb509",
+      "size": 14006
+    },
+    {
+      "path": "src/iot_ai/paths.py",
+      "sha256": "02657348160080e3490ea13d2223278f93e7a83b925404bb689bf6964b8bc1b4",
+      "size": 7391
+    },
+    {
+      "path": "src/iot_ai/plugin_api.py",
+      "sha256": "c7a2963a2d1483f1f38e1f2f269db974a5f7167e90a65478f835583fe604ce93",
+      "size": 833
+    },
+    {
+      "path": "src/iot_ai/privacy.py",
+      "sha256": "270f59a917833c177c060384b64f64cdc15ae80478d40b47fba2f7c0db8dabb3",
+      "size": 2318
+    },
+    {
+      "path": "src/iot_ai/product_boundary.py",
+      "sha256": "78b852abdd59d621c0cd076455dadbc04a62350757ad338c2c5577edad8cfac7",
+      "size": 1357
+    },
+    {
+      "path": "src/iot_ai/projection.py",
+      "sha256": "af0aa1dc7a37a14aa4b92c0a39e9f190111513d68a52813e7e18bc266de10f02",
+      "size": 9489
+    },
+    {
+      "path": "src/iot_ai/prompt_compiler.py",
+      "sha256": "2120a8c3d5f1dfa43728e69e1cd399e7bf8f2b35827f20ded2f3506df94e41f4",
+      "size": 9517
+    },
+    {
+      "path": "src/iot_ai/providers.py",
+      "sha256": "1a49c09f60ebd0ced035095eaf358a62d734062c544d22be2f1832ca51991505",
+      "size": 6581
+    },
+    {
+      "path": "src/iot_ai/quality.py",
+      "sha256": "7599ed2ef99a1b34165fbba4d24b29eec024cbc1bf0fb0e3f6dab0673ecfa73c",
+      "size": 2215
+    },
+    {
+      "path": "src/iot_ai/readiness.py",
+      "sha256": "8ef8581d288bfe19ae3f9c0f101e1051cea8c89125fe2a3fc814ffeff589e134",
+      "size": 7528
+    },
+    {
+      "path": "src/iot_ai/release_guard.py",
+      "sha256": "599c30e9f02ddf6e09eea7be6889d2639c134a567bf9160c70e106799ce8d408",
+      "size": 4628
+    },
+    {
+      "path": "src/iot_ai/report.py",
+      "sha256": "6f098e950403debbe2c14ed2f6b35628f3ba05f15c8bd1372b61e596bcf13c64",
+      "size": 2242
+    },
+    {
+      "path": "src/iot_ai/roles.py",
+      "sha256": "0ddfc4380bd9aaf116e42148a5cd3f1220697ddc7c383a6efad19b777adf3683",
+      "size": 10276
+    },
+    {
+      "path": "src/iot_ai/seat_selection.py",
+      "sha256": "5f35f37e9c9b224836ca93beb65d7b4492f32c5b49e2d1eeb9295dc687c4034b",
+      "size": 12053
+    },
+    {
+      "path": "src/iot_ai/settings.py",
+      "sha256": "34b4870f41acc6d621fbcd270d842fb9946f080df13276a3de2226cfa486d7e9",
+      "size": 7127
+    },
+    {
+      "path": "src/iot_ai/setup_wizard.py",
+      "sha256": "ee184d081bcecac28093bb45ecc3a869fbd436d3a1eb46a880f39a43fa5ac85a",
+      "size": 3650
+    },
+    {
+      "path": "src/iot_ai/status.py",
+      "sha256": "be55f5bf7eb750ba49d0b22b380ff37593c14e50fd72602226e4d5290e3577cf",
+      "size": 13618
+    },
+    {
+      "path": "src/iot_ai/storage.py",
+      "sha256": "bce1ad8ac857ae08c7e2ffbdaf4f42fe9521427d38f47e9e90333a1fed308c08",
+      "size": 2884
+    },
+    {
+      "path": "src/iot_ai/suite_package.py",
+      "sha256": "7602a7bc85d2aa7f5d0683aaab7c4901feed2ae3ba7572551ac0bd689bfc4b95",
+      "size": 26648
+    },
+    {
+      "path": "src/iot_ai/suite_version.py",
+      "sha256": "4a92f14a9e654627c638baccc4a9486614dc5f8649b5251a29c99d9bc83f587b",
+      "size": 530
+    },
+    {
+      "path": "src/iot_ai/task_backends.py",
+      "sha256": "a3281b7b4b70f2c88d242e1946015df92979c2926e20e88e262cb8b3179dd50b",
+      "size": 8823
+    },
+    {
+      "path": "src/iot_ai/task_validation.py",
+      "sha256": "272702da24fa8c5a7f89c441aa4ea99c0c35f01e566fd4f09c11fb0daf017349",
+      "size": 35962
+    },
+    {
+      "path": "src/iot_ai/tasks.py",
+      "sha256": "cf7e2bfd9623ee372daa7c8e076dce3ff69ff22c56e3ce29b0bedaaeab4bbe4a",
+      "size": 24420
+    },
+    {
+      "path": "src/iot_ai/telemetry.py",
+      "sha256": "0c3d304ac2c47fd4a23e85bf1cf0deeec78bc44e95090284838812a7a8ff00a3",
+      "size": 4202
+    },
+    {
+      "path": "src/iot_ai/tool_router.py",
+      "sha256": "10bb303f3d9a56098d12c5e589e5523cec1f8ef4cf1a1ff0aa25b68f91ab091d",
+      "size": 6038
+    },
+    {
+      "path": "src/iot_ai/transparency.py",
+      "sha256": "68dfadcb63dbcdd862985567b083e61692ec48de99958fcf2d63aefd7f33038d",
+      "size": 18695
+    },
+    {
+      "path": "src/iot_ai/update_manager.py",
+      "sha256": "5dc328a04a7772c3b950c70683e6a3addba4b83f8fd95148dc9c03b38b3037a9",
+      "size": 10680
+    },
+    {
+      "path": "src/iot_ai/util.py",
+      "sha256": "df5cbd07d81bfadaa46663876263c261b0a75fab1217da204c73949a29c84b31",
+      "size": 8648
+    },
+    {
+      "path": "src/iot_ai/workspace.py",
+      "sha256": "7f306b567c1de24b340bfa2f75e197a377beb0e56def42b719f6ed9e5356d5a4",
+      "size": 21042
+    },
+    {
+      "path": "src/iot_ai/worktrees.py",
+      "sha256": "bb67d74aa9ea9fa1a4a1a9a558768c8d673d5df204eea4ef250e776223a73350",
+      "size": 12059
+    },
+    {
+      "path": "tests/__init__.py",
+      "sha256": "a87945502de9324d47dbffe063954ca18b14372f582d879117918d066eac4c63",
+      "size": 238
+    },
+    {
+      "path": "tests/common.py",
+      "sha256": "776dcc90201642c97fa327a437246976581bd271b0e48c8920db51b87b92457b",
+      "size": 1115
+    },
+    {
+      "path": "tests/test_agent_runtime_ownership.py",
+      "sha256": "8e42720eb4fc904beb48bca4a261a7c7ae21cd97cae5eb1d83cc4bc2991f0ab3",
+      "size": 18675
+    },
+    {
+      "path": "tests/test_agentic.py",
+      "sha256": "a4d1711f445c8cc6e049b91963fb5f8d085dd400a4589e3aa7e17427f036634f",
+      "size": 3553
+    },
+    {
+      "path": "tests/test_autopilot_closed_loop.py",
+      "sha256": "152090600ae81e95242a43536bce90d58e22c3fcf6f3a24fed26d21d7ca6e714",
+      "size": 7678
+    },
+    {
+      "path": "tests/test_brand_identity_migration.py",
+      "sha256": "5068e73302f9c863d822a37e7ffd2320e8b4794a2bc8fda087e8f629db076b60",
+      "size": 2984
+    },
+    {
+      "path": "tests/test_brand_release_gate.py",
+      "sha256": "11848578c44d656b430f70a5798240951491cd59dc444702da9cc534e2860c96",
+      "size": 1406
+    },
+    {
+      "path": "tests/test_capability_pack.py",
+      "sha256": "59a0a5ceb2c86fba74626fc31525e2936cd23b740a0d8af0c2cc3fb1783518bf",
+      "size": 2570
+    },
+    {
+      "path": "tests/test_cli_status_setup.py",
+      "sha256": "49c61655af9503fa19440673792420631cc125c2dc1d12ed063097b4d689bd8b",
+      "size": 3180
+    },
+    {
+      "path": "tests/test_component_closure.py",
+      "sha256": "7ffe7ba06bfc6b4269fc10382f02370777f7b4a677b10333ba38b48fd00fd8db",
+      "size": 1601
+    },
+    {
+      "path": "tests/test_eu_ai_act.py",
+      "sha256": "11f9849f392872027be94d2e62c6d469a35bc6dba7d1bfc8539730ba9440a8c6",
+      "size": 19565
+    },
+    {
+      "path": "tests/test_european_compliance_extended.py",
+      "sha256": "63fcf61b0b7bc0975678b2f5d929b9ff5f4979d246823b6a5cbf630d34e3b134",
+      "size": 1905
+    },
+    {
+      "path": "tests/test_installer_update.py",
+      "sha256": "932ef05de407dde7b7f06596fc4677947cfe7cb17105e708c67311779b56a45f",
+      "size": 7309
+    },
+    {
+      "path": "tests/test_knowledge_quality.py",
+      "sha256": "860da42ecdb017e80e8c6b792d53f95bb2bd31060ae7e171ac428354e3e0ae2d",
+      "size": 2773
+    },
+    {
+      "path": "tests/test_logging_clean_install.py",
+      "sha256": "37106bdc08b4c092e565af21d2d7004638efd65f78f01d23b06e8bdcdb7c7aad",
+      "size": 5678
+    },
+    {
+      "path": "tests/test_meeting_diagnostics.py",
+      "sha256": "f2c4d87ba6ae43a3e0db90c53bb57b31c57fe58222ad6ab225aa48f2071ea849",
+      "size": 5602
+    },
+    {
+      "path": "tests/test_meeting_integration_reporting.py",
+      "sha256": "a98c6054a6f650260c7b8ca2350ef65289686e4d870913e8a42fc525bf96a76e",
+      "size": 7082
+    },
+    {
+      "path": "tests/test_meeting_ollama_policy.py",
+      "sha256": "caa487dd2a5b74a3afbb7d70347045e5bae80f5b8cc8f6b4eb6cda13d3e957ce",
+      "size": 5496
+    },
+    {
+      "path": "tests/test_meeting_reporting_v2.py",
+      "sha256": "c42e91529b6f4498c3543c1e7447a1aeb785b66416fcaf51ce5b74520e6429a2",
+      "size": 7593
+    },
+    {
+      "path": "tests/test_mesh_security.py",
+      "sha256": "0c97f3e9bb6afa34faffb8de96512186dd9bf854c56dc63ae29364b917f2898c",
+      "size": 5894
+    },
+    {
+      "path": "tests/test_multicoder_governance.py",
+      "sha256": "d5709d7a21341a082861c6b4ca4e3c64b2af1f38626076bd46696187c65a283b",
+      "size": 7285
+    },
+    {
+      "path": "tests/test_privacy_release.py",
+      "sha256": "b0239116ab78695097c6877bffe7eac99e8050ab11a1f873bf630074ad1ad6e1",
+      "size": 3452
+    },
+    {
+      "path": "tests/test_product_boundary_and_seats.py",
+      "sha256": "9363cfcc3fc3f2ed1687e1d2b90d3982c8f43e4a23685264b6a226a37a262769",
+      "size": 3628
+    },
+    {
+      "path": "tests/test_providers_readiness.py",
+      "sha256": "dcfb2b9d7da049e9d427014a1070be93106d0048616f3a52d0db50feda66e2a6",
+      "size": 5740
+    },
+    {
+      "path": "tests/test_readme_competitor_matrix.py",
+      "sha256": "c12224c961358e8ed58aeb43deeb6ba742e9376094c6d60218da3f1d1cf95e01",
+      "size": 1184
+    },
+    {
+      "path": "tests/test_release_builder.py",
+      "sha256": "79eaed4ebb74d76bc805281888c749ffe1687cc1144747c36ee6c68648a3d54e",
+      "size": 1513
+    },
+    {
+      "path": "tests/test_roles_graph.py",
+      "sha256": "fd948681ef26e87afa5f4240889f1e7ac12651c36cab88caa256d3f037405029",
+      "size": 4157
+    },
+    {
+      "path": "tests/test_secure_file_hash.py",
+      "sha256": "d043f0a5218d1cb9ca55a01cd30c43c0118dbc645f6d3eb360523f6bbab20ff1",
+      "size": 1669
+    },
+    {
+      "path": "tests/test_task_validation.py",
+      "sha256": "9ead214d366a88ecd6a084300e0a908b4b50c2097415856172ad62aae2a1877e",
+      "size": 14580
+    },
+    {
+      "path": "tests/test_tasks_projection.py",
+      "sha256": "91e4a51ef20e113fbba7bd1a06c8c2074fedc5a8e1649963b93eb03e416cbcaa",
+      "size": 4899
+    },
+    {
+      "path": "tests/test_version_help_settings.py",
+      "sha256": "fe31c693e5b25bb038ae58fab6cbf70d31534fb25ffa6eef073f8dff28df4970",
+      "size": 3699
+    },
+    {
+      "path": "tests/test_worktree_orchestration.py",
+      "sha256": "13937f175a0dd97b327b6788b0f7b965ccafa5b91cb7ff0f440728d8111c2c44",
+      "size": 4088
+    },
+    {
+      "path": "tools/benchmark_agent_runtime.py",
+      "sha256": "930592c8d3397de065f010c255df9b75536f030c0db2c366e214b815f98e5051",
+      "size": 4422
+    },
+    {
+      "path": "tools/blackbox_release_test.py",
+      "sha256": "710cf3f7c5af117aeebb49c154d54902ac6263df24d83190cb5edc35aceead84",
+      "size": 17669
+    },
+    {
+      "path": "tools/brand_identity_check.py",
+      "sha256": "ba4365da486b8fb7847a8d5aaeefaace87ef9c984dc13d8eb22f834ec1963287",
+      "size": 2918
+    },
+    {
+      "path": "tools/build_all_in_one.py",
+      "sha256": "b18d0c666e2f3ec6d69a1ffc32763b9eaf31e2fea7bdeb6593bbdebb3c27833b",
+      "size": 5275
+    },
+    {
+      "path": "tools/build_component.py",
+      "sha256": "bb5c8723cd5294ad11689adfa0eb6ee9a827d535cccb6690869b62b9e427f7fb",
+      "size": 6233
+    },
+    {
+      "path": "tools/build_release.py",
+      "sha256": "f9d8a7a8ab1827bf1f1a76e319fa95588bef3cd6b3ef8fd3b3f653e932b89896",
+      "size": 2624
+    },
+    {
+      "path": "tools/build_wheel.py",
+      "sha256": "97e1251ad0c35bc3977897474927cdbcdec83fcc8c4ffdd6836491e2d64c7932",
+      "size": 6245
+    },
+    {
+      "path": "tools/check_license_headers.py",
+      "sha256": "17474f3836bf0e92fa3c9f1be11fbf95f140c847b3b005d849dcf8987193ef18",
+      "size": 1550
+    },
+    {
+      "path": "tools/eu_ai_act_release_gate.py",
+      "sha256": "3a548efa20985ab83d1c56ecbd08598bd8eecf04bd70997b5e2e7a3546842cea",
+      "size": 930
+    },
+    {
+      "path": "tools/mark_ai_content.py",
+      "sha256": "dc5c19528e141d2dfe45286095d271c305d9844405fda685c85805cae4472efd",
+      "size": 1626
+    },
+    {
+      "path": "tools/public_boundary_check.py",
+      "sha256": "bea2f07ee0a050546f0c58eae64ab0d01cab8d37164e90d98cee0e2b7811ae52",
+      "size": 7113
+    },
+    {
+      "path": "tools/static_security_audit.py",
+      "sha256": "0294f2826831ce3458a73ea5cc53a9290a601210c98bcc01f6253a97148f8a2b",
+      "size": 2963
+    },
+    {
+      "path": "tools/verify_release.py",
+      "sha256": "caec59833112cfbc79abebc69bf6100f9cda150b0a95286b8ae84a8c085ad634",
+      "size": 1797
+    },
+    {
+      "path": "tools/verify_repository.py",
+      "sha256": "d96ec2ae42364824a67034f57c1980a1f83829d6f14846585978a37d334cec20",
+      "size": 5258
+    }
+  ],
+  "schema": "iot-ai.source-manifest.v1"
+}

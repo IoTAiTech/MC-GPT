@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Governed Multi-Coder implementation, verification, and audit workflow.
 
 Provider seats are bound to explicit roles and exact served-model receipts.  A
@@ -43,9 +43,12 @@ SYNTHESIZER_ORDER = ("codex", "grok", "claude", "gemini", "ollama")
 
 
 def _seat_parts(seat: str) -> tuple[str, str]:
-    if seat.startswith("ollama@"):
-        return "ollama", seat.split("@", 1)[1]
-    return seat, "auto"
+    value = seat.strip().lower()
+    if "@" in value and not value.startswith("agent:"):
+        provider, model = value.split("@", 1)
+        if provider and model:
+            return provider, model
+    return value, "auto"
 
 
 def _substantive(result: dict[str, Any]) -> bool:
@@ -471,7 +474,7 @@ def run(
         claim = claim_work_unit(user_home, work_unit_id, implementer, f"{implementer}-{run_id}", 7200, enforce_validation=True, trigger_action="execute")
         lease_id = claim["lease_id"]
         lease_token = claim["lease_token"]
-        record_progress(user_home, task_id, "planning", 10, "Multi-Coder planning started", work_unit_id)
+        record_progress(user_home, task_id, "planning", 10, "Multi-Coder planning started", work_unit_id, basis="manual-estimate", confidence="medium")
 
     implementer = implementer or seats[0]
     max_repairs = max_repair_rounds if max_repair_rounds is not None else (
@@ -511,19 +514,28 @@ def run(
         if task_id:
             _record_attempt(user_home, task_id, work_unit_id, run_id, seat, "specialist-planner", "plan", result)
     good = [entry for entry in plans if entry["substantive"]]
-    if len(good) < quorum:
+    unsatisfied_seats = [entry["seat_id"] for entry in plans if not entry["substantive"]]
+    # Every explicitly selected seat is required by default. Quorum is a minimum
+    # safety floor, never permission to silently discard configured coder/model
+    # seats and call the remainder "Multi-Coder consensus".
+    if len(good) < quorum or unsatisfied_seats:
         if lease_id and lease_token:
-            release_lease(user_home, lease_id, lease_token, "insufficient-quorum")
+            release_lease(user_home, lease_id, lease_token, "required-seat-coverage-unsatisfied")
         return {
-            "schema": "iot-ai.multi-coder-result.v3",
+            "schema": "iot-ai.multi-coder-result.v4",
             "run_id": run_id,
             "task_id": task_id,
             "decision": "blocked",
-            "reason": "insufficient-substantive-quorum",
+            "reason": "required-seat-coverage-unsatisfied" if unsatisfied_seats else "insufficient-substantive-quorum",
+            "requested_seats": seats,
+            "substantive_seats": [entry["seat_id"] for entry in good],
+            "unsatisfied_seats": unsatisfied_seats,
             "plans": plans,
             "article_5": article5.to_dict(),
             "article_6": article6,
             "article_50": disclosure,
+            "provider_calls": len(plans),
+            "execution_authorized": False,
             "global_compliance_claim_allowed": False,
         }
 
@@ -650,7 +662,7 @@ def run(
         }
 
     if task_id:
-        record_progress(user_home, task_id, "implementation", 35, "Digest-bound plan accepted; implementation started", work_unit_id)
+        record_progress(user_home, task_id, "implementation", 35, "Digest-bound plan accepted; implementation started", work_unit_id, basis="manual-estimate", confidence="medium")
     implementation = _safe_delegate(
         user_home,
         implementer,
@@ -722,6 +734,9 @@ def run(
             80,
             "Deterministic tests complete" if tests_pass else "Deterministic tests absent or failing",
             work_unit_id,
+            basis="deterministic-tests",
+            evidence_ids=[str(row.get("test_id")) for row in results if row.get("test_id")],
+            confidence="high" if tests_pass else "low",
         )
 
     final_reviews = []
@@ -813,6 +828,9 @@ def run(
             95,
             "Implementation, deterministic tests and digest-bound independent review passed",
             work_unit_id,
+            basis="deterministic-tests",
+            evidence_ids=[str(row.get("test_id")) for row in results if row.get("test_id")],
+            confidence="high",
         )
         submitted = submit_task(
             user_home,

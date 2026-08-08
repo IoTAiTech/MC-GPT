@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iot-ai.tech/schemas/mc-gpt-autonomous-run-report-v2.json",
+  "title": "MC-GPT Autonomous Closed-Loop Run Report",
+  "description": "Operator-visible Task -> Meeting -> Multi-Coder -> test/repair/audit report. It contains no private chain-of-thought and never grants founder acceptance.",
+  "type": "object",
+  "x-author": "Dr.-Ing. Babak Sorkhpour, with AI assistance",
+  "required": [
+    "schema",
+    "generated_at",
+    "intent",
+    "backend_receipt",
+    "terminal_state",
+    "summary",
+    "task_table",
+    "provider_table",
+    "iteration_table",
+    "human_decisions",
+    "blockers",
+    "production_claim",
+    "digest"
+  ],
+  "properties": {
+    "schema": {"const": "iot-ai.autonomous-run-report.v2"},
+    "generated_at": {"type": "string", "minLength": 1},
+    "intent": {"type": "object"},
+    "backend_receipt": {"type": "object"},
+    "terminal_state": {
+      "enum": [
+        "COMPLETE",
+        "TECHNICAL_COMPLETE_AWAITING_FOUNDER",
+        "EXTERNALLY_BLOCKED",
+        "AUTHORITY_BLOCKED",
+        "SAFETY_BLOCKED",
+        "BUDGET_EXHAUSTED",
+        "FAILED_TERMINAL",
+        "CANCELLED",
+        "NEEDS_WORK"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "task_count",
+        "complete",
+        "awaiting_founder",
+        "blocked",
+        "needs_work",
+        "provider_rows",
+        "provider_substantive_rows",
+        "provider_failed_rows",
+        "provider_exact_model_rows",
+        "iterations"
+      ],
+      "additionalProperties": true
+    },
+    "task_table": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "title",
+          "backend",
+          "authority_basis",
+          "priority",
+          "initial_state",
+          "acceptance",
+          "meeting",
+          "multi_coder",
+          "tests",
+          "repairs",
+          "iterations",
+          "final_state",
+          "remaining_work",
+          "blocker_next_actor",
+          "next_action",
+          "evidence"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "task_id": {"type": "string"},
+          "title": {"type": "string"},
+          "backend": {"type": "string"},
+          "authority_basis": {"type": "string"},
+          "priority": {"type": "string"},
+          "initial_state": {"type": "string"},
+          "acceptance": {"type": "string"},
+          "meeting": {"type": "string"},
+          "multi_coder": {"type": "string"},
+          "tests": {"type": "string"},
+          "repairs": {"type": "string"},
+          "iterations": {"type": "string"},
+          "final_state": {"type": "string"},
+          "remaining_work": {"type": "string"},
+          "blocker_next_actor": {"type": "string"},
+          "next_action": {"type": "string"},
+          "evidence": {"type": "string"}
+        }
+      }
+    },
+    "provider_table": {"type": "array", "items": {"type": "object"}},
+    "iteration_table": {"type": "array", "items": {"type": "object"}},
+    "human_decisions": {"type": "array", "items": {"type": "object"}},
+    "blockers": {"type": "array", "items": {"type": "object"}},
+    "production_claim": {"const": false},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": false
+}

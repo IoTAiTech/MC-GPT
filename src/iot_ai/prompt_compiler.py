@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Versioned prompt compiler with no hidden framework-owned instructions."""
 from __future__ import annotations
 
@@ -61,6 +61,7 @@ def compile_prompt(
     context_manifest: ContextManifest,
     policy: dict[str, Any],
     tool_contract: dict[str, Any] | None = None,
+    intent_contract: dict[str, Any] | None = None,
 ) -> PromptArtifact:
     """Compile the complete provider-visible prompt from owned artifacts."""
     if context_manifest.decision != "pass":
@@ -80,12 +81,17 @@ def compile_prompt(
         for row in context_payload["selected"]
     ]
     payload = {
-        "schema": "iot-ai.prompt-envelope.v1",
-        "prompt_version": "1.0.0",
+        "schema": "iot-ai.prompt-envelope.v2",
+        "prompt_version": "2.0.0",
         "ownership": {
             "owner": "IoT-AI.Tech",
             "framework_defaults_used": False,
             "prompt_is_versioned_and_hash_bound": True,
+        },
+        "intent_contract": intent_contract or {
+            "action": "execute-node",
+            "until_terminal": False,
+            "conversation_reference": None,
         },
         "goal_contract": goal_contract,
         "role_contract": role_contract,
@@ -117,6 +123,46 @@ def compile_prompt(
             "unavailable_tools_must_not_be_invented": True,
         },
         "policy": policy,
+        "execution_authority": {
+            "planning_is_not_execution": True,
+            "writes_require_assignment_and_active_lease": True,
+            "progress_is_telemetry_not_completion_authority": True,
+            "founder_final_acceptance_is_never_delegated": True,
+            "destructive_or_public_actions_require_explicit_human_gate": True,
+        },
+        "closed_loop_contract": {
+            "default_execution_path": [
+                "task-intake", "task-validation", "planning-meeting", "multi-coder-implementation",
+                "deterministic-tests", "failure-meeting-if-needed", "repair", "independent-review",
+                "final-audit", "terminal-report"
+            ],
+            "continue_until_terminal_or_external_gate": True,
+            "replan_on_new_evidence": True,
+            "stop_on_repeated_identical_failure_without_new_evidence": True,
+            "no_status-only-progress-ending": True,
+        },
+        "evidence_and_scorecard": {
+            "criteria_must_be_disjoint_and_fully_accounted": True,
+            "criteria_passed_must_equal_calculated_pass_count": True,
+            "trusted_verification_must_match_current_revision_and_criteria_digest": True,
+            "nonempty_current_result_required_for_submission": True,
+            "technical_test_pass_is_not_founder_acceptance": True,
+        },
+        "provider_and_review_truth": {
+            "all_eligible_required_seats_must_be_attempted": True,
+            "empty_or_failed_seats_are_explicit_failures": True,
+            "model_requested_and_model_served_receipts_required": True,
+            "one_model_is_not_multi_coder_consensus": True,
+            "handler_presence_is_not_semantic_capability": True,
+            "same_plan_digest_required": True,
+        },
+        "release_and_privacy_boundary": {
+            "public_private_customer_roots_are_separate": True,
+            "no_direct_cross_product_database_access": True,
+            "public_export_requires_allowlist_redaction_and_history_scan": True,
+            "github_release_requires_ci_security_and_release-gate evidence": True,
+            "no_blanket_eu_ai_act_compliance_claim": True,
+        },
         "response_contract": {
             "format": "json-object-only",
             "required_fields": list(node_contract.get("required_output_fields") or node_contract.get("output_schema") or []),
@@ -130,8 +176,8 @@ def compile_prompt(
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     return PromptArtifact(
         prompt_id=f"prompt-{digest[:20]}",
-        schema="iot-ai.prompt-envelope.v1",
-        version="1.0.0",
+        schema="iot-ai.prompt-envelope.v2",
+        version="2.0.0",
         text=text,
         sha256=digest,
         context_digest=context_manifest.digest,
@@ -162,4 +208,9 @@ def validate_prompt(artifact: PromptArtifact | dict[str, Any]) -> dict[str, Any]
                 errors.append("prompt ownership declaration missing")
             if not parsed.get("context", {}).get("no_silent_truncation"):
                 errors.append("context truncation policy missing")
+            if parsed.get("schema") != "iot-ai.prompt-envelope.v2":
+                errors.append("prompt schema is not v2")
+            for section in ("execution_authority", "closed_loop_contract", "evidence_and_scorecard", "provider_and_review_truth", "release_and_privacy_boundary"):
+                if not isinstance(parsed.get(section), dict):
+                    errors.append(f"prompt section missing: {section}")
     return {"decision": "pass" if not errors else "block", "errors": errors, "prompt_id": payload.get("prompt_id")}

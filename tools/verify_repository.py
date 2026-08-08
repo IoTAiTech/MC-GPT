@@ -1,14 +1,13 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Verify the public repository contract before publication."""
 from __future__ import annotations
 
 import argparse
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -53,14 +52,15 @@ def main() -> int:
     for rel in sorted(REQUIRED):
         if not (root / rel).is_file():
             errors.append(f"missing:{rel}")
-    # Only reject *tracked* compiled artifacts. Local/CI installs create ephemeral __pycache__.
-    try:
-        tracked = subprocess.check_output(["git", "-C", str(root), "ls-files"], text=True).splitlines()
-        if any(item.endswith(".pyc") or item.endswith(".pyo") or "/__pycache__/" in item or item.endswith("__pycache__") for item in tracked):
-            errors.append("compiled-python-artifacts-present")
-    except (OSError, subprocess.CalledProcessError):
-        # Non-git trees: ignore ephemeral bytecode; publication path always uses git.
-        pass
+    tracked_compiled: list[str] = []
+    git_dir = root / ".git"
+    if git_dir.exists():
+        import subprocess
+        completed = subprocess.run(["git", "-C", str(root), "ls-files"], capture_output=True, text=True, check=False)
+        if completed.returncode == 0:
+            tracked_compiled = [line for line in completed.stdout.splitlines() if line.endswith((".pyc", ".pyo")) or "__pycache__/" in line]
+    if tracked_compiled:
+        errors.append("compiled-python-artifacts-tracked")
     suite_source = (root / "src/iot_ai/suite_version.py").read_text(encoding="utf-8")
     match = re.search(r'SUITE_VERSION\s*=\s*"([^"]+)"', suite_source)
     version = match.group(1) if match else None

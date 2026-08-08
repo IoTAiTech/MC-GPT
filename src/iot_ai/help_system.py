@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Human and AI-readable help for the minimal public command surface."""
 from __future__ import annotations
 
 PUBLIC = {
     "iot-ai": {
-        "purpose": "Solve a natural-language goal through knowledge reuse, immutable specialist roles, dependency-aware graph execution, deterministic verification and diagnostics.",
+        "purpose": "Describe the outcome in natural language. MC-GPT resolves context, selects the authoritative task backend, runs Task → Meeting → Multi-Coder → test/repair/audit loops and continues to a truthful terminal state.",
         "examples": [
-            "iot-ai deeply investigate this defect, fix verified causes and return a sanitized diagnostics bundle",
-            "iot-ai --profile ultracode --execute review and improve this architecture",
+            "iot-ai 'Finish all critical PMD tasks, use all available coders, meet on every failure, and continue until technical completion.'",
+            "iot-ai 'ادامه بده، بقیه تسک‌ها را تا پایان انجام بده و در آخر یک جدول کامل بده.'",
         ],
         "boundary": "Writes require the active task and authorization policy. Provider availability is not inferred from installation alone.",
     },
@@ -59,12 +59,12 @@ PUBLIC = {
 }
 
 QUICKSTART = {
-    "title": "IOT-AI Suite five-minute quickstart",
+    "title": "MC-GPT five-minute quickstart — natural-language closed loop",
     "steps": [
         "iot-ai help",
         "iot-ai settings show",
         "iot-ai status",
-        "iot-ai --profile balanced 'Review this task and produce a verified plan'",
+        "iot-ai 'Finish the selected tasks; use all eligible coders; hold a meeting on failures; verify and report everything.'",
     ],
     "safety": "Cloud egress is privacy-gated. Empty or unverified seats never satisfy required roles.",
 }

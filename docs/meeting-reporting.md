@@ -1,4 +1,4 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.4 | Date: 2026-08-08 -->
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.5 | Date: 2026-08-08 -->
 # Federated Meeting Reporting
 
 ## Authority model

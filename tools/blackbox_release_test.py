@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Run a disposable end-to-end package, installer, rollback and CLI smoke test."""
 from __future__ import annotations
 
@@ -143,7 +143,7 @@ def main() -> int:
         })
 
         cli = home / ".local" / "bin" / "iot-ai"
-        runtime = home / ".local" / "share" / "iot-ai-tech" / "iot-ai-suite" / "v1" / "suite" / "6.7.0-beta.4"
+        runtime = home / ".local" / "share" / "iot-ai-tech" / "iot-ai-suite" / "v1" / "suite" / "6.7.0-beta.5"
         venv_cli = runtime / "venv" / "bin" / "iot-ai"
         if not cli.is_file() or not venv_cli.is_file():
             raise RuntimeError("installed wrapper/runtime missing")
@@ -220,7 +220,7 @@ def main() -> int:
             "embedded": mark_payload.get("receipt", {}).get("embedded"),
             "transparency_profile": verify_payload.get("transparency_profile"),
         })
-        if "6.7.0-beta.4" not in str(run([str(cli), "--version"], env={**env, "PYTHONPATH": ""})["stdout"]):
+        if "6.7.0-beta.5" not in str(run([str(cli), "--version"], env={**env, "PYTHONPATH": ""})["stdout"]):
             raise RuntimeError("installed version mismatch")
 
         for host, root in {
@@ -271,7 +271,7 @@ def main() -> int:
             timeout=600,
         )
         require(component_install, "component lifecycle install")
-        component_runtime = home_component / ".local" / "share" / "iot-ai-tech" / "iot-ai-suite" / "v1" / "suite" / "6.7.0-beta.4"
+        component_runtime = home_component / ".local" / "share" / "iot-ai-tech" / "iot-ai-suite" / "v1" / "suite" / "6.7.0-beta.5"
         component_venv_cli = component_runtime / "venv" / "bin" / "iot-ai"
         uninstall = run(
             [str(component_venv_cli), "--home", str(home_component), "package", "uninstall", "--apply"],

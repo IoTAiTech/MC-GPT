@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Build the public MC-GPT component archive deterministically."""
 from __future__ import annotations
 
@@ -14,10 +14,13 @@ import zipfile
 from pathlib import Path
 
 FIXED_TIME = (2026, 8, 8, 0, 0, 0)
-COMPONENT_VERSION = "0.8.0-alpha.4"
-SUITE_VERSION = "6.7.0-beta.4"
+COMPONENT_VERSION = "0.8.0-alpha.5"
+SUITE_VERSION = "6.7.0-beta.5"
 SEED_MODULES = {
-    "agentic.py", "capability_pack.py", "checkpoints.py", "context_compiler.py", "control_flow.py",
+    "acceptance_scorecard.py", "agent_contract_validation.py", "agent_seats.py", "agentic.py",
+    "autopilot.py", "autopilot_reporting.py", "capability_pack.py", "checkpoints.py",
+    "context_compiler.py", "conversation_state.py", "control_flow.py", "intent_router.py",
+    "task_backends.py",
     "decision_receipts.py", "diagnostics.py", "eu_ai_act.py", "european_compliance.py", "goal_contract.py",
     "graph_runtime.py", "knowledge_plane.py", "meeting.py", "meeting_api.py", "meeting_integration.py", "meeting_reporting.py", "agent_seats.py", "mesh.py", "model_policy.py",
     "multicoder.py", "owned_delegate.py", "privacy.py", "projection.py", "prompt_compiler.py",
@@ -26,9 +29,11 @@ SEED_MODULES = {
     "workspace.py",
 }
 DOCS = {
-    "agent-runtime.md", "architecture.md", "competitor-patterns.md", "context-engineering.md",
-    "diagnostics.md", "goal-first-orchestration.md", "knowledge-and-rag.md", "meeting.md", "meeting-integration.md", "bootstrap-installation.md",
-    "multi-coder.md", "privacy-and-cloud.md", "providers.md", "tasks.md", "capability-packs.md",
+    "agent-runtime.md", "architecture.md", "autonomous-closed-loop.md", "bootstrap-installation.md",
+    "capability-packs.md", "competitor-patterns.md", "context-engineering.md", "diagnostics.md",
+    "goal-first-orchestration.md", "knowledge-and-rag.md", "meeting.md", "meeting-integration.md",
+    "meeting-reporting.md", "multi-coder.md", "privacy-and-cloud.md", "providers.md",
+    "reporting.md", "task-validation.md", "tasks.md",
 }
 
 

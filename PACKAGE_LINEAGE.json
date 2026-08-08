@@ -2,12 +2,14 @@
   "all_in_one_apply_allowed_after_founder_authorization": true,
   "canonical_executable": "iot-ai",
   "canonical_update_authority": "iot-ai update",
+  "closed_loop_default": true,
   "embedded_components": {
-    "iot-ai-mc-gpt": "0.8.0-alpha.4"
+    "iot-ai-mc-gpt": "0.8.0-alpha.5"
   },
   "legacy_alias_policy": "not-installed-by-default",
   "legacy_state_policy": "observe-and-snapshot-only; never delete or silently migrate",
   "lineage": "iot-ai-suite",
+  "natural_language_primary": true,
   "product_id": "iot-ai-tech.iot-ai-coder-suite",
   "public_commands": [
     "iot-ai",
@@ -20,17 +22,17 @@
     "iot-ai-multi-coder"
   ],
   "python_distribution": "iot-ai-coder-suite",
-  "python_version": "6.7.0b4",
+  "python_version": "6.7.0b5",
   "review_bundle_apply_allowed": false,
   "schema": "iot-ai.package-lineage.v3",
   "source_baseline": {
-    "github_main_sha": "11fa3c840744d953cee183c529040ad27ffb7dbc",
+    "github_main_sha": "8b5f60616636e63d8310d4ace3057a28db46c1d3",
     "github_repository": "IoTAiTech/MC-GPT",
-    "verified_private_delivery_sha256": "20a3687af01fab3b0409977a7117f4811accae23aeb8a635eca53fa77a522d81",
-    "verified_private_delivery_version": "6.7.0-beta.3"
+    "verified_private_delivery_sha256": "00d5961ba5fb33dc71ae81eecd7a0f06449293636d2bc050e2fe661fd125d3e9",
+    "verified_private_delivery_version": "6.7.0-beta.4"
   },
   "state_namespace": "iot-ai-tech/iot-ai-suite/v1",
-  "suite_version": "6.7.0-beta.4",
+  "suite_version": "6.7.0-beta.5",
   "tombstones": [
     {
       "reason": "artifact-publication-failed",

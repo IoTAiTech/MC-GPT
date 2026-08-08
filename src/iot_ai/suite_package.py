@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Transactional, PEP-668-safe installer for unified ALL-IN-ONE packages."""
 from __future__ import annotations
 
@@ -61,11 +61,29 @@ def _clean_subprocess_env() -> dict[str, str]:
     return clean
 
 
-def inspect_package(package: Path, expected_sha256: str | None = None) -> dict[str, Any]:
-    """Validate package bytes, metadata, manifest coverage and wheelhouse."""
+def inspect_package(
+    package: Path,
+    expected_sha256: str | None = None,
+    *,
+    allowed_roots: list[Path] | tuple[Path, ...] | None = None,
+) -> dict[str, Any]:
+    """Validate package bytes, metadata, manifest coverage and wheelhouse.
+
+    ``allowed_roots`` lets the update authority validate a safely extracted
+    nested ALL-IN-ONE payload without widening the process-wide trust boundary.
+    """
     if not package.is_file():
         raise FileNotFoundError(package)
-    actual = sha256_file(package, allowed_roots=[Path.cwd().resolve(), Path.home().resolve(), *[Path(v).expanduser().resolve() for v in (os.environ.get("IOT_AI_ALLOWED_READ_ROOTS") or "").split(os.pathsep) if v.strip()]], max_bytes=None)
+    roots = list(allowed_roots or [
+        Path.cwd().resolve(),
+        Path.home().resolve(),
+        *[
+            Path(value).expanduser().resolve()
+            for value in (os.environ.get("IOT_AI_ALLOWED_READ_ROOTS") or "").split(os.pathsep)
+            if value.strip()
+        ],
+    ])
+    actual = sha256_file(package, allowed_roots=roots, max_bytes=None)
     if expected_sha256 and actual != expected_sha256:
         raise ValueError("package SHA-256 mismatch")
 
@@ -373,7 +391,20 @@ def install_package(
     clean_install: bool = True,
 ) -> dict[str, Any]:
     """Install, verify and clean obsolete active versions transactionally."""
-    inspection = inspect_package(package, expected_sha256)
+    inspection = inspect_package(
+        package,
+        expected_sha256,
+        allowed_roots=[
+            user_home.expanduser().resolve(),
+            Path.cwd().resolve(),
+            Path.home().resolve(),
+            *[
+                Path(value).expanduser().resolve()
+                for value in (os.environ.get("IOT_AI_ALLOWED_READ_ROOTS") or "").split(os.pathsep)
+                if value.strip()
+            ],
+        ],
+    )
     if inspection["decision"] != "pass":
         return inspection
     metadata = inspection["metadata"]

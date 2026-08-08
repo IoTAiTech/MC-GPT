@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 import hashlib, http.client, json, os, threading, unittest
 from http.server import ThreadingHTTPServer
@@ -42,6 +42,29 @@ class MeetingIntegrationReportingTests(IsolatedHomeTestCase):
             self.assertEqual(result["meeting_count"],2); self.assertTrue(output.is_file())
         self.assertEqual(load_workbook(self.home/"report.xlsx")["Meetings"].max_row,3)
         with self.assertRaises(ValueError): managed_report_output(self.home,"../escape.json")
+
+    @patch("iot_ai.seat_selection._ollama_cloud_seats", return_value=([], []))
+    @patch("iot_ai.seat_selection._provider_routes")
+    @patch("iot_ai.seat_selection.provider_candidates")
+    def test_all_coders_selector_includes_every_exact_cloud_model(self, candidates, routes, _ollama):
+        routes.return_value = [
+            {"provider": "claude", "route_id": "claude-route", "installed": True, "cloud": True, "priority": 1},
+            {"provider": "codex", "route_id": "codex-route", "installed": True, "cloud": True, "priority": 1},
+        ]
+        all_candidates = [
+            {"provider": "claude", "route_id": "claude-route", "model": "model-a", "cloud": True, "live_ready": True},
+            {"provider": "claude", "route_id": "claude-route", "model": "model-b", "cloud": True, "live_ready": False},
+            {"provider": "codex", "route_id": "codex-route", "model": "auto", "cloud": True, "live_ready": False},
+        ]
+        candidates.side_effect = lambda *_args, **kwargs: [
+            row for row in all_candidates if (row["live_ready"] or not kwargs.get("require_live"))
+        ]
+        plan = resolve_meeting_seats(self.home, "all-coders+ollama-clouds", allow_missing_ollama=True, max_seats=8)
+        self.assertEqual(plan.decision, "pass")
+        self.assertEqual(list(plan.resolved_seats), ["claude@model-a", "claude@model-b", "codex"])
+        status = {row["seat"]: row for row in plan.candidate_status}
+        self.assertTrue(status["claude@model-a"]["live_ready"])
+        self.assertFalse(status["claude@model-b"]["live_ready"])
 
     @patch("iot_ai.seat_selection._coder_seats",return_value=([],[]))
     @patch("iot_ai.seat_selection._ollama_cloud_seats",return_value=([],[]))

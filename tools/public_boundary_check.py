@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Fail-closed public-release scanner for source trees and Git history."""
 from __future__ import annotations
 
@@ -16,11 +16,9 @@ from typing import Iterable
 
 FORBIDDEN_ROOTS = {"enterprise", "private", "customer", "evidence-private", "secrets", "release-private"}
 SKIP_PARTS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", "build", "dist", "*.egg-info"}
-# Ephemeral CI/local test outputs — never ship; ignore during public boundary scan.
 SKIP_FILE_NAMES = {"pytest-output.txt", "junit-release.xml"}
 SKIP_FILE_PREFIXES = ("junit-",)
 SKIP_FILE_SUFFIXES = (".coverage",)
-
 TEXT_SUFFIXES = {".py", ".md", ".txt", ".json", ".toml", ".yml", ".yaml", ".ini", ".cfg", ".sh", ".ps1", ".cmd", ".cff", ".xml", ".csv", ".srt"}
 ARCHIVE_SUFFIXES = {".zip", ".whl"}
 
@@ -28,7 +26,7 @@ ARCHIVE_SUFFIXES = {".zip", ".whl"}
 PRIVATE_IP = re.compile(rb"\b(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})\b")
 PERSONAL_PATH = re.compile(rb"(?:/(?:home|root)/[A-Za-z0-9._-]+/|[A-Za-z]:\\Users\\[^\\\r\n]+)")
 PRIVATE_KEY = re.compile((b"-----BEGIN " + b"PRIVATE KEY-----") + b"|" + (b"-----BEGIN OPENSSH " + b"PRIVATE KEY-----"))
-TOKEN = re.compile(rb"\b(?:sk|xai|ghp|github_pat|AKIA|AIza)[-_A-Za-z0-9]{12,}\b")
+TOKEN = re.compile(rb"(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bxai-[A-Za-z0-9_-]{12,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bAKIA[0-9A-Z]{16}\b|\bAIza[0-9A-Za-z_-]{20,}\b)")
 AUTH = re.compile(rb"(?i)authorization\s*:\s*(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
 ASSIGNMENT = re.compile(rb"(?i)(?:password|secret|private_key|access_token|refresh_token|api_key)\s*[:=]\s*['\"][^'\"]{8,}['\"]")
 INTERNAL_NAMES = re.compile(rb"(?i)\b(?:" + b"DLD-" + b"DGX|" + b"IOT-" + b"Dashboard-Serv|" + b"HPZ" + b"8G4|" + rb"Nas\.IOT|" + rb"fritz\.box)\b")
@@ -48,12 +46,8 @@ ALLOWLIST = {
 
 
 def should_skip_file(rel: str, name: str) -> bool:
-    if name in SKIP_FILE_NAMES or name.startswith(SKIP_FILE_PREFIXES) or name.endswith(SKIP_FILE_SUFFIXES):
-        return True
-    # generated under runner temp paths in logs must not be treated as release tree content
-    if rel.startswith((".github/workflows/",)):
-        return False
-    return False
+    del rel
+    return name in SKIP_FILE_NAMES or name.startswith(SKIP_FILE_PREFIXES) or name.endswith(SKIP_FILE_SUFFIXES)
 
 
 def safe_archive_name(name: str) -> bool:
@@ -96,9 +90,6 @@ def scan_tree(root: Path) -> list[dict[str, str]]:
         if (root / forbidden).exists():
             findings.append({"file": forbidden, "rule": "forbidden-root"})
     for path in root.rglob("*"):
-        rel_parts = path.relative_to(root).parts
-        if any(part in SKIP_PARTS or part.endswith(".egg-info") for part in rel_parts):
-            continue
         if path.is_symlink():
             findings.append({"file": path.relative_to(root).as_posix(), "rule": "symlink-forbidden"})
     for name, data in iter_payloads(root):

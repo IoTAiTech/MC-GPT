@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
 import json
@@ -251,6 +251,44 @@ class TaskValidationTests(IsolatedHomeTestCase):
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM leases").fetchone()[0], 0)
         conn.close()
 
+    def test_bulk_authorize_skips_awaiting_founder_instead_of_reopening_or_revalidating(self):
+        import contextlib
+        import io
+        import json as _json
+        task_id, _ = self.make_task()
+        conn = sqlite3.connect(db_path(self.home))
+        conn.execute("UPDATE tasks SET status='awaiting_founder' WHERE id=?", (task_id,))
+        conn.commit(); conn.close()
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            code = main(["--home", str(self.home), "tasks", "authorize-execution", "--all"])
+        self.assertEqual(code, 0)
+        payload = _json.loads(stream.getvalue())
+        self.assertEqual(payload["decision"], "noop")
+        self.assertEqual(payload["eligible_count"], 0)
+        self.assertEqual(payload["task_table"][0]["decision"], "skipped-non-execution-state")
+        self.assertEqual(payload["task_table"][0]["next_actor"], "founder")
+
+    def test_tasks_run_verb_executes_by_default_and_plan_is_explicit(self):
+        import contextlib
+        import io
+        import json as _json
+        task_id, _ = self.make_task()
+        plan_stream = io.StringIO()
+        with contextlib.redirect_stdout(plan_stream):
+            plan_code = main(["--home", str(self.home), "tasks", "run", "--task-id", task_id, "--plan"])
+        self.assertEqual(plan_code, 0)
+        plan_payload = _json.loads(plan_stream.getvalue())
+        self.assertFalse(plan_payload["implements_code"])
+        self.assertEqual(plan_payload["command_semantics"], "plan-only")
+        run_stream = io.StringIO()
+        with contextlib.redirect_stdout(run_stream):
+            run_code = main(["--home", str(self.home), "tasks", "run", "--task-id", task_id])
+        self.assertEqual(run_code, 0)
+        run_payload = _json.loads(run_stream.getvalue())
+        self.assertTrue(run_payload["implements_code"])
+        self.assertEqual(run_payload["command_semantics"], "closed-loop-hybrid")
+
     def test_natural_execute_registers_task_and_asks_before_provider_use(self):
         result = main([
             "--home", str(self.home), "run", "--goal", "Fix", "the", "dashboard", "menu", "--execute"
@@ -261,6 +299,8 @@ class TaskValidationTests(IsolatedHomeTestCase):
         meeting_count = conn.execute("SELECT COUNT(*) FROM meetings").fetchone()[0]
         conn.close()
         self.assertEqual(task_count, 1)
+        # With no configured provider seats the closed loop fails before creating
+        # a meeting; importantly, it still creates no lease or implementation.
         self.assertEqual(meeting_count, 0)
 
     @patch("iot_ai.agentic.select_candidates")

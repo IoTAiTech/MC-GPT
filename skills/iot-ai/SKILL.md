@@ -1,18 +1,34 @@
 ---
 name: iot-ai
-description: Agentically solve a goal through knowledge reuse, typed roles, dependency graph, verification and diagnostics.
+description: Natural-language, conversation-aware closed-loop engineering through Tasks, Meetings, Multi-Coder, tests, repair, audit and terminal reporting.
 ---
 # iot-ai
 
-Use the installed `iot-ai` CLI as the only public control surface.
+Use one natural-language goal. Do not make the operator translate normal language into internal flags.
 
-Example: `/iot-ai deeply investigate and safely solve this issue`
+Examples:
+
+```text
+/iot-ai finish all critical PMD tasks and keep working until each is complete, awaiting Founder, or externally blocked
+/iot-ai ادامه بده و بقیه تسک‌های قبلی را تا انتها انجام بده
+/iot-ai prüfe die Fehler, repariere sie vollständig und liefere den Abschlussbericht
+```
+
+The runtime compiles the conversation into a versioned intent contract, resolves prior task references, selects the authoritative task backend, and runs this loop:
+
+```text
+Task intake → validation → full hybrid Meeting → Multi-Coder implementation
+→ deterministic tests → failure Meeting → bounded repair → independent review
+→ audit → re-plan when evidence is incomplete → terminal report
+```
 
 Rules:
-- Read `iot-ai help` before using a flag.
-- Preserve immutable role contracts, task authority, evidence, privacy and public/private boundaries.
-- Never count an empty, meta-only, unauthenticated, quota-blocked or model-unverified seat as a contribution.
-- Never claim a provider/model without a fresh requested/served receipt.
-- Screen Article 5 before dispatch; prohibited operational use fails closed and defensive review remains review-only.
-- Surface the Article 50 interaction notice and preserve machine-readable provenance for human-exposed generated content.
-- Never issue a blanket EU AI Act compliance or certification claim.
+- Execution verbs mean “continue to a truthful terminal state” by default.
+- Use every eligible required coder/model seat at material planning, review and release gates; record outages honestly.
+- One successful model is not Multi-Coder consensus.
+- Never silently read PMD/PRCS databases; use the authenticated versioned PMD API adapter.
+- Progress is telemetry, not completion authority.
+- Never move audit-failing work to `awaiting_founder`.
+- Founder Accept/Reject/Rework remains human-only.
+- Stop only for a real human, safety, authority, external-service or bounded-budget gate.
+- Always produce task, provider, iteration, evidence and blocker tables.

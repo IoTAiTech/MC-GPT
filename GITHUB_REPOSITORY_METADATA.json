@@ -1,0 +1,30 @@
+{
+  "apply_requires_founder_authorization": true,
+  "description": "Natural-language multi-agent AI coding control plane for Claude, Codex, Gemini, Grok and Ollama: autonomous Task-Meeting-Multi-Coder repair loops, tests, audit and rollback.",
+  "homepage": "https://iot-ai.tech",
+  "repository": "IoTAiTech/MC-GPT",
+  "schema": "iot-ai.github-repository-metadata.v1",
+  "social_preview": "assets/brand/MC-GPT-Social-Preview-1280x640.jpg",
+  "topics": [
+    "multi-agent",
+    "ai-coding",
+    "coding-agent",
+    "agentic-ai",
+    "ai-orchestration",
+    "multi-coder",
+    "autonomous-coding",
+    "claude-code",
+    "openai-codex",
+    "gemini-cli",
+    "grok-cli",
+    "ollama",
+    "developer-tools",
+    "devsecops",
+    "ai-governance",
+    "human-in-the-loop",
+    "on-premises",
+    "data-sovereignty",
+    "eu-ai-act",
+    "python"
+  ]
+}

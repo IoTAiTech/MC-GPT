@@ -1,17 +1,19 @@
 {
   "classification": "community-developer-preview-private-release-candidate",
   "community": {
+    "all_eligible_exact_model_seats_attempted_at_material_gates": true,
     "cloud_default": "off-opt-in",
     "commercial_use_requires_license": true,
     "developer_preview_candidate": true,
     "maximum_effective_effort": "medium",
-    "maximum_provider_families_per_run": 3,
+    "maximum_provider_families_per_run": 5,
     "ordinary_user_stable": false,
     "telemetry_retention_days": 30
   },
   "enterprise": {
     "cryptography_50_target_qualification": "pending",
-    "pmd_access": "authenticated-https-api-only",
+    "direct_pmd_database_access": "forbidden",
+    "pmd_access": "authenticated-versioned-https-api-only",
     "private_paid_customer_candidate": true,
     "production_ready": false,
     "requires_signed_entitlement": true,
@@ -19,14 +21,8 @@
     "version": "1.2.0-alpha.2"
   },
   "eu_ai_act": {
-    "developer_preview_release_wording": "Technical current-obligation controls verified for the declared Community Developer Preview; no legal certification or blanket deployment conformity claim.",
     "global_compliance_claim_allowed": false,
     "legal_baseline": "Regulation (EU) 2024/1689 as amended by Regulation (EU) 2026/1744",
-    "organisational_release_actions_required": [
-      "Founder records role-appropriate AI literacy completion before public publication.",
-      "Founder confirms the public intended purpose, prohibited uses and human-oversight policy.",
-      "Each future customer, high-risk or safety-critical deployment is reassessed before activation."
-    ],
     "production_or_all_deployments_compliance": "not-claimed",
     "technical_developer_preview_gate": "pass",
     "unverified_organisational_or_live_controls": [
@@ -38,8 +34,8 @@
     ]
   },
   "external_gates": [
-    "real GitHub Actions execution, provenance and artifact attestation",
-    "live GitHub Release download after Founder-approved tag/assets exist",
+    "live hosted GitHub Actions execution and provenance attestation",
+    "live GitHub Release download after Founder-approved publication",
     "real Windows on-device qualification",
     "live provider-account and exact-served-model qualification",
     "Enterprise target qualification with cryptography 50.x",
@@ -47,55 +43,60 @@
     "deployment-specific PMD/customer qualification",
     "German/EU legal review before external commercial agreement"
   ],
-  "mc_gpt_version": "0.8.0-alpha.4",
+  "mc_gpt_version": "0.8.0-alpha.5",
+  "natural_language_and_autonomy": {
+    "automatic_meeting_on_failure_or_uncertainty": true,
+    "bounded_replanning_and_repair": true,
+    "closed_loop_default_for_execution_verbs": true,
+    "conversation_reference_resolution": true,
+    "explicit_parameters": "advanced-override-only",
+    "human_only_gates": [
+      "founder-accept-reject-rework",
+      "public-release",
+      "history-replacement",
+      "irreversible-production-change"
+    ],
+    "mandatory_multicoder_at_material_gates": true,
+    "primary_api": "natural-language-conversation",
+    "terminal_states": [
+      "TECHNICALLY_COMPLETE_AWAITING_FOUNDER",
+      "EXTERNALLY_BLOCKED",
+      "AUTHORITY_BLOCKED",
+      "SAFETY_BLOCKED",
+      "BUDGET_EXHAUSTED",
+      "CANCELLED"
+    ]
+  },
   "personal_local_install_authorized": true,
   "production_or_fleet_install_authorized": false,
   "production_ready": false,
   "publication": {
-    "annotated_tag_simulated": "v6.7.0-beta.4-rc.1",
-    "bare_remote_clone_back": "pass",
-    "beta3_public_baseline_commit": "98ccf7f2dc1b0b99803ab2820ca39c15494f8b8b",
-    "beta4_candidate_source_sha": "emitted outside the source tree in GIT_SIMULATION.json",
     "founder_publication_approval_required": true,
-    "github_actions_attestation": "pending-until-push",
-    "github_main_baseline_sha": "11fa3c840744d953cee183c529040ad27ffb7dbc",
-    "history_replacement_required": false,
-    "local_tree_and_history_scan": "pass-zero-findings",
-    "real_beta4_github_push_performed": false,
-    "real_beta4_github_release_performed": false
+    "github_live_ci": "unverified-by-available-connector",
+    "github_live_release": "unverified-by-available-connector",
+    "github_live_security": "unverified-by-available-connector",
+    "github_main_baseline_sha": "8b5f60616636e63d8310d4ace3057a28db46c1d3",
+    "local_git_simulation": "outside-source-evidence",
+    "real_beta5_branch_cleanup_performed": false,
+    "real_beta5_github_push_performed": false,
+    "real_beta5_github_release_performed": false,
+    "real_beta5_github_tag_performed": false
   },
-  "runtime_architecture": {
-    "context_ownership": "implemented",
-    "control_flow_ownership": "implemented",
-    "five_decision_receipts": "implemented",
-    "goal_first_contract": "implemented",
-    "ollama_model_specific_qualification": "implemented",
-    "pause_resume_replay": "implemented",
-    "prompt_ownership": "implemented",
-    "tool_selection_ownership": "implemented"
-  },
-  "schema": "iot-ai.release-status.v4",
-  "suite_version": "6.7.0-beta.4",
+  "schema": "iot-ai.release-status.v5",
+  "suite_version": "6.7.0-beta.5",
   "tests": {
-    "blackbox_release": "pass-15-steps",
-    "branch_aware_coverage": "72-percent",
-    "clean_install_and_rollback": "pass",
-    "curl_bootstrap": "pass-local-http-server",
-    "deterministic_dual_build": "pass-five-artifact-families",
-    "focused_security_meeting_task": "pass-27",
-    "git_bare_remote_clone_back": "pass-205-unittest-205-pytest",
-    "git_history_boundary": "pass-local-simulation-zero-findings",
-    "license_headers": "pass-113-of-113",
-    "meeting_public_export": "pass-d0-explicit-allowlist",
-    "meeting_reporting_federation": "pass-117-real-meetings",
-    "npm_install_bootstrap": "pass-local-project",
-    "npx_bootstrap": "pass-local-tarball",
+    "artifact_and_install_qualification": "outside-source-final-verification",
+    "branch_aware_coverage": "71-percent",
+    "branch_coverage": "56-percent",
+    "focused_task_meeting_multicoder_update": "pass-44",
+    "license_headers": "pass-123-of-123",
     "public_boundary_current_tree": "pass-zero-findings",
-    "secure_file_hashing": "pass-adversarial",
-    "source_pytest": "pass-205",
-    "source_unittest": "pass-205",
-    "static_security": "pass-zero-findings-105-files",
-    "tamper_rejection": "pass-shell-and-node",
-    "warnings_as_errors": "pass-205"
+    "repository_contract_and_sbom": "pass",
+    "runtime_compiler_p95": "1.1738-ms-under-10-ms-target",
+    "source_pytest": "pass-220",
+    "source_unittest": "pass-220",
+    "statement_coverage": "76-percent",
+    "static_security": "pass-zero-findings-113-files",
+    "warnings_as_errors": "pass-220"
   }
 }

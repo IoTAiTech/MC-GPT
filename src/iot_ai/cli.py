@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Unified IOT-AI command surface with backward-compatible advanced commands."""
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from typing import Any
 from . import __version__
 from . import settings as settings_mod
 from .agentic import run_goal
+from .autopilot import run_autopilot
 from .audit import audit_task
 from .diagnostics import collect as diagnostics_collect, compare as diagnostics_compare, explain as diagnostics_explain, validate as diagnostics_validate
 from .eu_ai_act import (
@@ -69,6 +70,7 @@ from .report import render as render_report
 from .setup_wizard import discover as setup_discover, init_inventory, show_inventory
 from .status import unified_status
 from .tasks import add_evidence, add_work_unit, claim_work_unit, create as task_create, heartbeat as task_heartbeat, list_all, list_closed, list_open, record_progress, release_lease, show as task_show, solve_all_plan, submit_task, workspace_status
+from .task_backends import EXECUTION_ELIGIBLE_STATES
 from .task_validation import (
     approve as validation_approve,
     gate as validation_gate,
@@ -87,9 +89,22 @@ ADVANCED_COMMANDS = {"setup", "privacy", "provider", "mesh", "meeting", "tasks",
 ALL_COMMANDS = PUBLIC_COMMANDS | ADVANCED_COMMANDS
 
 SENSITIVE_KEYS = {
-    "secret", "secret_env", "secret_value", "password", "token",
-    "api_key", "apikey", "authorization", "auth",
+    "secret", "secret_env", "secret_value", "password", "passwd", "lease_token",
+    "access_token", "refresh_token", "bearer_token", "api_key", "apikey",
+    "authorization", "auth_header", "private_key", "client_secret",
 }
+SAFE_TELEMETRY_KEYS = {
+    "token_budget", "input_tokens", "output_tokens", "cached_tokens",
+    "reasoning_tokens", "max_tokens", "token_count", "tokens",
+}
+
+
+def _sensitive_key(key_text: str) -> bool:
+    if key_text in SAFE_TELEMETRY_KEYS:
+        return False
+    if key_text in SENSITIVE_KEYS:
+        return True
+    return key_text.endswith(("_password", "_secret", "_token", "_api_key", "_private_key"))
 
 
 def _redact_sensitive(value: Any) -> Any:
@@ -97,10 +112,7 @@ def _redact_sensitive(value: Any) -> Any:
         redacted: dict[Any, Any] = {}
         for key, item in value.items():
             key_text = str(key).casefold()
-            if key_text in SENSITIVE_KEYS or any(
-                marker in key_text
-                for marker in ("secret", "token", "password", "api_key", "authorization")
-            ):
+            if _sensitive_key(key_text):
                 redacted[key] = "***REDACTED***"
             else:
                 redacted[key] = _redact_sensitive(item)
@@ -128,6 +140,8 @@ def normalize_meeting_argv(argv: list[str]) -> list[str]:
     """Normalize a meeting alias or natural-language meeting command."""
     import re
 
+    if argv and argv[0] in {"-h", "--help"}:
+        return ["meeting", argv[0]]
     if argv and argv[0] in MEETING_OPERATIONS:
         return ["meeting", *argv]
 
@@ -224,7 +238,7 @@ def _normalize_argv(argv: list[str] | None) -> list[str]:
     if remaining and remaining[0] in ALL_COMMANDS:
         return values
 
-    run_flags = {"--execute", "--allow-static"}
+    run_flags = {"--execute", "--apply", "--allow-static", "--resume"}
     run_options = {
         "--risk-class",
         "--privacy-class",
@@ -232,6 +246,10 @@ def _normalize_argv(argv: list[str] | None) -> list[str]:
         "--max-parallel",
         "--token-budget",
         "--wall-clock-seconds",
+        "--conversation-id",
+        "--report-output",
+        "--max-tasks",
+        "--cwd",
     }
     run_args: list[str] = []
     goal: list[str] = []
@@ -288,6 +306,13 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--reason", default="")
     run.add_argument("--founder-confirm")
     run.add_argument("--context", action="append", default=[])
+    run.add_argument("--apply", action="store_true", help="Explicitly apply the compiled natural-language intent")
+    run.add_argument("--conversation-id", default="default")
+    run.add_argument("--resume", action="store_true", help="Resolve references from the last conversation checkpoint")
+    run.add_argument("--report-output")
+    run.add_argument("--max-tasks", type=int)
+    run.add_argument("--cwd", default=".")
+    run.add_argument("--test-argv", nargs="+")
 
     status = commands.add_parser("status", help="Unified Suite, coder, model and workflow health")
     status.add_argument("--live", action="store_true")
@@ -330,17 +355,17 @@ def parser() -> argparse.ArgumentParser:
 
     mesh = commands.add_parser("mesh", help=argparse.SUPPRESS)
     mops = mesh.add_subparsers(dest="op", required=True)
-    md = mops.add_parser("delegate"); md.add_argument("--provider", required=True); md.add_argument("--task", required=True); md.add_argument("--task-mode", default="consultation"); md.add_argument("--model", default="auto"); md.add_argument("--auth-mode", default="auto"); md.add_argument("--allow-fallback", action="store_true"); md.add_argument("--timeout", type=int, default=600); md.add_argument("--effort", default="medium")
-    mc = mops.add_parser("compare"); mc.add_argument("--providers", required=True); mc.add_argument("--task", required=True); mc.add_argument("--task-mode", default="review"); mc.add_argument("--auth-mode", default="auto"); mc.add_argument("--timeout", type=int, default=600); mc.add_argument("--effort", default="medium")
+    md = mops.add_parser("delegate"); md.add_argument("--provider", required=True); md.add_argument("--task", required=True); md.add_argument("--task-mode", default="consultation"); md.add_argument("--model", default="auto"); md.add_argument("--auth-mode", default="auto"); md.add_argument("--allow-fallback", action="store_true"); md.add_argument("--timeout", type=int, default=240); md.add_argument("--effort", default="medium")
+    mc = mops.add_parser("compare"); mc.add_argument("--providers", required=True); mc.add_argument("--task", required=True); mc.add_argument("--task-mode", default="review"); mc.add_argument("--auth-mode", default="auto"); mc.add_argument("--timeout", type=int, default=240); mc.add_argument("--effort", default="medium"); mc.add_argument("--quorum", type=int, default=2)
 
     meeting = commands.add_parser("meeting", help=argparse.SUPPRESS)
     mops = meeting.add_subparsers(dest="op", required=True)
-    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto", help="auto | all-coders | all-coders+ollama-clouds | comma-separated seats"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--max-parallel", type=int, help="Thread pool concurrency; never a seat cap"); ms.add_argument("--max-seats", type=int, help="Explicit hard seat cap"); ms.add_argument("--exclude-ollama", action="store_true", help="Explicitly omit Ollama and record the exception"); ms.add_argument("--allow-missing-ollama", action="store_true", help="Allow an all-coders+ollama-clouds plan to continue when no Ollama cloud seat is configured"); ms.add_argument("--execute", action="store_true")
+    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto", help="auto | all-coders | all-coders+ollama-clouds | comma-separated seats"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--max-parallel", type=int, help="Thread pool concurrency; never a seat cap"); ms.add_argument("--max-seats", type=int, help="Explicit hard seat cap"); ms.add_argument("--exclude-ollama", action="store_true", help="Explicitly omit Ollama and record the exception"); ms.add_argument("--allow-missing-ollama", action="store_true", help="Allow an all-coders+ollama-clouds plan to continue when no Ollama cloud seat is configured"); ms.add_argument("--execute", action="store_true"); ms.add_argument("--task-id"); ms.add_argument("--correlation-id")
     mplan = mops.add_parser("seat-plan"); mplan.add_argument("--seats", default="auto"); mplan.add_argument("--max-parallel", type=int); mplan.add_argument("--max-seats", type=int); mplan.add_argument("--exclude-ollama", action="store_true"); mplan.add_argument("--allow-missing-ollama", action="store_true")
     mops.add_parser("list")
     mshow = mops.add_parser("show"); mshow.add_argument("meeting_id"); mshow.add_argument("--view", choices=("brief", "simple", "full", "complete"), default="full")
     mrun = mops.add_parser("run"); mrun.add_argument("meeting_id")
-    mapprove = mops.add_parser("approve"); mapprove.add_argument("meeting_id")
+    mapprove = mops.add_parser("approve"); mapprove.add_argument("meeting_id"); mapprove.add_argument("--subject", default="user"); mapprove.add_argument("--intent-digest")
     mcreate = mops.add_parser("create-task"); mcreate.add_argument("meeting_id"); mcreate.add_argument("--title")
     mexport = mops.add_parser("export"); mexport.add_argument("meeting_id"); mexport.add_argument("--output", required=True); mexport.add_argument("--public", action="store_true")
     mreport = mops.add_parser("report")
@@ -388,19 +413,19 @@ def parser() -> argparse.ArgumentParser:
     tw = tops.add_parser("add-work-unit"); tw.add_argument("--task-id", required=True); tw.add_argument("--title", required=True); tw.add_argument("--role", default="implementation"); tw.add_argument("--read-scope", action="append", default=[]); tw.add_argument("--write-scope", action="append", default=[])
     tclaim = tops.add_parser("claim"); tclaim.add_argument("--work-unit-id", required=True); tclaim.add_argument("--owner", required=True); tclaim.add_argument("--session-id", required=True); tclaim.add_argument("--ttl-seconds", type=int, default=3600)
     th = tops.add_parser("heartbeat"); th.add_argument("--lease-id", required=True); th.add_argument("--lease-token", required=True); th.add_argument("--ttl-seconds", type=int, default=3600)
-    tp = tops.add_parser("progress"); tp.add_argument("--task-id", required=True); tp.add_argument("--work-unit-id"); tp.add_argument("--stage", required=True); tp.add_argument("--percent", type=int, required=True); tp.add_argument("--summary", required=True)
+    tp = tops.add_parser("progress"); tp.add_argument("--task-id", required=True); tp.add_argument("--work-unit-id"); tp.add_argument("--stage", required=True); tp.add_argument("--percent", type=int, required=True); tp.add_argument("--summary", required=True); tp.add_argument("--basis", choices=("manual-estimate","observed-steps","verified-criteria","deterministic-tests"), default="manual-estimate"); tp.add_argument("--evidence-id", action="append", default=[]); tp.add_argument("--observed-steps", type=int); tp.add_argument("--total-steps", type=int); tp.add_argument("--confidence", choices=("low","medium","high"), default="medium")
     te = tops.add_parser("evidence-add"); te.add_argument("--task-id", required=True); te.add_argument("--work-unit-id"); te.add_argument("--artifact", required=True); te.add_argument("--artifact-sha256"); te.add_argument("--kind", default="artifact")
     tr = tops.add_parser("release"); tr.add_argument("--lease-id", required=True); tr.add_argument("--lease-token"); tr.add_argument("--reason", default="released")
     ts = tops.add_parser("submit"); ts.add_argument("--task-id", required=True); ts.add_argument("--work-unit-id"); ts.add_argument("--lease-id"); ts.add_argument("--lease-token"); ts.add_argument("--result-summary", default="Technical work submitted")
     ta = tops.add_parser("audit"); ta.add_argument("task_id")
     tx = tops.add_parser("export-excel"); tx.add_argument("--output", required=True)
     solve = tops.add_parser("solve-all"); solve.add_argument("query", nargs="?"); solve.add_argument("--providers", default="auto"); solve.add_argument("--quorum", type=int, default=2); solve.add_argument("--implementer"); solve.add_argument("--test-profile"); solve.add_argument("--cwd", default="."); solve.add_argument("--effort", default="high"); solve.add_argument("--confirm-critical", action="store_true"); solve.add_argument("--max-tasks", type=int); solve.add_argument("--apply", action="store_true")
-    tauth = tops.add_parser("authorize-execution", help="Run the validation gate only; does not implement code")
-    tauth.add_argument("--task-id", required=True)
+    tauth = tops.add_parser("authorize-execution", help="Run validation gates in one task or a bounded selected set; does not implement code")
+    tauth.add_argument("--task-id", action="append", default=[]); tauth.add_argument("--all", action="store_true"); tauth.add_argument("--query"); tauth.add_argument("--max-tasks", type=int)
     texec = tops.add_parser("execute", help="Deprecated alias for authorize-execution; validation only")
-    texec.add_argument("--task-id", required=True)
-    trun = tops.add_parser("run", help="Execute an approved task via the Multi-Coder hybrid engine")
-    trun.add_argument("--task-id", required=True)
+    texec.add_argument("--task-id", action="append", default=[]); texec.add_argument("--all", action="store_true"); texec.add_argument("--query"); texec.add_argument("--max-tasks", type=int)
+    trun = tops.add_parser("run", help="Plan or apply a closed-loop Task -> Meeting -> Multi-Coder workflow")
+    trun.add_argument("--task-id", action="append", default=[]); trun.add_argument("--all", action="store_true"); trun.add_argument("--query"); trun.add_argument("--apply", action="store_true", help="Compatibility flag; tasks run executes by default"); trun.add_argument("--plan", action="store_true", help="Plan only; no implementation or provider execution")
     trun.add_argument("--mode", choices=("hybrid", "multi-coder"), default="hybrid")
     trun.add_argument("--providers", default="auto")
     trun.add_argument("--quorum", type=int, default=2)
@@ -411,10 +436,13 @@ def parser() -> argparse.ArgumentParser:
     trun.add_argument("--risk-class", default="R2")
     trun.add_argument("--effort", default="high")
     trun.add_argument("--max-repair-rounds", type=int)
+    trun.add_argument("--conversation-id", default="default")
+    trun.add_argument("--report-output")
+    trun.add_argument("--max-tasks", type=int)
 
     multi = commands.add_parser("multi-coder", help=argparse.SUPPRESS)
     mops = multi.add_subparsers(dest="op", required=True)
-    mr = mops.add_parser("run"); mr.add_argument("--task"); mr.add_argument("--task-id"); mr.add_argument("--providers", default="auto"); mr.add_argument("--quorum", type=int, default=2); mr.add_argument("--implementer"); mr.add_argument("--test-argv", nargs="+"); mr.add_argument("--test-profile"); mr.add_argument("--test-command-json", help=argparse.SUPPRESS); mr.add_argument("--cwd", default="."); mr.add_argument("--risk-class", default="R2"); mr.add_argument("--effort", default="high"); mr.add_argument("--max-repair-rounds", type=int)
+    mr = mops.add_parser("run"); mr.add_argument("--task"); mr.add_argument("--task-id"); mr.add_argument("--providers", default="auto"); mr.add_argument("--quorum", type=int, default=2); mr.add_argument("--implementer"); mr.add_argument("--test-argv", nargs="+"); mr.add_argument("--test-profile"); mr.add_argument("--test-command-json", help=argparse.SUPPRESS); mr.add_argument("--cwd", default="."); mr.add_argument("--risk-class", default="R2"); mr.add_argument("--effort", default="high"); mr.add_argument("--max-repair-rounds", type=int); mr.add_argument("--apply", action="store_true", help="Compatibility flag; multi-coder run executes by default"); mr.add_argument("--plan", action="store_true", help="Plan only; no provider calls or implementation")
 
     knowledge = commands.add_parser("knowledge", help=argparse.SUPPRESS)
     kops = knowledge.add_subparsers(dest="op", required=True)
@@ -488,39 +516,20 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if a.cmd == "run":
             goal_text = " ".join(a.goal)
-            if a.execute:
-                created = task_create(
-                    h,
-                    goal_text[:180],
-                    goal_text,
-                    "high" if a.risk_class in {"R2", "R3", "R4"} else "normal",
-                    source="cli-run",
-                    risk_class=a.risk_class,
-                    task_type="agentic-execution",
-                    tags=["natural-goal", "pre-execution-validation"],
-                    acceptance_criteria="Execute only after task validation or an explicit risk-acceptance receipt.",
-                )
-                task_id = created.get("task_id") or created.get("duplicate_of")
-                if not task_id:
-                    emit(created); return 0
-                if a.task_validation == "ask":
-                    emit(validation_gate(h, task_id, "run")); return 0
-                if a.task_validation == "review":
-                    emit(validation_review(
-                        h, task_id, context_files=[Path(value) for value in a.context],
-                        privacy_class=a.privacy_class, effort="xhigh" if a.profile == "ultracode" else "high",
-                        profile=a.profile or "balanced", require_live=not a.allow_static,
-                    )); return 0
-                validation_skip(
-                    h, task_id, subject=a.subject or "cli-user", reason=a.reason or "Explicit one-shot execution risk acceptance",
-                    trigger_action="run", founder_confirm=a.founder_confirm,
-                )
-                emit(run_goal(
-                    h, goal_text, execute=True, risk_class=a.risk_class, privacy_class=a.privacy_class,
-                    max_parallel=a.max_parallel, token_budget=a.token_budget, wall_clock_seconds=a.wall_clock_seconds,
-                    require_live=not a.allow_static, profile=a.profile, existing_task_id=task_id,
-                )); return 0
-            emit(run_goal(h, goal_text, execute=False, risk_class=a.risk_class, privacy_class=a.privacy_class, max_parallel=a.max_parallel, token_budget=a.token_budget, wall_clock_seconds=a.wall_clock_seconds, require_live=not a.allow_static, profile=a.profile))
+            # Natural language is the primary API. Explicit execution verbs in the
+            # sentence are authoritative; --execute/--apply remain expert aliases.
+            apply_override = True if (a.execute or a.apply) else None
+            result = run_autopilot(
+                h,
+                goal_text,
+                conversation_id=a.conversation_id,
+                apply=apply_override,
+                cwd=Path(a.cwd),
+                test_argv=a.test_argv,
+                max_tasks=a.max_tasks,
+                report_output=Path(a.report_output) if a.report_output else None,
+            )
+            emit(result)
             return 0
         if a.cmd == "status":
             emit(log_locations(h) if a.logs else unified_status(h, live=a.live, window=a.window))
@@ -568,12 +577,17 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "mesh":
             article5 = _screen_text(a.task, h, context="cli:mesh-or-multicoder")
             disclosure = record_disclosure(h, surface="cli:mesh", language="en")
+            timeout = max(30, min(int(a.timeout), 600))
             if a.op == "delegate":
-                result = mesh_delegate(h, a.provider, a.task, a.task_mode, model=a.model, timeout=a.timeout, auth_mode=a.auth_mode, allow_fallback=a.allow_fallback, effort=a.effort)
+                result = mesh_delegate(h, a.provider, a.task, a.task_mode, model=a.model, timeout=timeout, auth_mode=a.auth_mode, allow_fallback=a.allow_fallback, effort=a.effort)
                 emit({**result, "article_5": article5, "article_50": disclosure, "content_provenance": _runtime_mark_for_mesh(result), "global_compliance_claim_allowed": False})
             else:
-                results = [mesh_delegate(h, provider, a.task, a.task_mode, timeout=a.timeout, auth_mode=a.auth_mode, effort=a.effort) for provider in _split(a.providers)]
-                emit({"decision": "pass" if any(r.get("status") == "pass" for r in results) else "needs-work", "results": results, "article_5": article5, "article_50": disclosure, "content_provenance": _runtime_mark_for_mesh(results), "global_compliance_claim_allowed": False})
+                requested = _split(a.providers)
+                results = [mesh_delegate(h, provider, a.task, a.task_mode, timeout=timeout, auth_mode=a.auth_mode, effort=a.effort) for provider in requested]
+                substantive = [row for row in results if row.get("status") == "pass" and row.get("model_served") and len(str(row.get("output") or "").strip()) >= 30]
+                quorum = min(max(1, int(a.quorum)), len(requested)) if requested else 1
+                decision = "pass" if len(substantive) >= quorum and len(substantive) == len(requested) else "needs-work"
+                emit({"decision": decision, "review_class": "multi-coder-independent" if decision == "pass" else "single-engine-or-incomplete", "requested": requested, "substantive_count": len(substantive), "quorum": quorum, "results": results, "article_5": article5, "article_50": disclosure, "content_provenance": _runtime_mark_for_mesh(results), "global_compliance_claim_allowed": False})
             return 0
         if a.cmd == "meeting":
             if a.op in {"start", "seat-plan"}:
@@ -609,13 +623,15 @@ def main(argv: list[str] | None = None) -> int:
                     risk_class=a.risk_class,
                     seat_plan=plan.to_dict(),
                     max_parallel=a.max_parallel,
+                    existing_task_id=a.task_id,
+                    correlation_id=a.correlation_id,
                 ))
             elif a.op == "list": emit({"meetings": list_meetings(h)})
             elif a.op == "show":
                 payload = meeting_show(h, a.meeting_id)
                 emit(project_meeting_view(payload, getattr(a, "view", "full") or "full"))
             elif a.op == "run": emit(meeting_run(h, a.meeting_id))
-            elif a.op == "approve": emit(meeting_approve(h, a.meeting_id))
+            elif a.op == "approve": emit(meeting_approve(h, a.meeting_id, subject=a.subject, intent_digest=a.intent_digest))
             elif a.op == "create-task": emit(create_task_from_meeting(h, a.meeting_id, a.title))
             elif a.op == "export":
                 exported = export_workspace(h, Path(a.output), meeting_show(h, a.meeting_id)["task_id"])
@@ -686,62 +702,86 @@ def main(argv: list[str] | None = None) -> int:
             elif a.op == "add-work-unit": emit(add_work_unit(h, a.task_id, a.title, a.role, a.read_scope, a.write_scope))
             elif a.op == "claim": emit(claim_work_unit(h, a.work_unit_id, a.owner, a.session_id, a.ttl_seconds, enforce_validation=True, trigger_action="claim"))
             elif a.op == "heartbeat": emit(task_heartbeat(h, a.lease_id, a.lease_token, a.ttl_seconds))
-            elif a.op == "progress": emit(record_progress(h, a.task_id, a.stage, a.percent, a.summary, a.work_unit_id))
+            elif a.op == "progress": emit(record_progress(h, a.task_id, a.stage, a.percent, a.summary, a.work_unit_id, basis=a.basis, evidence_ids=a.evidence_id, observed_steps=a.observed_steps, total_steps=a.total_steps, confidence=a.confidence))
             elif a.op == "evidence-add": emit(add_evidence(h, a.task_id, Path(a.artifact), a.artifact_sha256, a.kind, a.work_unit_id))
             elif a.op == "release": emit(release_lease(h, a.lease_id, a.lease_token, a.reason))
             elif a.op == "submit": emit(submit_task(h, a.task_id, a.work_unit_id, a.lease_id, a.lease_token, a.result_summary))
             elif a.op == "audit": emit(audit_task(h, a.task_id, record=True))
             elif a.op == "export-excel": emit(export_workspace(h, Path(a.output)))
             elif a.op in {"execute", "authorize-execution"}:
-                gate = validation_gate(h, a.task_id, "execute")
+                requested_ids = list(a.task_id or [])
+                discovered = list_open(h, query=a.query, limit=a.max_tasks) if (a.all or not requested_ids) else []
+                requested_ids.extend(row["id"] for row in discovered)
+                requested_ids = list(dict.fromkeys(requested_ids))
+                snapshots = {row["id"]: row for row in list_open(h, query=None, limit=None)}
+                table = []
+                eligible_ids = []
+                for task_id in requested_ids[: a.max_tasks or len(requested_ids)]:
+                    row = snapshots.get(task_id)
+                    status = str((row or {}).get("status") or "unknown")
+                    if status not in EXECUTION_ELIGIBLE_STATES:
+                        table.append({
+                            "task_id": task_id,
+                            "status": status,
+                            "decision": "skipped-non-execution-state",
+                            "implements_code": False,
+                            "next_actor": "founder" if status == "awaiting_founder" else "authoritative task owner",
+                            "reason": "founder-gated technical completion" if status == "awaiting_founder" else f"status:{status}",
+                        })
+                        continue
+                    eligible_ids.append(task_id)
+                    gate = validation_gate(h, task_id, "execute")
+                    table.append({
+                        "task_id": task_id,
+                        "status": status,
+                        "decision": gate.get("decision"),
+                        "policy": gate.get("policy"),
+                        "source": gate.get("source"),
+                        "next": gate.get("next"),
+                    })
+                actionable = [row for row in table if row.get("task_id") in eligible_ids]
+                decision = (
+                    "noop" if not actionable
+                    else "pass" if all(row.get("decision") == "pass" for row in actionable)
+                    else "requires-user-confirmation"
+                )
                 emit({
-                    **gate,
+                    "decision": decision,
+                    "reason": "eligible-count-zero" if not actionable else None,
                     "command": a.op,
                     "command_semantics": "authorize-execution",
                     "implements_code": False,
                     "deprecated_alias": a.op == "execute",
-                    "next_command": f"iot-ai tasks run --task-id {a.task_id} --mode hybrid",
+                    "requested_count": len(requested_ids),
+                    "eligible_count": len(actionable),
+                    "skipped_count": len(table) - len(actionable),
+                    "task_table": table,
                 })
             elif a.op == "run":
-                providers = (
-                    [candidate["provider"] for candidate in provider_candidates(h, require_live=True)]
-                    if a.providers == "auto"
-                    else _split(a.providers)
-                )
-                providers = list(dict.fromkeys(providers))
-                if not providers:
-                    raise RuntimeError("no live-ready multi-coder providers")
-                record_disclosure(h, surface="cli:tasks-run", language="en")
-                result = multicoder_run(
-                    h,
-                    task=None,
-                    providers=providers,
-                    quorum=min(a.quorum, len(providers)),
-                    test_argv=a.test_argv,
-                    cwd=Path(a.cwd),
-                    task_id=a.task_id,
-                    implementer=a.implementer,
-                    test_profile=Path(a.test_profile) if a.test_profile else None,
-                    risk_class=a.risk_class,
-                    effort=a.effort,
-                    max_repair_rounds=a.max_repair_rounds,
-                )
-                emit({
-                    **result,
-                    "command": "tasks run",
-                    "mode": a.mode,
-                    "engine": "multi-coder",
-                    "command_semantics": "hybrid-execution",
-                    "implements_code": True,
-                })
+                ids = list(a.task_id or [])
+                if a.all and not ids:
+                    ids = [row["id"] for row in list_open(h, query=a.query, limit=a.max_tasks)]
+                if not ids and not a.query:
+                    raise ValueError("--task-id, --all, or --query is required")
+                goal = "Finish the selected IOT-AI Suite tasks through full Meeting and Multi-Coder verification."
+                if ids:
+                    goal += " Task IDs: " + " ".join(ids)
+                if a.query:
+                    goal += " Query: " + a.query
+                result = run_autopilot(h, goal, conversation_id=a.conversation_id, apply=not bool(a.plan), cwd=Path(a.cwd), test_argv=a.test_argv, max_tasks=a.max_tasks, report_output=Path(a.report_output) if a.report_output else None)
+                emit({**result, "command": "tasks run", "mode": a.mode, "engine": "autopilot+meeting+multi-coder", "command_semantics": "closed-loop-hybrid" if not a.plan else "plan-only", "implements_code": not bool(a.plan)})
             else:
                 plan = solve_all_plan(h, a.query, a.confirm_critical, a.max_tasks, require_validated=True)
-                if not a.apply: emit(plan)
+                if not a.apply or plan.get("eligible_count", 0) == 0:
+                    emit(plan)
                 else:
                     provider_list = [c["provider"] for c in provider_candidates(h, require_live=True)] if a.providers == "auto" else _split(a.providers)
                     provider_list = list(dict.fromkeys(provider_list))
-                    results = [multicoder_run(h, task_id=task["id"], providers=provider_list, quorum=min(a.quorum, len(provider_list)), implementer=a.implementer, test_profile=Path(a.test_profile) if a.test_profile else None, cwd=Path(a.cwd), effort=a.effort) for task in plan["selected"]]
-                    emit({"decision": "pass" if all(r.get("decision") == "approve" for r in results) else "needs-work", "plan": plan, "results": results})
+                    if not provider_list:
+                        emit({"decision": "needs-work", "reason": "no-live-ready-multi-coder-providers", "plan": plan, "results": []})
+                    else:
+                        results = [multicoder_run(h, task_id=task["id"], providers=provider_list, quorum=min(a.quorum, len(provider_list)), implementer=a.implementer, test_profile=Path(a.test_profile) if a.test_profile else None, cwd=Path(a.cwd), effort=a.effort) for task in plan["selected"]]
+                        emit({"decision": "pass" if results and all(r.get("decision") == "approve" for r in results) else "needs-work", "plan": plan, "results": results})
             return 0
         if a.cmd == "multi-coder":
             if a.task:
@@ -754,7 +794,11 @@ def main(argv: list[str] | None = None) -> int:
             providers = [c["provider"] for c in provider_candidates(h, require_live=True)] if a.providers == "auto" else _split(a.providers)
             providers = list(dict.fromkeys(providers))
             if not providers: raise RuntimeError("no live-ready multi-coder providers")
-            emit(multicoder_run(h, a.task, providers, min(a.quorum, len(providers)), test_argv, Path(a.cwd), task_id=a.task_id, implementer=a.implementer, test_profile=Path(a.test_profile) if a.test_profile else None, risk_class=a.risk_class, effort=a.effort, max_repair_rounds=a.max_repair_rounds)); return 0
+            if a.plan:
+                emit({"decision": "plan", "provider_calls": 0, "implements_code": False, "task_id": a.task_id, "task": a.task, "providers": providers, "quorum": min(a.quorum, len(providers)), "next": "repeat without --plan or use one natural-language iot-ai goal"})
+            else:
+                emit(multicoder_run(h, a.task, providers, min(a.quorum, len(providers)), test_argv, Path(a.cwd), task_id=a.task_id, implementer=a.implementer, test_profile=Path(a.test_profile) if a.test_profile else None, risk_class=a.risk_class, effort=a.effort, max_repair_rounds=a.max_repair_rounds))
+            return 0
         if a.cmd == "knowledge":
             if a.op == "pack":
                 emit(capability_build_pack(json.loads(Path(a.spec).read_text(encoding="utf-8")), Path(a.output)))

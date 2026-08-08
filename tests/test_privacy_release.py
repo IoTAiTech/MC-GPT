@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
 import tempfile
@@ -43,6 +43,12 @@ class PrivacyReleaseTests(IsolatedHomeTestCase):
         (root / "README.md").write_text("Public-only documentation", encoding="utf-8")
         self.assertEqual(scan(root), [])
         self.assertEqual(len(root_digest(root)), 64)
+
+    def test_release_scanner_does_not_confuse_normal_skipped_status_with_token(self) -> None:
+        root = self.home / "scan-normal-status"
+        root.mkdir()
+        (root / "status.json").write_text('{"decision":"skipped-non-execution-state"}', encoding="utf-8")
+        self.assertEqual(scan(root), [])
 
     def test_public_export_uses_allowlist(self) -> None:
         source = self.home / "source"

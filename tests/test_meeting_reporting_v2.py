@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
 import hashlib
@@ -153,17 +153,11 @@ class MeetingReportingV2Tests(IsolatedHomeTestCase):
         self.assertNotIn(str(self.home), sidecar)
 
     def test_legacy_db_outside_trusted_roots_is_rejected(self) -> None:
-        # Do not use TemporaryDirectory(dir="/"): that requires root and fails on
-        # non-root GitHub Actions runners (PermissionError creating /tmpXXXX).
-        # Assert the security property by restricting trusted roots to the suite home.
         with tempfile.TemporaryDirectory() as tmp:
             outside = self.make_legacy(Path(tmp) / "legacy.sqlite3")
             old = os.environ.pop("IOT_AI_ALLOWED_READ_ROOTS", None)
             try:
-                with patch(
-                    "iot_ai.meeting_reporting.trusted_operator_roots",
-                    return_value=(self.home.resolve(),),
-                ):
+                with patch("iot_ai.meeting_reporting.trusted_operator_roots", return_value=(self.home.resolve(),)):
                     with self.assertRaises(PathSecurityError):
                         collect(self.home, legacy_dbs=[outside], include_current=False)
             finally:

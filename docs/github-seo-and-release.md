@@ -1,4 +1,4 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.4 | Date: 2026-08-08 -->
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.5 | Date: 2026-08-08 -->
 # GitHub SEO and Release Readiness
 
 ## Recommended repository metadata
@@ -79,7 +79,7 @@ Only the allowlist-built Community source and Community release assets may be at
 ## Release title and search summary
 
 ```text
-IOT-AI Suite 6.7.0-beta.4 / MC-GPT 0.8.0-alpha.4 — Governed Multi-Agent Coding Developer Preview
+IOT-AI Suite 6.7.0-beta.5 / MC-GPT 0.8.0-alpha.5 — Governed Multi-Agent Coding Developer Preview
 ```
 
 The release notes should begin with the exact supported provider families, task-validation/hybrid-execution distinction, federated Meeting reporting, clean installation and claim boundary. Do not claim production readiness, legal certification, universal model availability or fleet-wide compliance.

@@ -1,13 +1,15 @@
 {
   "classification": "private-release-candidate-publication-pending-founder-review",
+  "closed_loop_default": true,
   "embedded_components": {
-    "iot-ai-mc-gpt": "0.8.0-alpha.4"
+    "iot-ai-mc-gpt": "0.8.0-alpha.5"
   },
+  "natural_language_primary": true,
   "product_id": "iot-ai-tech.iot-ai-coder-suite",
   "production_claim": false,
   "python_distribution": "iot-ai-coder-suite",
-  "python_version": "6.7.0b4",
+  "python_version": "6.7.0b5",
   "schema": "iot-ai.suite-package.v1",
-  "source_github_main_sha": "11fa3c840744d953cee183c529040ad27ffb7dbc",
-  "version": "6.7.0-beta.4"
+  "source_github_main_sha": "8b5f60616636e63d8310d4ace3057a28db46c1d3",
+  "version": "6.7.0-beta.5"
 }

@@ -1,15 +1,9 @@
 ---
 name: iot-ai-settings
-description: Manage platform-independent settings, cloud/Ollama policy and orchestration profiles.
+description: Conversation-aware policy, provider, privacy, WIP and execution-profile settings without requiring flag memorisation.
 ---
 # iot-ai-settings
 
-Use the installed `iot-ai` CLI as the only public control surface.
+Accept requests such as “use the strongest available models, keep four critical tasks at a time, and stop after two identical failures.” Show the normalized setting changes before applying them.
 
-Example: `/iot-ai-settings profile set ultracode --session-only`
-
-Rules:
-- Read `iot-ai help` before using a flag.
-- Preserve immutable role contracts, task authority, evidence, privacy and public/private boundaries.
-- Never count an empty, meta-only, unauthenticated, quota-blocked or model-unverified seat as a contribution.
-- Never claim a provider/model without a fresh requested/served receipt.
+Preserve: cloud opt-in, privacy classes, exact model receipts, WIP limits, retry budgets, no silent fallback, Founder gates and public/private boundaries. Settings may change orchestration policy but may not create execution authority or weaken compliance/security gates.

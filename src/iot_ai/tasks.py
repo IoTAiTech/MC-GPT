@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Standalone task lifecycle with work units, leases, evidence and audits."""
 from __future__ import annotations
 
@@ -204,15 +204,52 @@ def heartbeat(user_home:Path,lease_id:str,lease_token:str,ttl_seconds:int=3600)-
     finally: conn.close()
 
 
-def record_progress(user_home:Path,task_id:str,stage:str,percent:int,summary:str,work_unit_id:str|None=None)->dict[str,Any]:
+def record_progress(
+    user_home:Path,
+    task_id:str,
+    stage:str,
+    percent:int,
+    summary:str,
+    work_unit_id:str|None=None,
+    *,
+    basis:str="manual-estimate",
+    evidence_ids:list[str]|None=None,
+    observed_steps:int|None=None,
+    total_steps:int|None=None,
+    confidence:str="medium",
+)->dict[str,Any]:
     if percent<0 or percent>100: raise ValueError("percent must be 0..100")
     if not stage.strip() or not summary.strip(): raise ValueError("stage and summary are required")
+    if basis not in {"manual-estimate","observed-steps","verified-criteria","deterministic-tests"}:
+        raise ValueError("invalid progress basis")
+    if confidence not in {"low","medium","high"}: raise ValueError("invalid progress confidence")
+    if observed_steps is not None or total_steps is not None:
+        if observed_steps is None or total_steps is None or total_steps < 1 or observed_steps < 0 or observed_steps > total_steps:
+            raise ValueError("observed_steps/total_steps are invalid")
+        derived=round((observed_steps/total_steps)*100)
+        if basis in {"observed-steps","verified-criteria"} and derived != percent:
+            raise ValueError(f"percent must equal derived progress ({derived}) for basis {basis}")
     conn=connect_write(user_home)
     try:
-        _task(conn,task_id); pid=new_id("prg"); now=utc_now(); conn.execute("INSERT INTO progress_events VALUES(?,?,?,?,?,?,?)",(pid,task_id,work_unit_id,stage,percent,summary,now))
-        conn.execute("UPDATE tasks SET status=?,engineering_stage=?,engineering_progress=?,task_progress=MAX(task_progress,?),revision=revision+1,updated_at=? WHERE id=?",("active" if percent<100 else "active",stage,percent,percent,now,task_id))
-        if work_unit_id: conn.execute("UPDATE work_units SET status='active',engineering_stage=?,engineering_progress=?,revision=revision+1,updated_at=? WHERE id=?",(stage,percent,now,work_unit_id))
-        append_event(conn,"progress.recorded",{"stage":stage,"percent":percent,"summary":summary},task_id=task_id,work_unit_id=work_unit_id); conn.commit(); return {"decision":"pass","progress_id":pid,"task_id":task_id,"percent":percent,"stage":stage}
+        task=_task(conn,task_id)
+        current_status=str(task.get("status") or "")
+        if current_status in CLOSED_STATUSES:
+            raise PermissionError(f"progress is forbidden for terminal task status: {current_status}")
+        # Progress is telemetry, never authority. Founder-gated work must not be reopened.
+        next_status=current_status if current_status=="awaiting_founder" else "active"
+        pid=new_id("prg"); now=utc_now(); conn.execute("INSERT INTO progress_events VALUES(?,?,?,?,?,?,?)",(pid,task_id,work_unit_id,stage,percent,summary,now))
+        conn.execute("UPDATE tasks SET status=?,engineering_stage=?,engineering_progress=?,task_progress=MAX(task_progress,?),revision=revision+1,updated_at=? WHERE id=?",(next_status,stage,percent,percent,now,task_id))
+        if work_unit_id and current_status!="awaiting_founder":
+            conn.execute("UPDATE work_units SET status='active',engineering_stage=?,engineering_progress=?,revision=revision+1,updated_at=? WHERE id=?",(stage,percent,now,work_unit_id))
+        payload={
+            "stage":stage,"percent":percent,"summary":summary,"basis":basis,
+            "evidence_ids":list(evidence_ids or []),"observed_steps":observed_steps,
+            "total_steps":total_steps,"confidence":confidence,"status_preserved":current_status=="awaiting_founder",
+            "completion_authority":False,
+        }
+        append_event(conn,"progress.recorded",payload,task_id=task_id,work_unit_id=work_unit_id)
+        conn.commit()
+        return {"decision":"pass","progress_id":pid,"task_id":task_id,"percent":percent,"stage":stage,"basis":basis,"status":next_status,"completion_authority":False}
     finally: conn.close()
 
 
@@ -234,32 +271,118 @@ def release_lease(user_home:Path,lease_id:str,lease_token:str|None=None,reason:s
     finally: conn.close()
 
 
-def submit_task(user_home:Path,task_id:str,work_unit_id:str|None=None,lease_id:str|None=None,lease_token:str|None=None,result_summary:str="Technical work submitted for review") -> dict[str,Any]:
+def submit_task(
+    user_home:Path,
+    task_id:str,
+    work_unit_id:str|None=None,
+    lease_id:str|None=None,
+    lease_token:str|None=None,
+    result_summary:str="Technical work submitted for review",
+) -> dict[str,Any]:
+    """Submit technical work only after the independent audit passes.
+
+    The former implementation moved a task to ``awaiting_founder`` before the
+    audit and left it there even when hard gates failed.  This function now uses
+    a verification phase: leases are released, the task is audited at 100%
+    telemetry, and only an ``approve_technical`` result advances to the
+    founder-only queue.  Failed audits return the task to ``needs-work``.
+    """
     conn=connect_write(user_home)
     try:
-        _task(conn,task_id)
-        if lease_id: _verified_lease(conn,lease_id,lease_token)
+        task=_task(conn,task_id)
+        if task["status"] in CLOSED_STATUSES:
+            raise PermissionError(f"submit is forbidden for terminal task status: {task['status']}")
+        if lease_id:
+            _verified_lease(conn,lease_id,lease_token)
         now=utc_now(); pid=new_id("prg")
-        conn.execute("INSERT INTO progress_events VALUES(?,?,?,?,?,?,?)",(pid,task_id,work_unit_id,"complete",100,"Technical submission complete",now))
-        conn.execute("UPDATE tasks SET status='awaiting_founder',engineering_stage='complete',engineering_progress=100,task_progress=100,result_summary=?,revision=revision+1,updated_at=? WHERE id=?",(result_summary,now,task_id))
-        if work_unit_id: conn.execute("UPDATE work_units SET status='review',engineering_stage='complete',engineering_progress=100,revision=revision+1,updated_at=? WHERE id=?",(now,work_unit_id))
+        conn.execute(
+            "INSERT INTO progress_events VALUES(?,?,?,?,?,?,?)",
+            (pid,task_id,work_unit_id,"verification",100,"Technical verification candidate ready",now),
+        )
+        conn.execute(
+            "UPDATE tasks SET status='verification',engineering_stage='verification',engineering_progress=100,task_progress=100,result_summary=?,revision=revision+1,updated_at=? WHERE id=?",
+            (result_summary,now,task_id),
+        )
+        if work_unit_id:
+            conn.execute(
+                "UPDATE work_units SET status='review',engineering_stage='verification',engineering_progress=100,revision=revision+1,updated_at=? WHERE id=?",
+                (now,work_unit_id),
+            )
         active=rows(conn,"SELECT * FROM leases WHERE task_id=? AND status='active'",(task_id,))
         for lease in active:
             conn.execute("UPDATE leases SET status='released',released_at=?,revision=revision+1 WHERE id=?",(now,lease["id"]))
-            append_event(conn,"lease.released",{"lease_id":lease["id"],"reason":"submit"},task_id=task_id,work_unit_id=lease["work_unit_id"])
-        append_event(conn,"task.submitted",{"status":"awaiting_founder","result_summary":result_summary},task_id=task_id,work_unit_id=work_unit_id); conn.commit()
-    finally: conn.close()
+            append_event(conn,"lease.released",{"lease_id":lease["id"],"reason":"pre-submit-audit"},task_id=task_id,work_unit_id=lease["work_unit_id"])
+        append_event(conn,"task.verification_candidate",{"result_summary":result_summary},task_id=task_id,work_unit_id=work_unit_id)
+        conn.commit()
+    finally:
+        conn.close()
+
     export_workspace(user_home,task_id=task_id)
     from .audit import audit_task
     audit=audit_task(user_home,task_id,record=True)
-    return {"decision":"pass" if audit["decision"]=="approve_technical" else "needs-work","task_id":task_id,"status":"awaiting_founder","audit":audit}
+    approved=audit["decision"]=="approve_technical"
+    conn=connect_write(user_home)
+    try:
+        now=utc_now()
+        if approved:
+            status="awaiting_founder"
+            stage="complete"
+            engineering_progress=100
+            task_progress=100
+            event="task.submitted"
+            event_payload={"status":status,"result_summary":result_summary,"audit_id":audit.get("audit_id")}
+        else:
+            status="needs-work"
+            stage="verification-needs-work"
+            engineering_progress=95
+            task_progress=95
+            event="task.submission_rejected"
+            event_payload={"status":status,"audit_id":audit.get("audit_id"),"findings":audit.get("findings",[])}
+        conn.execute(
+            "UPDATE tasks SET status=?,engineering_stage=?,engineering_progress=?,task_progress=?,revision=revision+1,updated_at=? WHERE id=?",
+            (status,stage,engineering_progress,task_progress,now,task_id),
+        )
+        if work_unit_id:
+            conn.execute(
+                "UPDATE work_units SET status=?,engineering_stage=?,engineering_progress=?,revision=revision+1,updated_at=? WHERE id=?",
+                ("review" if approved else "ready",stage,engineering_progress,now,work_unit_id),
+            )
+        append_event(conn,event,event_payload,task_id=task_id,work_unit_id=work_unit_id)
+        conn.commit()
+    finally:
+        conn.close()
+    export_workspace(user_home,task_id=task_id)
+    return {
+        "decision":"pass" if approved else "needs-work",
+        "task_id":task_id,
+        "status":status,
+        "audit":audit,
+        "founder_queue_entered":approved,
+    }
 
 
 def complete(user_home:Path,task_id:str,result:str)->dict[str,Any]:
-    conn=connect_write(user_home)
+    """Deprecated fail-closed compatibility surface.
+
+    Technical executors may submit evidence and enter ``awaiting_founder`` but
+    may never close their own work.  Final accept/reject/rework remains a
+    separately authenticated founder decision owned by the authoritative task
+    backend.
+    """
+    conn=connect_read(user_home)
     try:
-        _task(conn,task_id); now=utc_now(); conn.execute("UPDATE tasks SET status='completed',engineering_stage='complete',engineering_progress=100,task_progress=100,result_summary=?,revision=revision+1,updated_at=? WHERE id=?",(result,now,task_id)); append_event(conn,"task.completed.compat",{"result":result},task_id=task_id); conn.commit(); return {"task_id":task_id,"status":"completed"}
-    finally: conn.close()
+        task=_task(conn,task_id) if conn is not None else None
+    finally:
+        if conn is not None: conn.close()
+    return {
+        "decision":"block",
+        "reason":"founder-final-decision-required",
+        "task_id":task_id,
+        "status":task.get("status") if task else "unknown",
+        "requested_result":result,
+        "mutation_performed":False,
+        "next_actor":"founder or authoritative backend owner",
+    }
 
 
 def export_xlsx(user_home:Path,output:Path)->dict[str,Any]: return export_workspace(user_home,output)
@@ -300,4 +423,16 @@ def solve_all_plan(
             skipped.append(item)
         else: selected.append(task)
         if max_tasks and len(selected)>=max_tasks: break
-    return {"decision":"plan","query":query,"selected":selected,"skipped":skipped,"eligible_count":len(selected),"skipped_count":len(skipped),"requires_user_confirmation":True,"apply":False}
+    eligible=len(selected)
+    return {
+        "decision":"plan" if eligible else "noop",
+        "reason":None if eligible else "eligible-count-zero",
+        "query":query,
+        "selected":selected,
+        "skipped":skipped,
+        "eligible_count":eligible,
+        "skipped_count":len(skipped),
+        "requires_user_confirmation":bool(eligible),
+        "apply":False,
+        "provider_calls":0,
+    }

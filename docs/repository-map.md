@@ -46,3 +46,6 @@ FOUNDER_PUBLISH_DEVELOPER_PREVIEW.
 ```
 
 Use `docs/github-publishing-runbook.md` and the canonical prompt in the complete private delivery.
+
+- `docs/autonomous-closed-loop.md` — natural-language Task → Meeting → Multi-Coder lifecycle and terminal rules.
+- `assets/brand/MC-GPT-Control-Plane-Infographic.webp` — public README infographic with provenance sidecar.

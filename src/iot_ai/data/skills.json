@@ -1,9 +1,59 @@
 {
+  "schema": "iot-ai.skill-catalog.v3",
+  "version": "6.7.0-beta.5",
+  "notice": "Natural-language iot-ai is the primary surface. Advanced engines remain separately testable but are automatically composed by the closed loop.",
+  "public_skills": [
+    {
+      "id": "iot-ai",
+      "purpose": "Conversation-aware closed-loop engineering through Tasks, Meetings, Multi-Coder, tests, repair and audit.",
+      "example": "/iot-ai finish all critical PMD tasks and keep working until terminal"
+    },
+    {
+      "id": "iot-ai-tasks",
+      "purpose": "Authoritative task lifecycle, validation, WIP waves, evidence and Founder handoff.",
+      "example": "/iot-ai-tasks ادامه بده و بقیه تسک‌ها را تمام کن"
+    },
+    {
+      "id": "iot-ai-meeting",
+      "purpose": "Automatic planning, failure-analysis and hard-judge meetings.",
+      "example": "/iot-ai-meeting deeply review the selected task with all eligible seats"
+    },
+    {
+      "id": "iot-ai-multi-coder",
+      "purpose": "Role-bound implementation, deterministic tests, repair and independent final review.",
+      "example": "/iot-ai-multi-coder implement the approved task and verify it fully"
+    },
+    {
+      "id": "iot-ai-help",
+      "purpose": "Translate natural outcomes into visible intent and explain advanced controls only when needed.",
+      "example": "/iot-ai-help how do I finish the remaining tasks?"
+    },
+    {
+      "id": "iot-ai-status",
+      "purpose": "Management view of tasks, waves, meetings, providers, evidence and next actors.",
+      "example": "/iot-ai-status what is finished and what is blocked?"
+    },
+    {
+      "id": "iot-ai-settings",
+      "purpose": "Natural-language orchestration, privacy, WIP and provider policy settings.",
+      "example": "/iot-ai-settings use strongest available models and four critical tasks per wave"
+    },
+    {
+      "id": "iot-ai-update",
+      "purpose": "Transactional package discovery, install, verify, rollback and fleet receipts.",
+      "example": "/iot-ai-update install the latest verified private delivery on authorised hosts"
+    }
+  ],
   "internal_engines": [
+    "intent-router",
+    "conversation-state",
+    "autopilot",
+    "tasks",
     "meeting",
     "mesh",
     "multi-coder",
-    "tasks",
+    "acceptance-scorecard",
+    "agent-capability-validation",
     "diagnostics",
     "knowledge",
     "graph-compiler",
@@ -11,35 +61,5 @@
     "provider-readiness",
     "reporting",
     "worktree-isolation"
-  ],
-  "notice": "Internal engines are invoked by iot-ai or through advanced subcommands; they are not separate public products.",
-  "public_skills": [
-    {
-      "example": "/iot-ai deeply investigate and safely solve this issue",
-      "id": "iot-ai",
-      "purpose": "Agentically solve a goal through knowledge reuse, typed roles, dependency graph, verification and diagnostics."
-    },
-    {
-      "example": "/iot-ai-help meeting",
-      "id": "iot-ai-help",
-      "purpose": "Explain the current public command surface, roles, policies and safe examples."
-    },
-    {
-      "example": "/iot-ai-status --window 24h",
-      "id": "iot-ai-status",
-      "purpose": "Show Suite, coder, provider/model readiness, effort, workflow scores and latest evidence."
-    },
-    {
-      "example": "/iot-ai-settings profile set ultracode --session-only",
-      "id": "iot-ai-settings",
-      "purpose": "Manage platform-independent settings, cloud/Ollama policy and orchestration profiles."
-    },
-    {
-      "example": "/iot-ai-update status",
-      "id": "iot-ai-update",
-      "purpose": "Use the single transactional update authority for plan, apply and rollback."
-    }
-  ],
-  "schema": "iot-ai.skill-catalog.v2",
-  "version": "6.7.0-beta.4"
+  ]
 }

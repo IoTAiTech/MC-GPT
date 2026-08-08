@@ -1,0 +1,12 @@
+{
+  "asset": "MC-GPT-Control-Plane-Infographic.webp",
+  "asset_sha256": "1310dbb5034fb12964a1b096c33824cc73ee46398c1ec6e41729829558f01cc6",
+  "editorially_responsible_party": "Dr.-Ing. Babak Sorkhpour / IoT-AI.Tech",
+  "human_reviewed": true,
+  "production_claim": false,
+  "schema": "iot-ai.ai-content-provenance.v1",
+  "social_preview_sha256": "ea0608c6a33bde561a9f0c50269d09e907c5d6b35dd43bdd8cf031966191583f",
+  "source_file_sha256": "60a607244a4276992dbca7a09ddd625dcfcb01ec06efe3aa3580e1e3f0d73598",
+  "source_kind": "founder-supplied-ai-generated-infographic",
+  "visible_attribution_preserved": true
+}

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
 import json
@@ -106,6 +106,31 @@ class MultiCoderGovernanceTests(IsolatedHomeTestCase):
         self.assertEqual(result["decision"], "blocked")
         self.assertEqual(result["reason"], "high-risk-deployment-classification-required")
         delegate_mock.assert_not_called()
+
+    @patch("iot_ai.multicoder.delegate")
+    def test_one_failed_selected_seat_blocks_instead_of_fake_quorum_pass(self, delegate_mock) -> None:
+        def one_failed(user_home, provider, prompt, stage="consultation", model="auto", **kwargs):
+            if provider == "gemini" and stage == "plan":
+                return {
+                    "status": "failed", "output": "", "provider": provider,
+                    "model_requested": model, "model_served": None,
+                    "request_id": "req-gemini-failed", "route_id": "route-gemini",
+                    "failure_class": "quota", "fallback_used": False,
+                }
+            return successful_delegate(user_home, provider, prompt, stage, model, **kwargs)
+        delegate_mock.side_effect = one_failed
+        result = run(
+            self.home,
+            task="Improve a developer tool with deterministic tests",
+            providers=["codex", "gemini"],
+            quorum=1,
+            test_argv=[sys.executable, "-c", "print('1 passed')"],
+            cwd=self.home,
+        )
+        self.assertEqual(result["decision"], "blocked")
+        self.assertEqual(result["reason"], "required-seat-coverage-unsatisfied")
+        self.assertEqual(result["unsatisfied_seats"], ["gemini"])
+        self.assertFalse(result["execution_authorized"])
 
     @patch("iot_ai.multicoder.delegate")
     def test_digest_rejection_prevents_implementation(self, delegate_mock) -> None:

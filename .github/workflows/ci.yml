@@ -14,8 +14,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Linux is the supported CI/release gate for this suite.
-        # Windows path-layout coverage is tracked separately (AppData wrappers).
         os: [ubuntu-latest]
         python: ["3.11", "3.13"]
     runs-on: ${{ matrix.os }}
@@ -70,7 +68,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           if [[ "$status" -ne 0 ]]; then
-            python - "$JUNIT" <<'PY'
+            python - "$JUNIT" <<'PYFAIL'
           import sys
           import xml.etree.ElementTree as ET
           path = sys.argv[1]
@@ -88,7 +86,7 @@ jobs:
                   msg = (node.get("message") or (node.text or "failed")).strip().splitlines()[0][:240]
                   file_hint = classname.replace(".", "/") + ".py" if classname else "tests"
                   print(f"::error file={file_hint},title={classname}::{name}: {msg}")
-          PY
+          PYFAIL
           fi
           exit "$status"
       - name: Upload junit and pytest log

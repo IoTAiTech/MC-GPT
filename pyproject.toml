@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iot-ai-coder-suite"
-version = "6.7.0b4"
-description = "Governed multi-agent coding orchestration for Claude, Codex, Gemini, Grok and Ollama with task validation, meeting reports, deterministic testing and audit."
+version = "6.7.0b5"
+description = "Natural-language-first governed multi-agent coding control plane for Claude, Codex, Gemini, Grok and Ollama with autonomous Task-Meeting-Multi-Coder repair loops, tests, audit and rollback."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
@@ -13,7 +13,7 @@ license-files = ["LICENSE", "LICENSE-COMMERCIAL.md", "LICENSE_POLICY.json", "NOT
 authors = [
   {name = "Dr.-Ing. Babak Sorkhpour"}
 ]
-keywords = ["ai-agents", "multi-agent", "multi-coder", "agentic-coding", "claude-code", "openai-codex", "gemini-cli", "grok-cli", "ollama", "developer-tools", "agentic-workflows", "ai-governance", "eu-ai-act"]
+keywords = ["multi-agent", "ai-coding", "coding-agent", "agentic-ai", "ai-orchestration", "multi-coder", "autonomous-coding", "claude-code", "openai-codex", "gemini-cli", "grok-cli", "ollama", "developer-tools", "devsecops", "ai-governance", "human-in-the-loop", "on-premises", "data-sovereignty", "eu-ai-act", "python", "cli"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
@@ -44,10 +44,11 @@ iot-ai-tasks = "iot_ai.entrypoints:tasks_main"
 iot-ai-multi-coder = "iot_ai.entrypoints:multicoder_main"
 
 [project.urls]
-Homepage = "https://github.com/IoTAiTech/MC-GPT"
+Homepage = "https://iot-ai.tech"
 Documentation = "https://github.com/IoTAiTech/MC-GPT#readme"
 Repository = "https://github.com/IoTAiTech/MC-GPT"
 Issues = "https://github.com/IoTAiTech/MC-GPT/issues"
+Releases = "https://github.com/IoTAiTech/MC-GPT/releases"
 Commercial = "https://iot-ai.tech"
 
 [tool.setuptools]

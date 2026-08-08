@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Build a reproducible source archive of the public repository."""
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import stat
 import zipfile
 from pathlib import Path
 
-EXCLUDED = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", "build", "dist"}
+EXCLUDED = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".coverage", "build", "dist"}
 FIXED_TIME = (2026, 8, 8, 0, 0, 0)
 
 

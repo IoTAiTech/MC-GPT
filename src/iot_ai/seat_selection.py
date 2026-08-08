@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Auditable provider/model and dashboard-agent seat resolution."""
 from __future__ import annotations
 from dataclasses import dataclass
@@ -46,9 +47,37 @@ def _provider_routes(user_home: Path) -> list[dict[str, Any]]:
     return result
 
 def _coder_seats(user_home: Path) -> tuple[list[str], list[dict[str, Any]]]:
+    """Return every exact configured cloud model for coder families.
+
+    When no exact model is known for a family, retain one generic provider seat
+    so the runtime records an honest authentication/quota/model failure instead
+    of silently omitting that family.
+    """
     routes=_provider_routes(user_home); seats=[]; status=[]
+    candidates=[
+        item for item in provider_candidates(user_home,require_live=False,cloud_only=True)
+        if item.get("provider") in CODER_PROVIDERS
+    ]
     for provider in CODER_PROVIDERS:
         matching=[route for route in routes if route.get("provider")==provider]
+        exact=[]
+        for item in candidates:
+            if item.get("provider") != provider: continue
+            model=str(item.get("model") or "").strip()
+            if not model or model.startswith("auto"): continue
+            if model not in [row[0] for row in exact]: exact.append((model,item))
+        if exact:
+            for model,item in exact:
+                seat=f"{provider}@{model}"
+                seats.append(seat)
+                status.append({
+                    "seat":seat,"seat_type":"provider-model","provider":provider,
+                    "route_id":item.get("route_id"),"model":model,"installed":True,
+                    "live_ready":bool(item.get("live_ready")),
+                    "status_basis":"fresh-live-receipt" if item.get("live_ready") else "configured-exact-model-unverified",
+                    "cloud":True,
+                })
+            continue
         if not matching: continue
         best=sorted(matching,key=lambda row:int(row.get("priority",100)))[0]
         seats.append(provider); status.append({"seat":provider,"seat_type":"provider","provider":provider,"route_id":best.get("route_id"),"installed":bool(best.get("installed")),"live_ready":False,"status_basis":best.get("status_basis","static-only"),"cloud":bool(best.get("cloud",True))})
@@ -109,7 +138,14 @@ def resolve_meeting_seats(user_home: Path, selector: str="auto", *, exclude_olla
     elif normalized in ALL_CODER_SELECTORS: requested=list(coders)
     elif normalized in OLLAMA_CLOUD_SELECTORS: requested=list(ollama)
     elif normalized=="auto":
-        requested=[]; reserve=1 if ollama and not exclude_ollama else 0; requested.extend(coders[:max(0,limit-reserve)])
+        requested=[]; reserve=1 if ollama and not exclude_ollama else 0
+        # Preserve provider-family diversity even when one provider exposes many exact models.
+        seen_providers=set()
+        for seat in coders:
+            provider=seat.split("@",1)[0]
+            if provider in seen_providers: continue
+            if len(requested) >= max(0,limit-reserve): break
+            requested.append(seat); seen_providers.add(provider)
         if ollama and not exclude_ollama:
             live=[row["seat"] for row in ollama_status if row.get("live_ready")]; requested.append((live or ollama)[0])
     else: requested=_explicit_seats(normalized,ollama,agent_map)

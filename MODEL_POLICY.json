@@ -1,7 +1,7 @@
 {
   "community_limits": {
     "maximum_effective_effort": "medium",
-    "maximum_provider_families_per_run": 3,
+    "maximum_provider_families_per_run": 5,
     "telemetry_retention_days": 30
   },
   "effort_order": [
@@ -10,7 +10,7 @@
     "high",
     "xhigh"
   ],
-  "notice": "Provider/model selection is evidence-driven. Model availability, pricing and quality are never inferred from configuration alone.",
+  "notice": "Provider/model selection is evidence-driven. All eligible configured coder families, every exact configured cloud-model seat, and exact Ollama local/cloud seats are attempted at material gates; outages remain visible and never become fake consensus.",
   "ollama": {
     "cloud_preferred": true,
     "exact_cloud_models_are_distinct_candidates": true,
@@ -25,12 +25,14 @@
     "raw_prompts_stored_by_default": false
   },
   "readiness": {
+    "all_configured_families_attempted_at_material_gates": true,
     "authenticated_round_trip_required": true,
     "installed_is_not_live_ready": true,
     "positive_receipt_ttl_seconds": 300,
     "requested_served_model_match_required": true,
-    "silent_fallback_forbidden": true
+    "silent_fallback_forbidden": true,
+    "single_engine_never_counts_as_multi_coder": true
   },
   "schema": "iot-ai.model-policy.v2",
-  "suite_version": "6.7.0-beta.4"
+  "suite_version": "6.7.0-beta.5"
 }

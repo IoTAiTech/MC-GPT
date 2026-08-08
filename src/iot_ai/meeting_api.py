@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Loopback-only, bearer-authenticated Meeting Control Plane API v1."""
 from __future__ import annotations
 import hmac

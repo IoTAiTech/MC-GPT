@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Unified health, version, coder, model, effort and workflow status."""
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from .conversation_state import load_state
 from .diagnostics import run_root
 from .eu_ai_act import runtime_compliance_status
 from .european_compliance import BASELINES as EU_REGULATORY_BASELINES
@@ -264,6 +265,11 @@ def unified_status(user_home: Path, *, live: bool = False, window: str = "24h") 
         "effective_profile": {"name": effective_profile, "settings": profile_values},
         "workflow_scores": _workflow_scores(user_home),
         "agent_runtime": _agent_runtime_status(user_home),
+        "autopilot": {
+            "settings": active_settings.get("autopilot", {}),
+            "conversation": load_state(user_home, "default"),
+            "notice": "Conversation state contains operator-visible identifiers and checkpoint paths only; no private chain-of-thought is stored.",
+        },
         "eu_ai_act": runtime_compliance_status(user_home),
         "eu_regulatory_baselines": EU_REGULATORY_BASELINES,
         "logs": log_locations(user_home),

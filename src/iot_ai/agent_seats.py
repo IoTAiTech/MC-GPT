@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Read-only dashboard-agent seats for governed meetings."""
 from __future__ import annotations
 import hashlib
@@ -15,6 +16,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 from .meeting_integration import get_agent_seat
+from .agent_contract_validation import required_capability_for_stage, validate_capabilities
 from .util import utc_now
 
 SEAT_RE = re.compile(r"^agent:(pmd|fcc|hid|healthlab|cws|dgx)/([A-Za-z0-9._-]+)$")
@@ -37,6 +39,7 @@ def build_agent_envelope(
     timeout: int,
     *,
     issued_by: str = "iot-ai-meeting",
+    required_capability: str | None = None,
 ) -> dict[str, Any]:
     surface, agent_id = parse_agent_seat(seat)
     body = {
@@ -50,6 +53,7 @@ def build_agent_envelope(
         "agent_id": agent_id,
         "stage": stage,
         "role": role,
+        "required_capability": required_capability or required_capability_for_stage(stage),
         "prompt": prompt,
         "read_only": True,
         "write_scope": [],
@@ -78,6 +82,11 @@ def validate_agent_reply(envelope: dict[str, Any], reply: dict[str, Any]) -> dic
         status, failure = "failed", "no_output"
     elif not reply.get("model_served"):
         status, failure = "failed", "model_unverified"
+    else:
+        required = envelope.get("required_capability")
+        used = reply.get("capabilities_used") or ([reply.get("capability")] if reply.get("capability") else [])
+        if required and required not in {str(value) for value in used}:
+            status, failure = "failed", "semantic_capability_unattested"
     text_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
     if reply.get("text_sha256") and not hmac.compare_digest(str(reply["text_sha256"]), text_sha):
         status, failure = "failed", "reply_digest_mismatch"
@@ -99,6 +108,8 @@ def validate_agent_reply(envelope: dict[str, Any], reply: dict[str, Any]) -> dic
         "writes_performed": writes,
         "envelope_sha256": envelope["envelope_sha256"],
         "evidence_refs": list(reply.get("evidence_refs") or []),
+        "required_capability": envelope.get("required_capability"),
+        "capabilities_used": list(reply.get("capabilities_used") or ([reply.get("capability")] if reply.get("capability") else [])),
     }
 
 def _private_endpoint(url: str) -> bool:
@@ -134,10 +145,20 @@ def delegate_agent_seat(
         return {"status": "failed", "output": "", "provider": "agent", "model_served": None, "failure_class": "unknown_agent"}
     if not record.get("reachable"):
         return {"status": "failed", "output": "", "provider": "agent", "model_requested": record.get("model_binding"), "model_served": None, "failure_class": "unreachable"}
+    required_capability = required_capability_for_stage(stage)
+    capability = validate_capabilities(list(record.get("capabilities") or []), required_capability)
+    if capability["decision"] != "pass":
+        return {
+            "status": "failed", "output": "", "provider": "agent",
+            "model_requested": record.get("model_binding"), "model_served": None,
+            "failure_class": capability["failure_class"],
+            "required_capability": required_capability,
+            "available_capabilities": capability["available_capabilities"],
+        }
     endpoint = str(record.get("endpoint_ref") or "")
     if not _private_endpoint(endpoint):
         return {"status": "failed", "output": "", "provider": "agent", "model_requested": record.get("model_binding"), "model_served": None, "failure_class": "endpoint_policy"}
-    envelope = build_agent_envelope(seat, prompt, stage, run_id, role, timeout)
+    envelope = build_agent_envelope(seat, prompt, stage, run_id, role, timeout, required_capability=required_capability)
     surface, _ = parse_agent_seat(seat)
     token = os.environ.get(f"IOT_AI_AGENT_{surface.upper()}_TOKEN", "")
     if len(token) < 24:

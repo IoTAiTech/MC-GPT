@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Deep multi-provider meeting workflow linked to the task store.
 
 A successful command is never interpreted as an accepted plan.  Empty seats,
@@ -205,6 +205,8 @@ def start(
     risk_class: str = "R2",
     seat_plan: dict[str, Any] | None = None,
     max_parallel: int | None = None,
+    existing_task_id: str | None = None,
+    correlation_id: str | None = None,
 ) -> dict[str, Any]:
     clean = list(dict.fromkeys(seat.strip().lower() for seat in seats if seat.strip()))
     if not topic.strip() or not clean:
@@ -225,23 +227,28 @@ def start(
         raise ValueError("invalid meeting depth")
     meeting_id = new_id("meeting")
     configured_rounds = max(rounds, DEPTHS[depth]["rounds"])
-    from .tasks import create
+    from .tasks import create, show as show_task
 
-    task = create(
-        user_home,
-        f"Meeting: {topic.strip()}",
-        f"Deep multi-coder consultation for: {topic.strip()}",
-        priority,
-        owner,
-        risk_class=risk_class,
-        task_type="meeting-decision",
-        source="meeting",
-        source_id=meeting_id,
-        tags=["meeting", depth, "eu-ai-act-screened"],
-        acceptance_criteria="Approved same-digest synthesis, KPIs, 10 use cases, 10 tests, 10 failure cases and deterministic execution evidence",
-        allow_duplicate=True,
-    )
-    task_id = task["task_id"]
+    linked_existing_task = bool(existing_task_id)
+    if existing_task_id:
+        show_task(user_home, existing_task_id)
+        task_id = existing_task_id
+    else:
+        task = create(
+            user_home,
+            f"Meeting: {topic.strip()}",
+            f"Deep multi-coder consultation for: {topic.strip()}",
+            priority,
+            owner,
+            risk_class=risk_class,
+            task_type="meeting-decision",
+            source="meeting",
+            source_id=meeting_id,
+            tags=["meeting", depth, "eu-ai-act-screened"],
+            acceptance_criteria="Approved same-digest synthesis, KPIs, 10 use cases, 10 tests, 10 failure cases and deterministic execution evidence",
+            allow_duplicate=True,
+        )
+        task_id = task["task_id"]
     disclosure = record_disclosure(user_home, surface="cli:meeting", language="en")
     conn = connect_write(user_home)
     try:
@@ -272,6 +279,8 @@ def start(
                     "decision": "pass",
                 },
                 "max_parallel": max_parallel or min(8, len(clean)),
+                "linked_existing_task": linked_existing_task,
+                "correlation_id": correlation_id or meeting_id,
             },
             task_id=task_id,
         )
@@ -305,6 +314,8 @@ def start(
         "article_6": article6,
         "article_50": disclosure,
         "global_compliance_claim_allowed": False,
+        "linked_existing_task": linked_existing_task,
+        "correlation_id": correlation_id or meeting_id,
     }
     export_workspace(user_home, task_id=task_id)
     return run(user_home, meeting_id) if execute else result
@@ -751,7 +762,13 @@ def list_meetings(user_home: Path) -> list[dict[str, Any]]:
     return result
 
 
-def approve(user_home: Path, meeting_id: str) -> dict[str, Any]:
+def approve(
+    user_home: Path,
+    meeting_id: str,
+    *,
+    subject: str = "user",
+    intent_digest: str | None = None,
+) -> dict[str, Any]:
     conn = connect_write(user_home)
     try:
         meeting = one(conn, "SELECT * FROM meetings WHERE id=?", (meeting_id,))
@@ -759,13 +776,27 @@ def approve(user_home: Path, meeting_id: str) -> dict[str, Any]:
             raise FileNotFoundError(meeting_id)
         if meeting["status"] != "awaiting-user-decision" or meeting.get("final_decision") != "accepted_by_required_seats":
             raise ValueError("meeting plan was not accepted by all required substantive seats")
+        created_event = one(
+            conn,
+            "SELECT payload_json FROM events WHERE task_id=? AND event_type='meeting.created' ORDER BY seq ASC LIMIT 1",
+            (meeting["task_id"],),
+        )
+        created_payload = json.loads(created_event["payload_json"]) if created_event else {}
+        linked_existing_task = bool(created_payload.get("linked_existing_task"))
         now = utc_now()
         conn.execute("UPDATE meetings SET status='approved',user_approved=1,updated_at=? WHERE id=?", (now, meeting_id))
-        conn.execute("UPDATE tasks SET status='backlog',revision=revision+1,updated_at=? WHERE id=?", (now, meeting["task_id"]))
+        if not linked_existing_task:
+            conn.execute("UPDATE tasks SET status='backlog',revision=revision+1,updated_at=? WHERE id=?", (now, meeting["task_id"]))
         append_event(
             conn,
-            "meeting.founder_approved",
-            {"meeting_id": meeting_id, "does_not_rewrite_synthesis": True},
+            "meeting.user_approved",
+            {
+                "meeting_id": meeting_id,
+                "subject": subject,
+                "intent_digest": intent_digest,
+                "linked_existing_task": linked_existing_task,
+                "does_not_rewrite_synthesis": True,
+            },
             task_id=meeting["task_id"],
         )
         conn.commit()

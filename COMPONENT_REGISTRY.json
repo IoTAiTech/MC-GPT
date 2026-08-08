@@ -1,23 +1,23 @@
 {
   "components": [
     {
-      "archive": "components/iot-ai-mc-gpt/IOT-AI-MC-GPT-v0.8.0-alpha.4-COMPONENT.zip",
+      "archive": "components/iot-ai-mc-gpt/IOT-AI-MC-GPT-v0.8.0-alpha.5-COMPONENT.zip",
       "component_id": "iot-ai-mc-gpt",
       "enabled": true,
       "entrypoint": "iot-ai",
-      "files": 100,
-      "manifest_sha256": "3a9ea78770936cbef08183c5a50cd6571e6a5c722165b6a684cf225fc7f3db41",
+      "files": 113,
+      "manifest_sha256": "6aa6cad8cdc0002399e6d9dbe40d704555e9675137c6f23c2e0bfd2907a1950a",
       "product_id": "iot-ai-tech.iot-ai-mc-gpt",
       "public": true,
-      "release_sha256": "7fea1f6c4e56a7cc277eff23cdbb60fbf0c06a54ab7dc6c1e89a384159737f11",
+      "release_sha256": "09a639b8e3ebf38c1e8a9a9c0be953cce3f1cda9537fb31154c955962640635b",
       "state_namespace": "iot-ai-tech/iot-ai-suite/v1",
       "suite_compatibility": {
         "maximum_exclusive": "7.0.0",
-        "minimum": "6.7.0-beta.4"
+        "minimum": "6.7.0-beta.5"
       },
-      "version": "0.8.0-alpha.4"
+      "version": "0.8.0-alpha.5"
     }
   ],
   "schema": "iot-ai.component-registry.v1",
-  "suite_version": "6.7.0-beta.4"
+  "suite_version": "6.7.0-beta.5"
 }

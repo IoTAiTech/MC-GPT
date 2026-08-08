@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
 import importlib.util
@@ -26,6 +26,8 @@ class ReleaseBuilderTests(unittest.TestCase):
                 self.assertEqual(len(names), len(set(names)))
                 manifests = [name for name in names if name.endswith("/SOURCE_MANIFEST.json")]
                 self.assertEqual(len(manifests), 1)
+                self.assertFalse(any(name.endswith("/.coverage") for name in names))
+                self.assertFalse(any("/.pytest_cache/" in name for name in names))
 
 
 if __name__ == "__main__":

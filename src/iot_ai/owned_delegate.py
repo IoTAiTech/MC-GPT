@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Application-owned provider turn used by Meeting and Multi-Coder.
 
 The provider sees only a prompt compiled from explicit goal, role, node,
@@ -45,8 +45,10 @@ _STAGE_ROLE_MAP = {
 
 def _seat_parts(seat: str) -> tuple[str, str]:
     value = seat.strip().lower()
-    if value.startswith("ollama@"):
-        return "ollama", value.split("@", 1)[1]
+    if "@" in value and not value.startswith("agent:"):
+        provider, model = value.split("@", 1)
+        if provider and model:
+            return provider, model
     return value, "auto"
 
 

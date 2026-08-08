@@ -54,7 +54,7 @@ iot-ai tasks prepare \
   --effort xhigh
 ```
 
-The review binds specialist roles before providers, uses the application-owned graph runtime, and requires substantive participation from Claude, Codex, Gemini, Grok and at least one exact Ollama Cloud model seat. Missing, empty, unauthenticated or quota-blocked families remain unsatisfied; the user may cancel or explicitly accept the risk under the applicable policy. It produces:
+The review binds specialist roles before providers, uses the application-owned graph runtime, and requires substantive participation from Claude, Codex, Gemini, Grok and at least one exact Ollama Cloud model seat. The subsequent full Meeting and Multi-Coder gates expand this to every eligible exact configured cloud-model seat. Missing, empty, unauthenticated or quota-blocked families remain unsatisfied; the user may cancel or explicitly accept the risk under the applicable policy. It produces:
 
 - current technical validity and corrected problem statement;
 - Why / What / How / When / Who;

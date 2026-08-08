@@ -4,6 +4,38 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+## [6.7.0-beta.5] — 2026-08-08
+
+### Added
+- Conversation-aware natural-language `IntentContract` and minimal persisted `ConversationState` for English, German, Persian and mixed requests.
+- Closed-loop Autopilot composing authoritative Tasks, full hybrid Meetings, Multi-Coder implementation, deterministic tests, failure meetings, bounded repair/retest, independent review, audit and terminal reporting.
+- Strict Suite versus authenticated PMD/PRCS API backend routing with no silent dual-store merge or direct product-database fallback.
+- Evidence-bound acceptance-scorecard validator detecting overlaps, duplicates, out-of-range/unassessed criteria and stale verification revisions/digests.
+- Semantic dashboard-agent capability validation, alias handling and capability-attested Meeting responses.
+- JSON, Markdown, CSV and XLSX autonomous-run reports containing complete Task, Provider and Iteration tables plus a hash manifest.
+- README infographic, Table of Contents, natural-language examples and GitHub metadata/social-preview assets.
+
+### Changed
+- Execution verbs now request a bounded run to a truthful terminal state by default; parameter-heavy Task/Meeting/Multi-Coder commands remain expert escape hatches.
+- All eligible configured coder families, every exact configured cloud-model seat, and exact Ollama local/cloud seats are attempted at material gates; one successful provider never counts as Multi-Coder consensus.
+- Bulk tasks run in bounded WIP waves so every selected task is eventually scheduled without promoting the whole backlog at once.
+- `tasks run --mode hybrid` and `multi-coder run` execute by default because the `run` verb is explicit; `--plan` is the non-mutating inspection mode and `--apply` remains a compatibility flag.
+- Prompt envelope advanced to v2 with execution authority, closed-loop, scorecard, provider-truth and release/privacy contracts.
+
+### Fixed
+- Progress telemetry preserves `awaiting_founder` instead of reopening technical-complete work.
+- Zero-eligible `solve-all` and bulk authorization return `noop`, never a fake pass; `awaiting_founder` tasks are reported and skipped rather than re-authorized.
+- Technical submit enters the Founder queue only after a passing audit; failed audit returns `needs-work`, and the legacy direct `complete()` compatibility path is fail-closed.
+- Scorecard pass/partial/fail overlap and stale trusted receipts are rejected.
+- Natural-language continuation resolves the prior selected task set and checkpoint without storing private chain-of-thought.
+- Current GitHub CI non-root/path-boundary fixes from `main@8b5f60616636e63d8310d4ace3057a28db46c1d3` are retained.
+
+### Security
+- Founder final acceptance, public release, history replacement, production deployment and destructive operations remain explicit human gates.
+- Provider outages, exact model identity and fallback status remain visible in all Meeting/Multi-Coder reports.
+- PMD/PRCS authority remains authenticated API-only; direct SQLite/PostgreSQL access is forbidden.
+- Public infographic provenance and human editorial responsibility are hash-bound in a sidecar.
+
 ## [6.7.0-beta.4] — 2026-08-08
 
 ### Added

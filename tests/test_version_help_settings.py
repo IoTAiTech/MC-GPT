@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
 import unittest
@@ -18,9 +18,9 @@ from tests.common import IsolatedHomeTestCase
 
 class VersionHelpSettingsTests(IsolatedHomeTestCase):
     def test_versions_are_aligned(self) -> None:
-        self.assertEqual(__version__, "6.7.0-beta.4")
+        self.assertEqual(__version__, "6.7.0-beta.5")
         self.assertEqual(SUITE_VERSION, __version__)
-        self.assertEqual(MC_GPT_VERSION, "0.8.0-alpha.4")
+        self.assertEqual(MC_GPT_VERSION, "0.8.0-alpha.5")
         self.assertEqual(COMPONENT_ID, "iot-ai-mc-gpt")
 
     def test_natural_language_normalization(self) -> None:
@@ -67,6 +67,11 @@ class VersionHelpSettingsTests(IsolatedHomeTestCase):
         toggle_group(value, "ollama", False)
         self.assertFalse(value["providers"]["ollama"]["enabled"])
         self.assertEqual(get_value(value, "providers.ollama.enabled"), False)
+
+    def test_meeting_alias_help_does_not_require_topic(self):
+        from iot_ai.cli import normalize_meeting_argv
+        self.assertEqual(normalize_meeting_argv(["--help"]), ["meeting", "--help"])
+
 
 
 if __name__ == "__main__":

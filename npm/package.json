@@ -2,7 +2,7 @@
   "bin": {
     "iot-ai-bootstrap": "bin/iot-ai-bootstrap.mjs"
   },
-  "description": "Verified bootstrap for the IoT-AI.Tech IOT-AI Suite / MC-GPT",
+  "description": "SHA-256 verified bootstrap for the natural-language MC-GPT / IOT-AI closed-loop multi-agent coding control plane",
   "engines": {
     "node": ">=18"
   },
@@ -17,5 +17,5 @@
     "access": "public"
   },
   "type": "module",
-  "version": "6.7.0-beta.4"
+  "version": "6.7.0-beta.5"
 }

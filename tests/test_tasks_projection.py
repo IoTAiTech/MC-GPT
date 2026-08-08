@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
 import hashlib
@@ -73,7 +73,10 @@ class TaskProjectionTests(IsolatedHomeTestCase):
         artifact.write_text("tests passed", encoding="utf-8")
         add_evidence(self.home, task["task_id"], artifact, kind="test", work_unit_id=wu["work_unit_id"], exit_code=0, passed=True)
         result = submit_task(self.home, task["task_id"], wu["work_unit_id"], lease["lease_id"], lease["lease_token"])
-        self.assertEqual(result["status"], "awaiting_founder")
+        # A bare evidence file is not a full R2 governance packet. The audit must
+        # keep the task in needs-work rather than polluting the founder queue.
+        self.assertEqual(result["status"], "needs-work")
+        self.assertFalse(result["founder_queue_entered"])
         details = show(self.home, task["task_id"])
         self.assertTrue(all(row["status"] != "active" for row in details["task"]["leases"]))
         self.assertTrue(excel_path(self.home).is_file())

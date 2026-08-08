@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 """Calendar, dashboard-agent registry and PMD-facing integration primitives."""
 from __future__ import annotations
 import hashlib
@@ -143,6 +144,9 @@ def register_agent_seat(
         raise ValueError("unsupported surface")
     if not agent_id or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in agent_id):
         raise ValueError("invalid agent_id")
+    normalized_capabilities = sorted({str(value).strip() for value in (capabilities or []) if str(value).strip()})
+    if reachable and not normalized_capabilities:
+        raise ValueError("reachable agent seats require explicit semantic capabilities")
     seat = f"agent:{surface}/{agent_id}"
     conn = connect_write(user_home)
     try:
@@ -156,7 +160,7 @@ def register_agent_seat(
             risk_class=excluded.risk_class,control_level=excluded.control_level,
             endpoint_ref=excluded.endpoint_ref,reachable=excluded.reachable,refreshed_at=excluded.refreshed_at""",
             (
-                seat, surface, agent_id, display_name, _canonical(capabilities or []),
+                seat, surface, agent_id, display_name, _canonical(normalized_capabilities),
                 model_binding, risk_class, control_level, endpoint_ref, int(reachable), utc_now(),
             ),
         )
@@ -164,7 +168,7 @@ def register_agent_seat(
         conn.commit()
     finally:
         conn.close()
-    return {"decision": "pass", "seat": seat, "reachable": reachable}
+    return {"decision": "pass", "seat": seat, "reachable": reachable, "semantic_status": "declared" if normalized_capabilities else "unproven", "capabilities": normalized_capabilities}
 
 def list_agent_seats(user_home: Path, *, surface: str | None = None, reachable_only: bool = False) -> list[dict[str, Any]]:
     conn = connect_read(user_home)

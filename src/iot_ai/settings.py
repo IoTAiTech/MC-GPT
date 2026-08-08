@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.4 | Date: 2026-08-08
+# Version: 6.7.0-beta.5 | Date: 2026-08-08
 
 from __future__ import annotations
 from copy import deepcopy
@@ -16,9 +16,49 @@ DEFAULTS: dict[str, Any] = {
     "cloud": {"enabled": False, "privacy_mode": "strict", "allow_private_network_data": False},
     "providers": {p: {"enabled": True} for p in ("claude", "codex", "gemini", "grok", "ollama")},
     "models": {"all_enabled": True, "disabled": [], "local_enabled": False, "cloud_preferred": True},
-    "meeting": {"default_quorum": 3, "max_revision_rounds": 2, "max_seats_community": 3, "seat_selector": "auto", "require_ollama_cloud_when_available": True},
-    "multi_coder": {"max_repair_rounds": 2, "max_effort_community": "medium"},
+    "meeting": {
+        "default_quorum": 3,
+        "max_revision_rounds": 2,
+        "max_seats_community": 16,
+        "seat_selector": "all-coders+ollama-clouds",
+        "require_ollama_cloud_when_available": True,
+        "automatic_on_failure": True,
+        "automatic_on_disagreement": True,
+        "automatic_final_hard_judge": True,
+    },
+    "multi_coder": {
+        "max_repair_rounds": 3,
+        "max_effort_community": "medium",
+        "mandatory_at_material_gates": True,
+        "all_eligible_provider_families": True,
+        "minimum_independent_substantive_seats_r2_plus": 2,
+        "single_engine_never_counts_as_multi_coder": True,
+    },
     "telemetry": {"enabled": True, "store_raw_prompts": False, "store_raw_outputs": False, "retention_days": 30},
+    "autopilot": {
+        "natural_language_primary": True,
+        "until_terminal_default": True,
+        "meeting_policy": "automatic",
+        "multi_coder_policy": "mandatory-at-gates",
+        "max_iterations_per_task": 6,
+        "max_identical_failures": 2,
+        "max_no_new_evidence_rounds": 2,
+        "wall_clock_budget_seconds": 7200,
+        "token_budget": 500000,
+        "wip_limits": {"critical": 4, "high": 2, "medium": 1, "normal": 1, "low": 1},
+        "terminal_states": [
+            "COMPLETE",
+            "TECHNICAL_COMPLETE_AWAITING_FOUNDER",
+            "EXTERNALLY_BLOCKED",
+            "AUTHORITY_BLOCKED",
+            "SAFETY_BLOCKED",
+            "BUDGET_EXHAUSTED",
+            "FAILED_TERMINAL",
+            "CANCELLED"
+        ],
+        "final_report_formats": ["json", "markdown", "csv", "xlsx"],
+        "founder_final_acceptance_is_human_only": True,
+    },
     "dashboard": {"planned": True, "enabled": False},
     "agent_runtime": {
         "goal_first": True,

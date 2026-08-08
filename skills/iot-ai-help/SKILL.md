@@ -1,15 +1,17 @@
 ---
 name: iot-ai-help
-description: Explain the current public command surface, roles, policies and safe examples.
+description: Explain goals in natural language and show advanced commands only when an operator needs manual control.
 ---
 # iot-ai-help
 
-Use the installed `iot-ai` CLI as the only public control surface.
+Start by asking what outcome the operator wants, not which flags they know.
 
-Example: `/iot-ai-help meeting`
+Translate normal English, Persian or German into a visible intent summary:
+- goal and resolved conversation references;
+- selected product/task backend;
+- tasks and priorities;
+- whether execution is requested;
+- automatic Meeting/Multi-Coder/test/audit policy;
+- true human or external gates.
 
-Rules:
-- Read `iot-ai help` before using a flag.
-- Preserve immutable role contracts, task authority, evidence, privacy and public/private boundaries.
-- Never count an empty, meta-only, unauthenticated, quota-blocked or model-unverified seat as a contribution.
-- Never claim a provider/model without a fresh requested/served receipt.
+Offer advanced commands as diagnostics and overrides, not as mandatory learning. Never hide provider failures, backend authority or destructive/public confirmation gates.

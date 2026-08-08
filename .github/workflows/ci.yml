@@ -20,6 +20,7 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUTF8: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -27,19 +28,64 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python }}
-          cache: pip
       - name: Install
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -c "import iot_ai, pytest, openpyxl; print('iot_ai', iot_ai.__version__, 'pytest', pytest.__version__, 'openpyxl', openpyxl.__version__)"
       - name: Compile
         run: python -m compileall -q src tests tools
       - name: Pytest
-        run: python -m pytest -vv --tb=short --junitxml=junit-${{ matrix.os }}-${{ matrix.python }}.xml tests
-      - name: Upload junit
+        id: pytest
+        shell: bash
+        run: |
+          set -euo pipefail
+          JUNIT="junit-${{ matrix.os }}-${{ matrix.python }}.xml"
+          set +e
+          python -m pytest -vv --tb=short --junitxml="$JUNIT" tests 2>&1 | tee pytest-output.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "## Pytest (${{ matrix.os }} / Python ${{ matrix.python }})"
+            echo
+            echo "Exit code: \`$status\`"
+            echo
+            echo '```text'
+            tail -n 120 pytest-output.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$status" -ne 0 ]]; then
+            python - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+          for path in sorted(glob.glob("junit-*.xml")):
+              root = ET.parse(path).getroot()
+              suites = [root] if root.tag == "testsuite" else list(root)
+              for suite in suites:
+                  for case in suite.iter("testcase"):
+                      fail = case.find("failure")
+                      err = case.find("error")
+                      node = fail if fail is not None else err
+                      if node is None:
+                          continue
+                      name = case.get("name") or "test"
+                      classname = case.get("classname") or ""
+                      msg = (node.get("message") or (node.text or "failed")).strip().splitlines()[0][:240]
+                      file_hint = classname.replace(".", "/") + ".py" if classname else "tests"
+                      print(f"::error file={file_hint},title={classname}::{name}: {msg}")
+          PY
+          fi
+          exit "$status"
+      - name: Upload junit and pytest log
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: junit-${{ matrix.os }}-${{ matrix.python }}
-          path: junit-*.xml
+          path: |
+            junit-*.xml
+            pytest-output.txt
           if-no-files-found: warn
           retention-days: 14
       - name: Public boundary

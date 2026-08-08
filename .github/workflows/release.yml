@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUTF8: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
     steps:
       - name: Checkout full history
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -39,8 +41,23 @@ jobs:
       - name: Install build dependencies
         run: python -m pip install --upgrade pip build && python -m pip install -e ".[dev]"
       - name: Verify
+        shell: bash
         run: |
-          python -m pytest -q tests
+          set -euo pipefail
+          set +e
+          python -m pytest -vv --tb=short --junitxml=junit-release.xml tests 2>&1 | tee pytest-output.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "## Release verify pytest"
+            echo "Exit: \`$status\`"
+            echo '```text'
+            tail -n 120 pytest-output.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$status" -ne 0 ]]; then
+            exit "$status"
+          fi
           python tools/public_boundary_check.py .
           python tools/eu_ai_act_release_gate.py .
           python tools/verify_repository.py . --check-sbom
@@ -55,11 +72,35 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-${{ env.TAG }}
-          path: dist/
+          path: |
+            dist/
+            junit-release.xml
+            pytest-output.txt
           if-no-files-found: error
           retention-days: 30
       - name: Publish GitHub Developer Preview
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
-        run: gh release create "$TAG" dist/* --verify-tag --prerelease --generate-notes --title "IOT-AI Developer Preview $TAG"
+        run: |
+          set -euo pipefail
+          TITLE="IOT-AI Suite 6.7.0-beta.4 / MC-GPT 0.8.0-alpha.4 — Governed Multi-Agent Coding Developer Preview"
+          NOTES="$(mktemp)"
+          cat > "$NOTES" <<'MD'
+          Developer preview of IOT-AI Suite with MC-GPT multi-coder orchestration.
+
+          Supported provider families: Claude, Codex, Gemini, Grok, Ollama (local/cloud opt-in).
+          Tasks validates and leases work; Multi-Coder executes hybrid roles with deterministic tests and audit.
+          Not a production claim. Not a legal certification.
+
+          Install from Community assets or `pip install` the published wheel after review.
+          MD
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --verify-tag \
+              --prerelease \
+              --title "$TITLE" \
+              --notes-file "$NOTES"
+          fi

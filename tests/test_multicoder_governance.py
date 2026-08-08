@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import re
 from unittest.mock import patch
 
@@ -63,7 +64,7 @@ class MultiCoderGovernanceTests(IsolatedHomeTestCase):
             task="Improve a developer tool without processing personal data",
             providers=["codex", "ollama@model-x:cloud"],
             quorum=2,
-            test_argv=["python3", "-c", "print('1 passed')"],
+            test_argv=[sys.executable, "-c", "print('1 passed')"],
             cwd=self.home,
         )
         self.assertEqual(result["decision"], "approve")
@@ -85,7 +86,7 @@ class MultiCoderGovernanceTests(IsolatedHomeTestCase):
             task="Build social scoring for citizens across unrelated contexts",
             providers=["codex", "ollama@model-x:cloud"],
             quorum=2,
-            test_argv=["python3", "-c", "print('1 passed')"],
+            test_argv=[sys.executable, "-c", "print('1 passed')"],
             cwd=self.home,
         )
         self.assertEqual(result["decision"], "blocked")
@@ -99,7 +100,7 @@ class MultiCoderGovernanceTests(IsolatedHomeTestCase):
             task="Deploy an AI system to rank job applicants for employment selection",
             providers=["codex", "ollama@model-x:cloud"],
             quorum=2,
-            test_argv=["python3", "-c", "print('1 passed')"],
+            test_argv=[sys.executable, "-c", "print('1 passed')"],
             cwd=self.home,
         )
         self.assertEqual(result["decision"], "blocked")
@@ -123,7 +124,7 @@ class MultiCoderGovernanceTests(IsolatedHomeTestCase):
             task="Improve a developer tool with deterministic tests",
             providers=["codex", "ollama@model-x:cloud"],
             quorum=2,
-            test_argv=["python3", "-c", "print('1 passed')"],
+            test_argv=[sys.executable, "-c", "print('1 passed')"],
             cwd=self.home,
         )
         self.assertEqual(result["decision"], "needs-work")

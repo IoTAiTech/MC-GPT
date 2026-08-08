@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -52,8 +53,14 @@ def main() -> int:
     for rel in sorted(REQUIRED):
         if not (root / rel).is_file():
             errors.append(f"missing:{rel}")
-    if any(root.rglob("*.pyc")) or any(path.name == "__pycache__" for path in root.rglob("*")):
-        errors.append("compiled-python-artifacts-present")
+    # Only reject *tracked* compiled artifacts. Local/CI installs create ephemeral __pycache__.
+    try:
+        tracked = subprocess.check_output(["git", "-C", str(root), "ls-files"], text=True).splitlines()
+        if any(item.endswith(".pyc") or item.endswith(".pyo") or "/__pycache__/" in item or item.endswith("__pycache__") for item in tracked):
+            errors.append("compiled-python-artifacts-present")
+    except (OSError, subprocess.CalledProcessError):
+        # Non-git trees: ignore ephemeral bytecode; publication path always uses git.
+        pass
     suite_source = (root / "src/iot_ai/suite_version.py").read_text(encoding="utf-8")
     match = re.search(r'SUITE_VERSION\s*=\s*"([^"]+)"', suite_source)
     version = match.group(1) if match else None

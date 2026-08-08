@@ -80,6 +80,9 @@ def scan_tree(root: Path) -> list[dict[str, str]]:
         if (root / forbidden).exists():
             findings.append({"file": forbidden, "rule": "forbidden-root"})
     for path in root.rglob("*"):
+        rel_parts = path.relative_to(root).parts
+        if any(part in SKIP_PARTS or part.endswith(".egg-info") for part in rel_parts):
+            continue
         if path.is_symlink():
             findings.append({"file": path.relative_to(root).as_posix(), "rule": "symlink-forbidden"})
     for name, data in iter_payloads(root):

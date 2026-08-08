@@ -63,7 +63,6 @@ iot_ai = ["data/*.json"]
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["tests"]
-asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true

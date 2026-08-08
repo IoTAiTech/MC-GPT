@@ -39,44 +39,55 @@ jobs:
           python -c "import iot_ai, pytest, openpyxl; print('iot_ai', iot_ai.__version__, 'pytest', pytest.__version__, 'openpyxl', openpyxl.__version__)"
       - name: Compile
         run: python -m compileall -q src tests tools
+      - name: Public boundary
+        run: python tools/public_boundary_check.py .
+      - name: EU AI Act technical release gate
+        run: python tools/eu_ai_act_release_gate.py .
+      - name: Repository contract
+        run: python tools/verify_repository.py .
       - name: Pytest
         id: pytest
         shell: bash
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
         run: |
           set -euo pipefail
-          JUNIT="junit-${{ matrix.os }}-${{ matrix.python }}.xml"
+          OUT_DIR="${RUNNER_TEMP}/iot-ai-ci"
+          mkdir -p "$OUT_DIR"
+          JUNIT="$OUT_DIR/junit-${{ matrix.os }}-${{ matrix.python }}.xml"
+          LOG="$OUT_DIR/pytest-output.txt"
           set +e
-          python -m pytest -vv --tb=short --junitxml="$JUNIT" tests 2>&1 | tee pytest-output.txt
+          python -m pytest -vv --tb=short --junitxml="$JUNIT" tests 2>&1 | tee "$LOG"
           status=${PIPESTATUS[0]}
           set -e
           {
             echo "## Pytest (${{ matrix.os }} / Python ${{ matrix.python }})"
             echo
-            echo "Exit code: \`$status\`"
+            echo "Exit code: $status"
             echo
             echo '```text'
-            tail -n 120 pytest-output.txt || true
+            tail -n 120 "$LOG" || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           if [[ "$status" -ne 0 ]]; then
-            python - <<'PY'
-          import glob
+            python - "$JUNIT" <<'PY'
+          import sys
           import xml.etree.ElementTree as ET
-          for path in sorted(glob.glob("junit-*.xml")):
-              root = ET.parse(path).getroot()
-              suites = [root] if root.tag == "testsuite" else list(root)
-              for suite in suites:
-                  for case in suite.iter("testcase"):
-                      fail = case.find("failure")
-                      err = case.find("error")
-                      node = fail if fail is not None else err
-                      if node is None:
-                          continue
-                      name = case.get("name") or "test"
-                      classname = case.get("classname") or ""
-                      msg = (node.get("message") or (node.text or "failed")).strip().splitlines()[0][:240]
-                      file_hint = classname.replace(".", "/") + ".py" if classname else "tests"
-                      print(f"::error file={file_hint},title={classname}::{name}: {msg}")
+          path = sys.argv[1]
+          root = ET.parse(path).getroot()
+          suites = [root] if root.tag == "testsuite" else list(root)
+          for suite in suites:
+              for case in suite.iter("testcase"):
+                  fail = case.find("failure")
+                  err = case.find("error")
+                  node = fail if fail is not None else err
+                  if node is None:
+                      continue
+                  name = case.get("name") or "test"
+                  classname = case.get("classname") or ""
+                  msg = (node.get("message") or (node.text or "failed")).strip().splitlines()[0][:240]
+                  file_hint = classname.replace(".", "/") + ".py" if classname else "tests"
+                  print(f"::error file={file_hint},title={classname}::{name}: {msg}")
           PY
           fi
           exit "$status"
@@ -85,14 +96,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: junit-${{ matrix.os }}-${{ matrix.python }}
-          path: |
-            junit-*.xml
-            pytest-output.txt
+          path: ${{ runner.temp }}/iot-ai-ci/*
           if-no-files-found: warn
           retention-days: 14
-      - name: Public boundary
-        run: python tools/public_boundary_check.py .
-      - name: EU AI Act technical release gate
-        run: python tools/eu_ai_act_release_gate.py .
-      - name: Repository contract
-        run: python tools/verify_repository.py .

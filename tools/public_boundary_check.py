@@ -16,6 +16,11 @@ from typing import Iterable
 
 FORBIDDEN_ROOTS = {"enterprise", "private", "customer", "evidence-private", "secrets", "release-private"}
 SKIP_PARTS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", "build", "dist", "*.egg-info"}
+# Ephemeral CI/local test outputs — never ship; ignore during public boundary scan.
+SKIP_FILE_NAMES = {"pytest-output.txt", "junit-release.xml"}
+SKIP_FILE_PREFIXES = ("junit-",)
+SKIP_FILE_SUFFIXES = (".coverage",)
+
 TEXT_SUFFIXES = {".py", ".md", ".txt", ".json", ".toml", ".yml", ".yaml", ".ini", ".cfg", ".sh", ".ps1", ".cmd", ".cff", ".xml", ".csv", ".srt"}
 ARCHIVE_SUFFIXES = {".zip", ".whl"}
 
@@ -42,6 +47,15 @@ ALLOWLIST = {
 }
 
 
+def should_skip_file(rel: str, name: str) -> bool:
+    if name in SKIP_FILE_NAMES or name.startswith(SKIP_FILE_PREFIXES) or name.endswith(SKIP_FILE_SUFFIXES):
+        return True
+    # generated under runner temp paths in logs must not be treated as release tree content
+    if rel.startswith((".github/workflows/",)):
+        return False
+    return False
+
+
 def safe_archive_name(name: str) -> bool:
     pure = PurePosixPath(name)
     return bool(name) and not pure.is_absolute() and ".." not in pure.parts and "\\" not in name
@@ -53,6 +67,8 @@ def iter_payloads(root: Path) -> Iterable[tuple[str, bytes]]:
             continue
         rel = path.relative_to(root).as_posix()
         if any(part in SKIP_PARTS or part.endswith(".egg-info") for part in path.relative_to(root).parts):
+            continue
+        if should_skip_file(rel, path.name):
             continue
         if path.suffix in ARCHIVE_SUFFIXES:
             try:

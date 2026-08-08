@@ -44,23 +44,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python tools/public_boundary_check.py .
+          python tools/eu_ai_act_release_gate.py .
+          python tools/verify_repository.py . --check-sbom
+          OUT_DIR="${RUNNER_TEMP}/iot-ai-release"
+          mkdir -p "$OUT_DIR"
           set +e
-          python -m pytest -vv --tb=short --junitxml=junit-release.xml tests 2>&1 | tee pytest-output.txt
+          python -m pytest -vv --tb=short --junitxml="$OUT_DIR/junit-release.xml" tests 2>&1 | tee "$OUT_DIR/pytest-output.txt"
           status=${PIPESTATUS[0]}
           set -e
           {
             echo "## Release verify pytest"
-            echo "Exit: \`$status\`"
+            echo "Exit: $status"
             echo '```text'
-            tail -n 120 pytest-output.txt || true
+            tail -n 120 "$OUT_DIR/pytest-output.txt" || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$status" -ne 0 ]]; then
-            exit "$status"
-          fi
-          python tools/public_boundary_check.py .
-          python tools/eu_ai_act_release_gate.py .
-          python tools/verify_repository.py . --check-sbom
+          exit "$status"
       - name: Build Python artifacts
         run: python -m build --sdist --wheel
       - name: Build deterministic repository archive
@@ -74,8 +74,7 @@ jobs:
           name: release-${{ env.TAG }}
           path: |
             dist/
-            junit-release.xml
-            pytest-output.txt
+            ${{ runner.temp }}/iot-ai-release/*
           if-no-files-found: error
           retention-days: 30
       - name: Publish GitHub Developer Preview

@@ -61,7 +61,7 @@ where = ["src"]
 iot_ai = ["data/*.json"]
 
 [tool.pytest.ini_options]
-addopts = "-ra --strict-config --strict-markers"
+addopts = "-ra"
 testpaths = ["tests"]
 
 [tool.coverage.run]

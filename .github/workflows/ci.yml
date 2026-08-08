@@ -19,6 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUTF8: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -32,7 +33,15 @@ jobs:
       - name: Compile
         run: python -m compileall -q src tests tools
       - name: Pytest
-        run: python -m pytest -q tests
+        run: python -m pytest -vv --tb=short --junitxml=junit-${{ matrix.os }}-${{ matrix.python }}.xml tests
+      - name: Upload junit
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-${{ matrix.os }}-${{ matrix.python }}
+          path: junit-*.xml
+          if-no-files-found: warn
+          retention-days: 14
       - name: Public boundary
         run: python tools/public_boundary_check.py .
       - name: EU AI Act technical release gate

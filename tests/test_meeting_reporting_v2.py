@@ -10,6 +10,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 from pathlib import Path
 
@@ -152,12 +153,19 @@ class MeetingReportingV2Tests(IsolatedHomeTestCase):
         self.assertNotIn(str(self.home), sidecar)
 
     def test_legacy_db_outside_trusted_roots_is_rejected(self) -> None:
-        with tempfile.TemporaryDirectory(dir="/") as tmp:
+        # Do not use TemporaryDirectory(dir="/"): that requires root and fails on
+        # non-root GitHub Actions runners (PermissionError creating /tmpXXXX).
+        # Assert the security property by restricting trusted roots to the suite home.
+        with tempfile.TemporaryDirectory() as tmp:
             outside = self.make_legacy(Path(tmp) / "legacy.sqlite3")
             old = os.environ.pop("IOT_AI_ALLOWED_READ_ROOTS", None)
             try:
-                with self.assertRaises(PathSecurityError):
-                    collect(self.home, legacy_dbs=[outside], include_current=False)
+                with patch(
+                    "iot_ai.meeting_reporting.trusted_operator_roots",
+                    return_value=(self.home.resolve(),),
+                ):
+                    with self.assertRaises(PathSecurityError):
+                        collect(self.home, legacy_dbs=[outside], include_current=False)
             finally:
                 if old is not None:
                     os.environ["IOT_AI_ALLOWED_READ_ROOTS"] = old

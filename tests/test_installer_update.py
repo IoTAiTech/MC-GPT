@@ -10,7 +10,7 @@ import os
 import unittest
 from pathlib import Path
 
-from iot_ai.installer import install, plan, repair, rollback, status, uninstall, verify
+from iot_ai.installer import _wrapper_path, install, plan, repair, rollback, status, uninstall, verify
 from iot_ai.paths import config_root, data_root, home as resolve_home
 from iot_ai.update_manager import default_index, load_index, plan as update_plan, status as update_status
 
@@ -28,11 +28,11 @@ class InstallerUpdateTests(IsolatedHomeTestCase):
         self.assertEqual(result["decision"], "pass")
         self.assertEqual(verify(self.home)["decision"], "pass")
         self.assertTrue(status(self.home)["installed"])
-        self.assertTrue((self.home / ".local" / "bin" / "iot-ai").is_file())
+        self.assertTrue(_wrapper_path(self.home, "iot-ai").is_file())
 
     def test_drift_is_detected_and_repairable(self) -> None:
         install(self.home, ["claude"])
-        wrapper = self.home / ".local" / "bin" / "iot-ai"
+        wrapper = _wrapper_path(self.home, "iot-ai")
         wrapper.write_text("drift", encoding="utf-8")
         self.assertEqual(verify(self.home)["decision"], "needs-work")
         repair(self.home)
@@ -42,21 +42,26 @@ class InstallerUpdateTests(IsolatedHomeTestCase):
         install(self.home, ["grok"])
         uninstall_result = uninstall(self.home, force_drift=False)
         self.assertEqual(uninstall_result["decision"], "pass")
-        self.assertFalse((self.home / ".local" / "bin" / "iot-ai").exists())
+        self.assertFalse(_wrapper_path(self.home, "iot-ai").exists())
         rollback_result = rollback(self.home)
         self.assertEqual(rollback_result["decision"], "pass")
-        self.assertTrue((self.home / ".local" / "bin" / "iot-ai").exists())
+        self.assertTrue(_wrapper_path(self.home, "iot-ai").exists())
 
 
     def test_explicit_home_ignores_inherited_xdg_roots(self) -> None:
         foreign = self.home / "foreign-xdg"
         os.environ["XDG_CONFIG_HOME"] = str(foreign / "config")
         os.environ["XDG_DATA_HOME"] = str(foreign / "data")
+        os.environ["APPDATA"] = str(foreign / "AppData" / "Roaming")
+        os.environ["LOCALAPPDATA"] = str(foreign / "AppData" / "Local")
         scoped = resolve_home(str(self.home))
-        self.assertEqual(config_root(scoped), self.home / ".config" / "iot-ai-tech/iot-ai-suite/v1")
-        self.assertEqual(data_root(scoped), self.home / ".local" / "share" / "iot-ai-tech/iot-ai-suite/v1")
-        install(scoped, ["grok"] )
-        self.assertTrue((self.home / ".config" / "iot-ai-tech/iot-ai-suite/v1" / "install-state.json").is_file())
+        self.assertEqual(config_root(scoped), config_root(self.home))
+        self.assertEqual(data_root(scoped), data_root(self.home))
+        # Explicit --home scope must not follow inherited XDG/AppData env roots.
+        self.assertTrue(str(config_root(scoped)).startswith(str(self.home)))
+        self.assertFalse(str(config_root(scoped)).startswith(str(foreign)))
+        install(scoped, ["grok"])
+        self.assertTrue((config_root(self.home) / "install-state.json").is_file())
         self.assertFalse(foreign.exists())
 
     def test_update_index_is_explicit_when_unpublished(self) -> None:

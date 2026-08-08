@@ -1,57 +1,100 @@
 {
   "artifacts": {
-    "component_manifest_sha256": "3a9ea78770936cbef08183c5a50cd6571e6a5c722165b6a684cf225fc7f3db41",
-    "component_sha256": "7fea1f6c4e56a7cc277eff23cdbb60fbf0c06a54ab7dc6c1e89a384159737f11",
-    "wheel_sha256": "bffae6c0ed7d1673892bd609e3efbabc655323286c7812a87e16b39cf2dc670f"
+    "final_hashes": "emitted outside the public source tree in FINAL_ARTIFACT_HASHES.json and delivery SHA256SUMS.txt",
+    "self_reference_avoided": true
   },
-  "classification": "private-release-candidate-publication-blocked",
+  "classification": "private-release-candidate-awaiting-founder-publication-decision",
   "enterprise_addon_version": "1.2.0-alpha.2",
-  "mc_gpt_version": "0.8.0-alpha.3",
+  "mc_gpt_version": "0.8.0-alpha.4",
   "pending": [
-    "Founder approval for force-with-lease replacement of public Git history",
-    "real GitHub Actions and release-asset attestation",
+    "Founder approval before public Git push, tag or GitHub Release",
+    "real GitHub Actions execution, provenance and artifact attestation",
+    "live GitHub Release download until the tag/assets exist",
     "real Windows on-device qualification",
-    "live provider and exact served-model qualification",
-    "deployment-specific PMD/customer and legal qualification"
+    "live provider-account and exact served-model qualification",
+    "customer PMD/PostgreSQL deployment-specific qualification",
+    "deployment-specific German/EU legal review"
   ],
   "production_claim": false,
-  "schema": "iot-ai.final-test-summary.v8",
+  "schema": "iot-ai.final-test-summary.v9",
   "security": {
     "brand_identity": "pass-zero-unclassified",
-    "license_headers": "pass-111-of-111",
+    "codeql_path_injection_class": "closed-with-explicit-roots-no-follow-regular-file-gate",
+    "cross_product_database_access": "forbidden-api-only",
+    "license_headers": "pass-113-of-113",
     "public_boundary_current_tree": "pass-zero-findings",
-    "public_history": "pass-local-sanitized-single-commit-candidate-zero-findings",
+    "public_history": "pass-local-sanitized-history-and-clone-back-zero-findings",
     "repository_contract": "pass",
-    "static_security": "pass-zero-high-103-files"
+    "static_security": "pass-zero-findings-105-files"
   },
   "source": {
-    "baseline_package": "6.6.0-beta.3",
-    "github_main_sha": "7a69bcb08e2d653a8d4dc5c8f40610323c4d5540",
-    "github_repository": "IoTAiTech/MC-GPT"
+    "github_main_sha": "11fa3c840744d953cee183c529040ad27ffb7dbc",
+    "github_repository": "IoTAiTech/MC-GPT",
+    "local_sanitized_candidate_commit": "emitted outside the source tree in GIT_SIMULATION.json",
+    "verified_private_baseline_sha256": "20a3687af01fab3b0409977a7117f4811accae23aeb8a635eca53fa77a522d81",
+    "verified_private_baseline_version": "6.7.0-beta.3"
   },
-  "suite_version": "6.7.0-beta.3",
+  "suite_version": "6.7.0-beta.4",
   "tests": {
-    "all_in_one_clean_install": "pass",
-    "curl_bootstrap": "pass-local-release-server",
-    "deterministic_dual_build": "pass-all-in-one-source-npm",
-    "host_command_discovery": "pass-four-hosts-three-advanced-commands",
-    "normal_update_rollback": {
-      "after": "6.7.0-beta.3",
-      "before": "6.6.0-beta.3",
+    "blackbox_release": {
       "decision": "pass",
-      "rollback": "6.6.0-beta.3"
+      "schema": "iot-ai.blackbox-release.v2",
+      "steps": 15
     },
-    "npx_bootstrap": "pass-local-package",
+    "branch_aware_coverage_percent": 72,
+    "component_uninstall_rollback": "pass",
+    "curl_bootstrap": "pass-local-http-release-server",
+    "deterministic_dual_build": "pass-wheel-component-source-all-in-one-npm",
+    "focused_security_meeting_task_tests": {
+      "failed": 0,
+      "passed": 27
+    },
+    "git_simulation": {
+      "annotated_tag": "v6.7.0-beta.4-rc.1",
+      "bare_remote_clone_back": "pass",
+      "clone_pytest": 205,
+      "clone_unittest": 205,
+      "decision": "pass",
+      "tree_and_history_findings": 0
+    },
+    "meeting_reporting": {
+      "formats": [
+        "json",
+        "csv",
+        "markdown",
+        "xlsx",
+        "deterministic-zip"
+      ],
+      "founder_approval_status_conflicts": 17,
+      "legacy_model_telemetry_issue_meetings": 112,
+      "lifecycle_issues": 145,
+      "model_telemetry_complete_meetings": 5,
+      "participant_records": 522,
+      "participant_records_without_verified_model_served": 521,
+      "public_d0_allowlist_sample": "pass-one-meeting-no-private-path-or-network-literal",
+      "restricted_federated_meetings": 117,
+      "statuses": {
+        "blocked": 32,
+        "needs-review": 69,
+        "stale": 16
+      }
+    },
+    "normal_update_rollback": "pass-beta3-byte-restore-and-customer-data-preservation",
+    "npm_install_bootstrap": "pass-local-project-install",
+    "npm_pack_dry_run": "pass-four-members",
+    "npx_bootstrap": "pass-local-tarball-and-package",
     "pytest": {
       "failed": 0,
-      "passed": 194,
+      "passed": 205,
       "warnings_as_errors": true
     },
+    "shell_install_uninstall_rollback": "pass",
+    "tampered_package_rejection": "pass-shell-and-node-exit-3",
     "unittest": {
       "errors": 0,
       "failed": 0,
-      "passed": 194,
-      "warnings_as_errors": true
-    }
+      "passed": 205
+    },
+    "wheel_clean_room_install": "pass-eight-command-entry-points"
   }
 }

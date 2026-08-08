@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Independent, discrete hard-gate task audit."""
 from __future__ import annotations
 
@@ -19,14 +19,10 @@ MANDATORY_TIERS=("unit","integration","smoke","ab","stress","security","e2e","qu
 
 def _evidence_integrity(user_home:Path,records:list[dict[str,Any]])->tuple[bool,list[str]]:
     findings=[]
-    roots=[Path(user_home).expanduser().resolve(), Path.cwd().resolve()]
     for row in records:
         path=Path(row["artifact_path"])
         if not path.is_file(): findings.append(f"missing-evidence:{row['id']}"); continue
-        try:
-            if sha256_file(path, allowed_roots=roots)!=row["artifact_sha256"]: findings.append(f"evidence-hash-mismatch:{row['id']}")
-        except Exception:
-            findings.append(f"evidence-hash-unreadable:{row['id']}")
+        if sha256_file(path, allowed_roots=[user_home, Path.cwd().resolve()], max_bytes=None)!=row["artifact_sha256"]: findings.append(f"evidence-hash-mismatch:{row['id']}")
     return not findings,findings
 
 
@@ -54,7 +50,7 @@ def audit_task(user_home:Path,task_id:str,*,record:bool=True)->dict[str,Any]:
     excel_ok=False; excel_sha=None
     if excel_path(user_home).is_file() and excel_manifest_path(user_home).is_file():
         manifest=json.loads(excel_manifest_path(user_home).read_text(encoding='utf-8'))
-        excel_sha=sha256_file(excel_path(user_home), allowed_roots=[user_home]); excel_ok=manifest.get("sha256")==excel_sha
+        excel_sha=sha256_file(excel_path(user_home), allowed_roots=[user_home], max_bytes=None); excel_ok=manifest.get("sha256")==excel_sha
     chain=verify_event_chain(user_home)
     governed=task["risk_class"] in {"R2","R3","R4"} or bool(meetings)
     gates={

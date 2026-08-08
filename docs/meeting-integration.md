@@ -1,4 +1,4 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.3 | Date: 2026-08-07 -->
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.4 | Date: 2026-08-08 -->
 # Meeting, Calendar, PMD and Dashboard-Agent Integration
 
 The Suite owns one meeting source of truth per configured Suite user scope. PMD and dashboard products integrate only through the authenticated `/api/meeting/v1` control plane; direct access to another product database is forbidden.

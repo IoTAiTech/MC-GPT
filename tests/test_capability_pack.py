@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 from __future__ import annotations
 
 import json
@@ -37,7 +37,7 @@ class CapabilityPackTests(unittest.TestCase):
             a = build_pack(spec, first)
             b = build_pack(spec, second)
             self.assertEqual(a["decision"], "pass")
-            self.assertEqual(sha256_file(first, allowed_roots=[first.parent], max_bytes=None), sha256_file(second, allowed_roots=[second.parent], max_bytes=None))
+            self.assertEqual(sha256_file(first, allowed_roots=[root]), sha256_file(second, allowed_roots=[root]))
             self.assertEqual(verify_pack(first)["decision"], "pass")
             payload = first.read_bytes()
             self.assertNotIn(b"top-secret", payload)

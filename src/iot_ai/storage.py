@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Platform- and database-independent storage ports.
 
 The Community implementation uses SQLite plus versioned files. Enterprise

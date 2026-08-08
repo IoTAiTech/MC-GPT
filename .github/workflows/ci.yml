@@ -16,9 +16,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python: ["3.11", "3.13"]
-    # Windows remains EXTERNAL_PENDING for real on-device qualification (FINAL_STATUS).
-    # Keep the matrix for signal, but do not block Community RC publication on it.
-    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout

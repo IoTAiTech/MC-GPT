@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Unified IOT-AI command surface with backward-compatible advanced commands."""
 from __future__ import annotations
 
@@ -52,7 +52,10 @@ from .meeting_integration import (
     register_agent_seat,
     start_calendar_event,
 )
-from .meeting_reporting import write_report as write_meeting_report
+from .meeting_reporting import (
+    write_report as write_meeting_report,
+    write_report_bundle as write_meeting_report_bundle,
+)
 from .export_gate import assert_export_safe, rewrite_public_export
 from .mesh import delegate as mesh_delegate
 from .multicoder import run as multicoder_run
@@ -213,6 +216,9 @@ def _normalize_argv(argv: list[str] | None) -> list[str]:
         break
 
     remaining = values[index:]
+    if remaining and remaining[0] == "task":
+        remaining[0] = "tasks"
+        values = [*root_prefix, *remaining]
     if remaining and remaining[0] == "meeting" and (len(remaining) == 1 or remaining[1] not in MEETING_OPERATIONS):
         return [*root_prefix, *normalize_meeting_argv(remaining[1:])]
     if remaining and remaining[0] in ALL_COMMANDS:
@@ -337,7 +343,23 @@ def parser() -> argparse.ArgumentParser:
     mapprove = mops.add_parser("approve"); mapprove.add_argument("meeting_id")
     mcreate = mops.add_parser("create-task"); mcreate.add_argument("meeting_id"); mcreate.add_argument("--title")
     mexport = mops.add_parser("export"); mexport.add_argument("meeting_id"); mexport.add_argument("--output", required=True); mexport.add_argument("--public", action="store_true")
-    mreport = mops.add_parser("report"); mreport.add_argument("--output", required=True); mreport.add_argument("--format", choices=("json","csv","markdown","xlsx"), default="json"); mreport.add_argument("--view", choices=("brief","simple","full","complete"), default="brief"); mreport.add_argument("--public", action="store_true"); mreport.add_argument("--from-time"); mreport.add_argument("--to-time"); mreport.add_argument("--status"); mreport.add_argument("--task-id"); mreport.add_argument("--provider"); mreport.add_argument("--agent"); mreport.add_argument("--decision")
+    mreport = mops.add_parser("report")
+    mreport.add_argument("--output", required=True)
+    mreport.add_argument("--format", choices=("json", "csv", "markdown", "xlsx", "all", "bundle"), default="bundle")
+    mreport.add_argument("--view", choices=("brief", "simple", "full", "complete"), default="brief")
+    mreport.add_argument("--classification", choices=("private", "restricted", "public"), default="private")
+    mreport.add_argument("--public", action="store_true", help="Alias for --classification public")
+    mreport.add_argument("--public-meeting-id", action="append", default=[], help="Explicit D0 allowlist entry; repeatable")
+    mreport.add_argument("--legacy-db", "--legacy-store", action="append", default=[], dest="legacy_db", help="Read-only historical meeting SQLite store; repeatable")
+    mreport.add_argument("--stale-after-hours", type=int, default=24)
+    mreport.add_argument("--exclude-current", action="store_true", help="Report only explicitly supplied legacy stores")
+    mreport.add_argument("--from-time")
+    mreport.add_argument("--to-time")
+    mreport.add_argument("--status")
+    mreport.add_argument("--task-id")
+    mreport.add_argument("--provider")
+    mreport.add_argument("--agent")
+    mreport.add_argument("--decision")
     mcal = mops.add_parser("calendar-create"); mcal.add_argument("--title", required=True); mcal.add_argument("--topic", required=True); mcal.add_argument("--starts-at", required=True); mcal.add_argument("--seats", required=True); mcal.add_argument("--created-by", default="local-user"); mcal.add_argument("--surface"); mcal.add_argument("--quorum", type=int, default=2); mcal.add_argument("--depth", default="deep"); mcal.add_argument("--effort", default="high"); mcal.add_argument("--rrule"); mcal.add_argument("--auto-start", action="store_true")
     mcall = mops.add_parser("calendar-list"); mcall.add_argument("--status"); mcall.add_argument("--surface")
     mcstart = mops.add_parser("calendar-start"); mcstart.add_argument("event_id")
@@ -373,24 +395,13 @@ def parser() -> argparse.ArgumentParser:
     ta = tops.add_parser("audit"); ta.add_argument("task_id")
     tx = tops.add_parser("export-excel"); tx.add_argument("--output", required=True)
     solve = tops.add_parser("solve-all"); solve.add_argument("query", nargs="?"); solve.add_argument("--providers", default="auto"); solve.add_argument("--quorum", type=int, default=2); solve.add_argument("--implementer"); solve.add_argument("--test-profile"); solve.add_argument("--cwd", default="."); solve.add_argument("--effort", default="high"); solve.add_argument("--confirm-critical", action="store_true"); solve.add_argument("--max-tasks", type=int); solve.add_argument("--apply", action="store_true")
-    # authorize-execution = validation gate only (honest name). execute remains as deprecated alias.
-    tauth = tops.add_parser(
-        "authorize-execution",
-        help="Run the task-validation gate only; does not implement code",
-    )
+    tauth = tops.add_parser("authorize-execution", help="Run the validation gate only; does not implement code")
     tauth.add_argument("--task-id", required=True)
-    texec = tops.add_parser(
-        "execute",
-        help="Deprecated alias for authorize-execution (validation gate only; does not implement)",
-    )
+    texec = tops.add_parser("execute", help="Deprecated alias for authorize-execution; validation only")
     texec.add_argument("--task-id", required=True)
-    # tasks run = actual hybrid execution via Multi-Coder (plan/critique/implement/test/review)
-    trun = tops.add_parser(
-        "run",
-        help="Execute a task through Multi-Coder hybrid verification (plan, critique, implement, test, review)",
-    )
+    trun = tops.add_parser("run", help="Execute an approved task via the Multi-Coder hybrid engine")
     trun.add_argument("--task-id", required=True)
-    trun.add_argument("--mode", choices=("hybrid", "multi-coder"), default="hybrid", help="Execution engine; hybrid routes through Multi-Coder")
+    trun.add_argument("--mode", choices=("hybrid", "multi-coder"), default="hybrid")
     trun.add_argument("--providers", default="auto")
     trun.add_argument("--quorum", type=int, default=2)
     trun.add_argument("--implementer")
@@ -615,10 +626,28 @@ def main(argv: list[str] | None = None) -> int:
                     emit({**exported, "public_export_gate": gate})
                 else: emit(exported)
             elif a.op == "report":
-                report_result = write_meeting_report(h, Path(a.output), output_format=a.format, view=a.view, from_time=a.from_time, to_time=a.to_time, status=a.status, task_id=a.task_id, provider=a.provider, agent=a.agent, decision=a.decision)
-                if a.public:
-                    public_gate = rewrite_public_export(Path(a.output))
-                    report_result = {**report_result, "public_export": public_gate}
+                classification = "public" if a.public else a.classification
+                report_kwargs = {
+                    "view": a.view,
+                    "classification": classification,
+                    "public_allowlist": list(a.public_meeting_id),
+                    "legacy_dbs": [Path(value) for value in a.legacy_db],
+                    "stale_after_hours": max(1, int(a.stale_after_hours)),
+                    "include_current": not bool(a.exclude_current),
+                    "from_time": a.from_time,
+                    "to_time": a.to_time,
+                    "status": a.status,
+                    "task_id": a.task_id,
+                    "provider": a.provider,
+                    "agent": a.agent,
+                    "decision": a.decision,
+                }
+                if a.format in {"all", "bundle"}:
+                    report_result = write_meeting_report_bundle(h, Path(a.output), **report_kwargs)
+                else:
+                    report_result = write_meeting_report(
+                        h, Path(a.output), output_format=a.format, **report_kwargs
+                    )
                 emit(report_result)
             elif a.op == "calendar-create": emit(create_calendar_event(h, title=a.title, topic=a.topic, starts_at=a.starts_at, requested_seats=a.seats, created_by=a.created_by, surface=a.surface, quorum=a.quorum, depth=a.depth, effort=a.effort, auto_start=a.auto_start, rrule=a.rrule))
             elif a.op == "calendar-list": emit({"events": list_calendar_events(h, status=a.status, surface=a.surface)})
@@ -670,20 +699,12 @@ def main(argv: list[str] | None = None) -> int:
                     "command": a.op,
                     "command_semantics": "authorize-execution",
                     "implements_code": False,
-                    "note": (
-                        "tasks execute is a deprecated alias for authorize-execution: "
-                        "validation gate only. Use tasks run --task-id ... --mode hybrid "
-                        "for Multi-Coder implementation."
-                        if a.op == "execute"
-                        else "authorize-execution runs the task-validation gate only; it does not implement code. "
-                        "Use tasks run --task-id ... --mode hybrid for Multi-Coder implementation."
-                    ),
+                    "deprecated_alias": a.op == "execute",
+                    "next_command": f"iot-ai tasks run --task-id {a.task_id} --mode hybrid",
                 })
             elif a.op == "run":
-                if a.mode not in {"hybrid", "multi-coder"}:
-                    raise ValueError("unsupported tasks run mode")
                 providers = (
-                    [c["provider"] for c in provider_candidates(h, require_live=True)]
+                    [candidate["provider"] for candidate in provider_candidates(h, require_live=True)]
                     if a.providers == "auto"
                     else _split(a.providers)
                 )

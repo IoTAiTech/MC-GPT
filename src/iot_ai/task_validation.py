@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Pre-execution task validation and evidence-bound task optimisation.
 
 The validation gate is intentionally separate from founder acceptance. It asks whether
@@ -20,7 +20,7 @@ from typing import Any, Callable
 from .agentic import ProviderExecutor, run_goal
 from .privacy import sanitize
 from .projection import export_workspace
-from .util import sha256_file, utc_now
+from .util import PathSecurityError, sha256_file, trusted_operator_roots, utc_now
 from .workspace import append_event, connect_read, connect_write, new_id, one, rows
 
 VALIDATION_POLICIES = {"optional", "recommended", "required"}
@@ -188,12 +188,10 @@ def gate(user_home: Path, task_id: str, trigger_action: str = "claim") -> dict[s
     }
 
 
-def _context_item(path: Path, allowed_roots: list[Path]) -> dict[str, Any]:
-    from .util import PathSecurityError
+def _context_item(path: Path, allowed_roots: list[Path] | tuple[Path, ...]) -> dict[str, Any]:
     try:
-        candidate = path.expanduser()
+        candidate = path.expanduser().resolve(strict=True)
         digest = sha256_file(candidate, allowed_roots=allowed_roots, max_bytes=MAX_CONTEXT_BYTES)
-        candidate = candidate.resolve(strict=True)
     except PathSecurityError as exc:
         raise ValueError(f"context rejected: {exc}") from exc
     size = candidate.stat().st_size
@@ -240,8 +238,7 @@ def build_context_manifest(user_home: Path, task_id: str, context_files: list[Pa
         (task_id,),
     )
     conn.close()
-    roots = [Path(user_home).expanduser().resolve(), Path.cwd().resolve()]
-    explicit = [_context_item(path, roots) for path in (context_files or [])]
+    explicit = [_context_item(path, trusted_operator_roots(user_home)) for path in (context_files or [])]
     manifest = {
         "schema": "iot-ai.task-validation-context.v1",
         "task_id": task_id,

@@ -1,4 +1,4 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.3 | Date: 2026-08-06 -->
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.4 | Date: 2026-08-08 -->
 
 # Installation
 
@@ -21,8 +21,8 @@ The installer never uses `--break-system-packages`, never patches an installed v
 ## Linux ALL-IN-ONE
 
 ```bash
-sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.3-ALL-IN-ONE.zip.sha256
-unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.3-ALL-IN-ONE.zip -d iot-ai-suite
+sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.4-ALL-IN-ONE.zip.sha256
+unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.4-ALL-IN-ONE.zip -d iot-ai-suite
 cd iot-ai-suite
 
 ./installers/install.sh \

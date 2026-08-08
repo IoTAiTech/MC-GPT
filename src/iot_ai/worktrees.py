@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.3 | Date: 2026-08-07
+# Version: 6.7.0-beta.4 | Date: 2026-08-08
 """Worktree-native isolation for governed parallel coder execution.
 
 The implementation borrows the *pattern* of worktree-native parallelism used by
@@ -21,7 +21,7 @@ from typing import Any, Iterable
 
 from .logging_config import append_event, log_locations
 from .paths import state_root
-from .util import atomic_json, ensure_under, load_json, utc_now
+from .util import atomic_json, load_json, resolve_within_allowed_roots, utc_now
 
 _SCHEMA = "iot-ai.worktree-registry.v1"
 _SAFE = re.compile(r"[^a-z0-9._-]+")
@@ -159,11 +159,14 @@ def create(
     root = Path(value["repository"]["root"])
     created: list[dict[str, Any]] = []
     try:
+        root_boundary = managed_root(user_home)
+        root_boundary.mkdir(parents=True, exist_ok=True)
         for worker in value["workers"]:
-            path = ensure_under(Path(worker["path"]), managed_root(user_home))
+            candidate = Path(worker["path"])
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            path = resolve_within_allowed_roots(candidate, root_boundary, must_exist=False)
             if path.exists():
                 raise RuntimeError(f"worktree destination already exists: {path}")
-            path.parent.mkdir(parents=True, exist_ok=True)
             completed = _run_git(root, ["worktree", "add", "--no-checkout", "-b", worker["branch"], str(path), value["base_sha"]], timeout=120)
             if completed.returncode:
                 raise RuntimeError(completed.stderr.strip() or "git worktree add failed")

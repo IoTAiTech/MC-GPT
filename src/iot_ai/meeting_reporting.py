@@ -267,8 +267,9 @@ def _write_xlsx(path:Path,payload:dict[str,Any])->None:
     finally:Path(tmp).unlink(missing_ok=True)
 
 def managed_report_output(user_home:Path,filename:str)->Path:
-    if not filename or Path(filename).name!=filename or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in filename):raise ValueError("invalid report filename")
-    root=(data_root(user_home)/"meeting-reports").resolve();root.mkdir(parents=True,exist_ok=True);output=(root/filename).resolve()
+    name=str(filename or "").strip()
+    if not name or name in {".",".."} or Path(name).name!=name or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in name):raise ValueError("invalid report filename")
+    root=(data_root(user_home)/"meeting-reports").resolve();root.mkdir(parents=True,exist_ok=True);output=(root/name).resolve()
     if output.parent!=root:raise PermissionError("report output escaped managed root")
     return output
 
@@ -278,6 +279,7 @@ def _manifest(output:Path,payload:dict[str,Any],gate:dict[str,Any]|None)->dict[s
 def write_report(user_home:Path,output:Path,*,output_format:str,view:str="brief",**kwargs:Any)->dict[str,Any]:
     fmt=output_format.lower()
     if fmt in {"bundle","all"}:return write_report_bundle(user_home,output,view=view,**kwargs)
+    output=managed_report_output(user_home,output.name)
     payload=collect(user_home,view=view,**kwargs);output.parent.mkdir(parents=True,exist_ok=True)
     if fmt=="json":output.write_text(json.dumps(payload,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
     elif fmt=="csv":_write_csv(output,_flat(payload),["meeting_id","status","final_decision"])
@@ -287,8 +289,8 @@ def write_report(user_home:Path,output:Path,*,output_format:str,view:str="brief"
     public=bool(payload["public_export"]);gate=rewrite_public_export(output) if public else None
     if public and (gate or {}).get("decision")!="pass":output.unlink(missing_ok=True);raise PermissionError(f"public report export blocked: {(gate or {}).get('findings')}")
     manifest=output.with_name(output.name+(".public-manifest.json" if public else ".manifest.json"));manifest.write_text(json.dumps(_manifest(output,payload,gate),ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
-    digest=sha256_file(output,allowed_roots=[user_home,output.parent.resolve()],max_bytes=None);side=output.with_name(output.name+".sha256");side.write_text(f"{digest}  {output.name}\n",encoding="utf-8")
-    return {"decision":"pass","output":str(output),"format":fmt,"view":payload["view"],"classification":payload["classification"],"meeting_count":payload["meeting_count"],"omitted_count":payload["omitted_count"],"sha256":digest,"sha256_sidecar":str(side),"manifest":str(manifest),"manifest_sha256":sha256_file(manifest,allowed_roots=[user_home,manifest.parent.resolve()],max_bytes=None),"public_export":gate}
+    digest=sha256_file(output,allowed_roots=trusted_operator_roots(user_home),max_bytes=None);side=output.with_name(output.name+".sha256");side.write_text(f"{digest}  {output.name}\n",encoding="utf-8")
+    return {"decision":"pass","output":str(output),"format":fmt,"view":payload["view"],"classification":payload["classification"],"meeting_count":payload["meeting_count"],"omitted_count":payload["omitted_count"],"sha256":digest,"sha256_sidecar":str(side),"manifest":str(manifest),"manifest_sha256":sha256_file(manifest,allowed_roots=trusted_operator_roots(user_home),max_bytes=None),"public_export":gate}
 
 def write_report_bundle(user_home:Path,output_dir:Path,*,view:str="brief",**kwargs:Any)->dict[str,Any]:
     output_dir=Path(output_dir)

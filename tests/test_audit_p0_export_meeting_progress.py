@@ -31,7 +31,7 @@ class ExportGateFailClosedTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "sheet.xlsx"
             wb = Workbook()
-            wb.active["A1"] = "host " + "192.168.77.88"
+            wb.active["A1"] = "host " + "192" + ".168.77.88"
             wb.save(path)
             result = assert_export_safe(path, public=True, allowed_roots=[Path(tmp)])
             self.assertEqual(result["decision"], "block")

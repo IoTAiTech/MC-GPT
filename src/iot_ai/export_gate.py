@@ -8,7 +8,7 @@ import hashlib
 import re
 from pathlib import Path
 from .privacy import sanitize
-from .util import resolve_within_allowed_roots, trusted_operator_roots
+from .util import confined_text_read, confined_text_write, resolve_within_allowed_roots, trusted_operator_roots
 
 PRIVATE_IP = re.compile(r"\b(?:10|127)\.\d{1,3}\.\d{1,3}\.\d{1,3}\b|\b192\.168\.\d{1,3}\.\d{1,3}\b|\b172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}\b")
 PRIVATE_PATH = re.compile(r"(?:/(?:home|root)/[A-Za-z0-9._-]+(?:/[^\s\"']+)?|[A-Za-z]:\\Users\\[^\r\n\"']+)")
@@ -34,9 +34,8 @@ def redact_text(text: str) -> dict:
 def inspect_export_file(path: Path, *, allowed_roots: list[Path] | None = None) -> dict:
     roots = allowed_roots or list(trusted_operator_roots())
     safe = resolve_within_allowed_roots(path, roots, must_exist=True)
-    raw = safe.read_bytes()
     try:
-        text = raw.decode("utf-8")
+        text = confined_text_read(safe, roots)
     except UnicodeDecodeError:
         return {"decision": "pass", "kind": "binary", "path": str(safe), "findings": []}
     result = redact_text(text)
@@ -64,5 +63,5 @@ def rewrite_public_export(path: Path, *, allowed_roots: list[Path] | None = None
     if "secret_residual" in result.get("findings", []):
         return {**result, "decision": "block"}
     if result.get("kind") != "binary" and result.get("decision") == "redact-required":
-        safe.write_text(str(result["redacted_text"]), encoding="utf-8")
+        confined_text_write(safe, str(result["redacted_text"]), roots)
     return {k: v for k, v in {**result, "decision": "pass"}.items() if k != "redacted_text"}

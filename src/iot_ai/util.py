@@ -100,6 +100,29 @@ def resolve_within_allowed_roots(path: Path | str, allowed_roots: Sequence[Path 
         raise PathSecurityError(f"path escapes allowed_roots: {path}")
     return Path(final)
 
+def _assert_prefix_confined(final: str, roots: Sequence[str]) -> str:
+    """Same-function CodeQL guard: realpath result must stay under a root prefix."""
+    for root in roots:
+        if (final == root or final.startswith(root + os.sep)) and os.path.commonpath([root, final]) == root:
+            return final
+    raise PathSecurityError("path escapes allowed_roots")
+
+def confined_text_write(path: Path | str, text: str, allowed_roots: Sequence[Path | str] | Path | str, *, encoding: str="utf-8", newline: str|None=None) -> Path:
+    resolved = resolve_within_allowed_roots(path, allowed_roots, must_exist=False)
+    final = _assert_prefix_confined(os.fspath(resolved), _as_path_list(allowed_roots))
+    kwargs: dict[str, Any] = {"encoding": encoding}
+    if newline is not None:
+        kwargs["newline"] = newline
+    with open(final, "w", **kwargs) as handle:
+        handle.write(text)
+    return Path(final)
+
+def confined_text_read(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, encoding: str="utf-8") -> str:
+    resolved = resolve_within_allowed_roots(path, allowed_roots, must_exist=True)
+    final = _assert_prefix_confined(os.fspath(resolved), _as_path_list(allowed_roots))
+    with open(final, "r", encoding=encoding) as handle:
+        return handle.read()
+
 def assert_secure_regular_file(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, max_bytes: int | None=DEFAULT_MAX_HASH_BYTES) -> Path:
     resolved=resolve_within_allowed_roots(path,allowed_roots,must_exist=True)
     try: st=os.lstat(resolved)

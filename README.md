@@ -10,9 +10,9 @@
   <img src="assets/brand/MC-GPT-Logo-Master-1024.png" alt="MC-GPT official product logo" width="220" />
 </p>
 
-> **IOT-AI Suite 6.7.0-beta.5 · MC-GPT 0.8.0-alpha.5**  
+> **IOT-AI Suite 6.7.0-beta.6 · MC-GPT 0.8.0-alpha.6**  
 > Community Developer Preview · `production_claim: false` · English and German  
-> Latest `main` is newer than the last GitHub Release tag. See [Unreleased](CHANGELOG.md#unreleased).
+> Docs site: [iotaitech.github.io/MC-GPT](https://iotaitech.github.io/MC-GPT/) · AI index: [`llms.txt`](llms.txt)
 
 MC-GPT is a source-available, natural-language-first control plane for governed multi-agent software engineering with Claude Code, OpenAI Codex, Gemini CLI, Grok CLI and exact Ollama local/cloud seats. Describe the outcome once; MC-GPT resolves conversational context, selects the authoritative task backend, validates and optimises the work, runs full hybrid meetings, executes Multi-Coder implementation and deterministic tests, diagnoses failures, repairs and retests, audits the evidence, and continues until a truthful terminal state.
 
@@ -113,21 +113,21 @@ sh bootstrap.sh --sha256 <ALL-IN-ONE-SHA256> --apply
 ### npx
 
 ```bash
-npx --yes @iot-ai-tech/iot-ai@6.7.0-beta.5 install --sha256 <ALL-IN-ONE-SHA256> --apply
+npx --yes @iot-ai-tech/iot-ai@6.7.0-beta.6 install --sha256 <ALL-IN-ONE-SHA256> --apply
 ```
 
 ### npm exec
 
 ```bash
-npm exec --yes --package=@iot-ai-tech/iot-ai@6.7.0-beta.5 -- \
+npm exec --yes --package=@iot-ai-tech/iot-ai@6.7.0-beta.6 -- \
   iot-ai-bootstrap install --sha256 <ALL-IN-ONE-SHA256> --apply
 ```
 
 ### Downloaded package
 
 ```bash
-sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip.sha256
-unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip -d iot-ai-suite
+sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.6-ALL-IN-ONE.zip.sha256
+unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.6-ALL-IN-ONE.zip -d iot-ai-suite
 cd iot-ai-suite
 ./installers/install.sh --home "$HOME" --hosts all --apply
 ```
@@ -274,7 +274,7 @@ The full Orca assessment and machine-readable comparison are in `docs/comparison
 
 ### Quantitative product-surface comparison
 
-| Public characteristic | IOT-AI v6.7.0-beta.5 | Stably Orca | Claude Code Agent Teams | GitHub Copilot Fleet | AgentGem | ServiceNow AI Control Tower |
+| Public characteristic | IOT-AI v6.7.0-beta.6 | Stably Orca | Claude Code Agent Teams | GitHub Copilot Fleet | AgentGem | ServiceNow AI Control Tower |
 |---|---:|---:|---:|---:|---:|---:|
 | Normal-user executables | **5** | Desktop + CLI + mobile surfaces | Claude Code commands | Copilot CLI command | Web/CLI product | Web platform |
 | Named coder adapter families in this release | **4** + Ollama model gateway | **29 named examples** plus arbitrary CLI-agent support documented | **1** vendor family | **1** Copilot runtime | Multiple capture/materialisation paths | Vendor-neutral AI inventory |
@@ -387,7 +387,7 @@ Search this repository through:
 | Citation | [`CITATION.cff`](CITATION.cff) |
 | Topics and About | GitHub repository sidebar (see [`docs/github-seo-and-release.md`](docs/github-seo-and-release.md)) |
 
-The **Releases** tab follows annotated tags. `main` can be several commits ahead of the latest tag (`v6.7.0-beta.5`). Use Commits or CHANGELOG Unreleased for current source.
+The **Releases** tab follows annotated tags. Current tag: [`v6.7.0-beta.6`](https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6). The public docs site is [iotaitech.github.io/MC-GPT](https://iotaitech.github.io/MC-GPT/).
 
 Recommended repository description and topics are versioned in [`docs/github-seo-and-release.md`](docs/github-seo-and-release.md).
 

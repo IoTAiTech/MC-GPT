@@ -34,5 +34,5 @@
     "single_engine_never_counts_as_multi_coder": true
   },
   "schema": "iot-ai.model-policy.v2",
-  "suite_version": "6.7.0-beta.5"
+  "suite_version": "6.7.0-beta.6"
 }

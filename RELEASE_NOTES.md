@@ -1,17 +1,14 @@
-# IOT-AI Suite 6.7.0-beta.5 / MC-GPT 0.8.0-alpha.5 — Private Release Candidate
+# IOT-AI Suite 6.7.0-beta.6 / MC-GPT 0.8.0-alpha.6 — Developer Preview
 
-This candidate turns MC-GPT into a natural-language-first, conversation-aware closed-loop engineering control plane.
+Public GitHub release of the English/German Community preview, plus a searchable documentation site.
 
 ## Highlights
 
-- One user outcome composes Task → validation → full hybrid Meeting → Multi-Coder → tests → failure meeting → repair/retest → independent review → audit → technical submit.
-- All eligible configured Claude, Codex, Gemini, Grok, every exact configured cloud-model seat, and exact Ollama local/cloud seats are attempted at material gates; outages are evidence, not hidden fallbacks.
-- Bounded WIP waves eventually schedule every selected task without moving the entire backlog into progress.
-- Suite and PMD/PRCS authority remain separate; PMD uses an authenticated versioned API adapter only.
-- Progress preserves `awaiting_founder`; zero eligible is `noop`; technical submit requires current trusted evidence and passing audit.
-- Terminal reports contain complete Task, Provider and Iteration tables in JSON, Markdown, CSV and XLSX.
-- GitHub README includes the Founder-supplied infographic, Table of Contents, curl/npx/npm installation, SEO metadata and a social preview.
+- Operator languages are English and German only.
+- Public AI/SEO index: `llms.txt`, document map, sitemap and robots.
+- Documentation site: https://iotaitech.github.io/MC-GPT/
+- Security and export fail-closed fixes from `main` after 6.7.0-beta.5.
 
 ## Claim boundary
 
-Community Developer Preview candidate only. `production_claim: false`. No blanket legal conformity claim. Public GitHub publication, production deployment and Founder final task decisions remain separately authorised.
+Community Developer Preview. `production_claim: false`. Not a legal certification. Not a production install. Founder acceptance, commercial use and fleet deploy remain separate gates.

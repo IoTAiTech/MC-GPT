@@ -18,9 +18,9 @@ from tests.common import IsolatedHomeTestCase
 
 class VersionHelpSettingsTests(IsolatedHomeTestCase):
     def test_versions_are_aligned(self) -> None:
-        self.assertEqual(__version__, "6.7.0-beta.5")
+        self.assertEqual(__version__, "6.7.0-beta.6")
         self.assertEqual(SUITE_VERSION, __version__)
-        self.assertEqual(MC_GPT_VERSION, "0.8.0-alpha.5")
+        self.assertEqual(MC_GPT_VERSION, "0.8.0-alpha.6")
         self.assertEqual(COMPONENT_ID, "iot-ai-mc-gpt")
 
     def test_natural_language_normalization(self) -> None:

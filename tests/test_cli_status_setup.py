@@ -33,7 +33,7 @@ class CliStatusSetupTests(IsolatedHomeTestCase):
         code, output = self._run_cli(["status", "--json"])
         self.assertEqual(code, 0)
         value = json.loads(output)
-        self.assertEqual(value["suite"]["version"], "6.7.0-beta.5")
+        self.assertEqual(value["suite"]["version"], "6.7.0-beta.6")
         self.assertIn("workflow_scores", value)
 
     def test_cli_settings_show(self) -> None:

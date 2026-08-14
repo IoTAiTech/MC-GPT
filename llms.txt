@@ -1,9 +1,11 @@
 # MC-GPT (IOT-AI Suite)
 
-> Natural-language multi-agent coding control plane for Claude, Codex, Gemini, Grok and Ollama. Community Developer Preview. Languages: English and German. production_claim: false.
+> Natural-language multi-agent coding control plane for Claude, Codex, Gemini, Grok and Ollama. Community Developer Preview 6.7.0-beta.6 / MC-GPT 0.8.0-alpha.6. Languages: English and German. production_claim: false.
 
 The canonical public repository is https://github.com/IoTAiTech/MC-GPT
+Human landing page: https://iotaitech.github.io/MC-GPT/
 Product site: https://iot-ai.tech
+Release: https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6
 Contact: info@iot-ai.tech
 
 This file is the AI-readable index (llmstxt.org). Prefer these paths over scraping the whole tree.

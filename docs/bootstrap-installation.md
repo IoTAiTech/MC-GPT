@@ -9,11 +9,11 @@ sh bootstrap.sh --sha256 EXPECTED_SHA256 --apply
 ```
 
 ```bash
-npx --yes @iot-ai-tech/iot-ai@6.7.0-beta.5 install --sha256 EXPECTED_SHA256 --apply
+npx --yes @iot-ai-tech/iot-ai@6.7.0-beta.6 install --sha256 EXPECTED_SHA256 --apply
 ```
 
 ```bash
-npm exec --yes --package=@iot-ai-tech/iot-ai@6.7.0-beta.5 -- iot-ai-bootstrap install --sha256 EXPECTED_SHA256 --apply
+npm exec --yes --package=@iot-ai-tech/iot-ai@6.7.0-beta.6 -- iot-ai-bootstrap install --sha256 EXPECTED_SHA256 --apply
 ```
 
 The bootstrap rejects tampered bytes, unsafe archives and missing manifests. It preserves settings, databases, customer data and rollback state. A local HTTP server qualification is not a substitute for a live GitHub Release download and hosted attestation.

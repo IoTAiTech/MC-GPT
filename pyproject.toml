@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iot-ai-coder-suite"
-version = "6.7.0b5"
+version = "6.7.0b6"
 description = "Natural-language-first governed multi-agent coding control plane for Claude, Codex, Gemini, Grok and Ollama with autonomous Task-Meeting-Multi-Coder repair loops, tests, audit and rollback."
 readme = "README.md"
 requires-python = ">=3.11"

@@ -21,8 +21,8 @@ The installer never uses `--break-system-packages`, never patches an installed v
 ## Linux ALL-IN-ONE
 
 ```bash
-sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip.sha256
-unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip -d iot-ai-suite
+sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.6-ALL-IN-ONE.zip.sha256
+unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.6-ALL-IN-ONE.zip -d iot-ai-suite
 cd iot-ai-suite
 
 ./installers/install.sh \

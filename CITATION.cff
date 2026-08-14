@@ -1,8 +1,8 @@
 cff-version: 1.2.0
 message: "If you use IOT-AI in research, please cite this software."
 title: "IoT-AI.Tech IOT-AI Coder Suite"
-version: "6.7.0-beta.5"
-date-released: 2026-08-08
+version: "6.7.0-beta.6"
+date-released: 2026-08-15
 authors:
   - family-names: Sorkhpour
     given-names: Babak

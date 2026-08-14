@@ -4,8 +4,11 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+## [6.7.0-beta.6] — 2026-08-15
+
 ### Added
-- Public AI/SEO index: root `llms.txt`, `robots.txt`, `sitemap.xml`, and `docs/document-map.md` so assistants and crawlers can find English/German docs without scraping the whole tree.
+- Public AI/SEO index: root `llms.txt`, `robots.txt`, `sitemap.xml`, and `docs/document-map.md`.
+- GitHub Pages landing at https://iotaitech.github.io/MC-GPT/ with Open Graph, JSON-LD, FAQ schema, German section, sitemap lastmod and a product-readable home page.
 
 ### Removed
 - Persian/Farsi natural-language terms, Article 50 `fa` disclosures, and `fa` CLI/settings locales. Operator languages are English and German only.

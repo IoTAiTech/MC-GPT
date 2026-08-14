@@ -43,7 +43,7 @@
     "deployment-specific PMD/customer qualification",
     "German/EU legal review before external commercial agreement"
   ],
-  "mc_gpt_version": "0.8.0-alpha.5",
+  "mc_gpt_version": "0.8.0-alpha.6",
   "natural_language_and_autonomy": {
     "automatic_meeting_on_failure_or_uncertainty": true,
     "bounded_replanning_and_repair": true,
@@ -83,7 +83,7 @@
     "real_beta5_github_tag_performed": false
   },
   "schema": "iot-ai.release-status.v5",
-  "suite_version": "6.7.0-beta.5",
+  "suite_version": "6.7.0-beta.6",
   "tests": {
     "artifact_and_install_qualification": "outside-source-final-verification",
     "branch_aware_coverage": "71-percent",

@@ -1,6 +1,6 @@
 {
   "schema": "iot-ai.skill-catalog.v3",
-  "version": "6.7.0-beta.5",
+  "version": "6.7.0-beta.6",
   "notice": "Natural-language iot-ai is the primary surface. Advanced engines remain separately testable but are automatically composed by the closed loop.",
   "public_skills": [
     {

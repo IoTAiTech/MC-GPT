@@ -34,7 +34,7 @@ Repository topics and description are GitHub settings and must be applied by an 
 
 ## Why the Releases tab can look stale
 
-GitHub **Releases** lists annotated tags, not `main`. After `v6.7.0-beta.5` (2026-08-08) later hygiene and security commits land on `main` only until the Founder authorises a new tag. Always compare:
+GitHub **Releases** lists annotated tags, not `main`. Current public tag: `v6.7.0-beta.6` (2026-08-15). Always compare:
 
 1. https://github.com/IoTAiTech/MC-GPT/commits/main
 2. https://github.com/IoTAiTech/MC-GPT/releases
@@ -50,7 +50,7 @@ GitHub **Releases** lists annotated tags, not `main`. After `v6.7.0-beta.5` (202
 | [`sitemap.xml`](../sitemap.xml) | Key URL list |
 | [`CITATION.cff`](../CITATION.cff) | Citation metadata |
 
-GitHub Pages, when enabled from `docs/` on `main`, publishes `docs/index.md` at `https://iotaitech.github.io/MC-GPT/`.
+GitHub Pages is enabled from `docs/` on `main`. The home page is static `docs/index.html` (not Markdown, because `.nojekyll` is present) at `https://iotaitech.github.io/MC-GPT/`.
 
 
 ## Administrator application command
@@ -99,7 +99,7 @@ Only the allowlist-built Community source and Community release assets may be at
 ## Release title and search summary
 
 ```text
-IOT-AI Suite 6.7.0-beta.5 / MC-GPT 0.8.0-alpha.5 — Governed Multi-Agent Coding Developer Preview
+IOT-AI Suite 6.7.0-beta.6 / MC-GPT 0.8.0-alpha.6 — Natural-Language Multi-Agent Coding Developer Preview
 ```
 
 The release notes should begin with the exact supported provider families, task-validation/hybrid-execution distinction, federated Meeting reporting, clean installation and claim boundary. Do not claim production readiness, legal certification, universal model availability or fleet-wide compliance.

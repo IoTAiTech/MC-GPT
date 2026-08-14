@@ -240,7 +240,7 @@ def record_progress(
         pid=new_id("prg"); now=utc_now(); conn.execute("INSERT INTO progress_events VALUES(?,?,?,?,?,?,?)",(pid,task_id,work_unit_id,stage,percent,summary,now))
         conn.execute("UPDATE tasks SET engineering_stage=?,engineering_progress=?,task_progress=MAX(task_progress,?),updated_at=? WHERE id=?",(stage,percent,percent,now,task_id))
         if work_unit_id:
-            conn.execute("UPDATE work_units SET engineering_stage=?,engineering_progress=?,updated_at=? WHERE id=?",(stage,percent,now,work_unit_id))
+            conn.execute("UPDATE work_units SET engineering_stage=?,engineering_progress=?,updated_at=? WHERE id=? AND task_id=?",(stage,percent,now,work_unit_id,task_id))
         payload={
             "stage":stage,"percent":percent,"summary":summary,"basis":basis,
             "evidence_ids":list(evidence_ids or []),"observed_steps":observed_steps,

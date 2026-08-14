@@ -37,6 +37,16 @@ class ExportGateFailClosedTests(unittest.TestCase):
             self.assertEqual(result["decision"], "block")
             self.assertIn("private_ip", result.get("findings") or [])
 
+    def test_xlsx_formula_text_is_scanned(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "formula.xlsx"
+            wb = Workbook()
+            wb.active["A1"] = '="' + "192" + ".168.77.88" + '"'
+            wb.save(path)
+            result = assert_export_safe(path, public=True, allowed_roots=[Path(tmp)])
+            self.assertEqual(result["decision"], "block")
+            self.assertIn("private_ip", result.get("findings") or [])
+
 
 class ProjectionTaskScopeTests(IsolatedHomeTestCase):
     def test_task_scoped_export_omits_other_tasks(self) -> None:

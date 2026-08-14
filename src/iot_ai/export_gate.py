@@ -100,8 +100,9 @@ def inspect_export_file(path: Path, *, allowed_roots: list[Path] | None = None) 
     roots = allowed_roots or list(trusted_operator_roots())
     safe = resolve_within_allowed_roots(path, roots, must_exist=True)
     suffix = Path(safe).suffix.lower()
-    if suffix == ".xlsx":
-        inspected = _inspect_xlsx_bytes(_read_confined_bytes(safe, roots))
+    if suffix in {".xlsx", ".xlsm", ".xltx", ".xltm"}:
+        inspected = _inspect_zip_bytes(_read_confined_bytes(safe, roots))
+        inspected["kind"] = "xlsx"
         return {"path": str(safe), **inspected}
     if suffix == ".zip":
         inspected = _inspect_zip_bytes(_read_confined_bytes(safe, roots))

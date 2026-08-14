@@ -185,16 +185,27 @@ def _parse_review(text: str, expected_digest: str) -> dict[str, Any]:
     return {"accepted": accepted, "decision": payload.get("decision"), "plan_digest": payload.get("plan_digest"), "payload": payload}
 
 
-def _requested_seats(user_home: Path, task_id: str) -> list[str]:
+def _meeting_event_payload(conn, meeting_id: str, event_type: str, *, newest: bool = True) -> dict[str, Any]:
+    matched: list[dict[str, Any]] = []
+    for record in rows(conn, "SELECT payload_json FROM events WHERE event_type=? ORDER BY seq", (event_type,)):
+        try:
+            payload = json.loads(record["payload_json"])
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if str(payload.get("meeting_id") or "") == str(meeting_id):
+            matched.append(payload)
+    if not matched:
+        return {}
+    return matched[-1] if newest else matched[0]
+
+
+def _requested_seats(user_home: Path, meeting_id: str) -> list[str]:
     conn = connect_read(user_home)
-    event = one(
-        conn,
-        "SELECT payload_json FROM events WHERE task_id=? AND event_type='meeting.created' ORDER BY seq DESC LIMIT 1",
-        (task_id,),
-    ) if conn else None
+    payload = _meeting_event_payload(conn, meeting_id, "meeting.created", newest=True) if conn else {}
     if conn:
         conn.close()
-    return list(json.loads(event["payload_json"])["seats"]) if event else []
+    seats = payload.get("seats") or (payload.get("seat_plan") or {}).get("requested_seats") or []
+    return list(seats)
 
 
 def start(
@@ -401,11 +412,9 @@ def show(user_home: Path, meeting_id: str) -> dict[str, Any]:
     meeting["contributions"] = rows(conn, "SELECT * FROM meeting_contributions WHERE meeting_id=? ORDER BY round_no,created_at", (meeting_id,))
     meeting["kpis"] = rows(conn, "SELECT * FROM meeting_kpis WHERE meeting_id=? ORDER BY name", (meeting_id,))
     meeting["cases"] = rows(conn, "SELECT * FROM meeting_cases WHERE meeting_id=? ORDER BY case_type,ordinal", (meeting_id,))
-    event = one(conn, "SELECT payload_json FROM events WHERE task_id=? AND event_type='meeting.acceptance_evaluated' ORDER BY seq DESC LIMIT 1", (meeting["task_id"],))
-    created_event = one(conn, "SELECT payload_json FROM events WHERE task_id=? AND event_type='meeting.created' ORDER BY seq ASC LIMIT 1", (meeting["task_id"],))
+    acceptance = _meeting_event_payload(conn, meeting_id, "meeting.acceptance_evaluated", newest=True)
+    created_payload = _meeting_event_payload(conn, meeting_id, "meeting.created", newest=False)
     conn.close()
-    acceptance = json.loads(event["payload_json"]) if event else {}
-    created_payload = json.loads(created_event["payload_json"]) if created_event else {}
     article_50 = created_payload.get("article_50")
     if not isinstance(article_50, dict):
         receipt = created_payload.get("article_50_disclosure_receipt") or {}
@@ -525,12 +534,11 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
         return show(user_home, meeting_id)
     topic = current_record["topic"]
     task_id = current_record["task_id"]
-    seats = _requested_seats(user_home, task_id)
+    seats = _requested_seats(user_home, meeting_id)
     conn_meta = connect_read(user_home)
-    created_meta = one(conn_meta, "SELECT payload_json FROM events WHERE task_id=? AND event_type='meeting.created' ORDER BY seq ASC LIMIT 1", (task_id,)) if conn_meta else None
+    created_payload = _meeting_event_payload(conn_meta, meeting_id, "meeting.created", newest=False) if conn_meta else {}
     if conn_meta:
         conn_meta.close()
-    created_payload = json.loads(created_meta["payload_json"]) if created_meta else {}
     max_parallel = max(1, min(int(created_payload.get("max_parallel") or 8), len(seats)))
     run_id = meeting_id
     opinions: list[dict[str, Any]] = []
@@ -790,12 +798,7 @@ def approve(
             raise FileNotFoundError(meeting_id)
         if meeting["status"] != "awaiting-user-decision" or meeting.get("final_decision") != "accepted_by_required_seats":
             raise ValueError("meeting plan was not accepted by all required substantive seats")
-        created_event = one(
-            conn,
-            "SELECT payload_json FROM events WHERE task_id=? AND event_type='meeting.created' ORDER BY seq ASC LIMIT 1",
-            (meeting["task_id"],),
-        )
-        created_payload = json.loads(created_event["payload_json"]) if created_event else {}
+        created_payload = _meeting_event_payload(conn, meeting_id, "meeting.created", newest=False)
         linked_existing_task = bool(created_payload.get("linked_existing_task"))
         now = utc_now()
         conn.execute("UPDATE meetings SET status='approved',user_approved=1,updated_at=? WHERE id=?", (now, meeting_id))

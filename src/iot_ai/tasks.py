@@ -235,16 +235,16 @@ def record_progress(
         current_status=str(task.get("status") or "")
         if current_status in CLOSED_STATUSES:
             raise PermissionError(f"progress is forbidden for terminal task status: {current_status}")
-        # Progress is telemetry, never authority. Founder-gated work must not be reopened.
-        next_status=current_status if current_status=="awaiting_founder" else "active"
+        # Progress is telemetry only. It never promotes status or rewrites authority.
+        next_status=current_status
         pid=new_id("prg"); now=utc_now(); conn.execute("INSERT INTO progress_events VALUES(?,?,?,?,?,?,?)",(pid,task_id,work_unit_id,stage,percent,summary,now))
-        conn.execute("UPDATE tasks SET status=?,engineering_stage=?,engineering_progress=?,task_progress=MAX(task_progress,?),revision=revision+1,updated_at=? WHERE id=?",(next_status,stage,percent,percent,now,task_id))
-        if work_unit_id and current_status!="awaiting_founder":
-            conn.execute("UPDATE work_units SET status='active',engineering_stage=?,engineering_progress=?,revision=revision+1,updated_at=? WHERE id=?",(stage,percent,now,work_unit_id))
+        conn.execute("UPDATE tasks SET engineering_stage=?,engineering_progress=?,task_progress=MAX(task_progress,?),updated_at=? WHERE id=?",(stage,percent,percent,now,task_id))
+        if work_unit_id:
+            conn.execute("UPDATE work_units SET engineering_stage=?,engineering_progress=?,updated_at=? WHERE id=?",(stage,percent,now,work_unit_id))
         payload={
             "stage":stage,"percent":percent,"summary":summary,"basis":basis,
             "evidence_ids":list(evidence_ids or []),"observed_steps":observed_steps,
-            "total_steps":total_steps,"confidence":confidence,"status_preserved":current_status=="awaiting_founder",
+            "total_steps":total_steps,"confidence":confidence,"status_preserved":True,
             "completion_authority":False,
         }
         append_event(conn,"progress.recorded",payload,task_id=task_id,work_unit_id=work_unit_id)

@@ -5,14 +5,13 @@
 """Atomic Excel redundancy/projection for the standalone workspace."""
 from __future__ import annotations
 
+import io
 import json
-import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
 from .paths import data_root, db_path
-from .util import atomic_json, resolve_within_allowed_roots, sha256_file, trusted_operator_roots, utc_now
+from .util import atomic_json, confined_bytes_write, confined_makedirs, resolve_within_allowed_roots, sha256_file, trusted_operator_roots, utc_now
 from .workspace import connect_read, connect_write, excel_manifest_path, excel_path, new_id, rows
 
 SHEETS: list[tuple[str, str, list[str]]] = [
@@ -45,6 +44,29 @@ def _safe(value: Any) -> Any:
     return value
 
 
+def _scope_clause(sheet_name: str, headers: list[str]) -> str | None:
+    if sheet_name == "Tasks":
+        return "id=?"
+    if "task_id" in headers:
+        return "task_id=?"
+    if "meeting_id" in headers:
+        return "meeting_id IN (SELECT id FROM meetings WHERE task_id=?)"
+    return None
+
+
+def _scoped_query(sheet_name: str, query: str, headers: list[str], task_id: str | None) -> tuple[str, tuple[Any, ...]]:
+    if not task_id:
+        return query, ()
+    if " ORDER BY " not in query:
+        raise ValueError("projection query must include ORDER BY")
+    body, order = query.split(" ORDER BY ", 1)
+    clause = _scope_clause(sheet_name, headers)
+    if clause is None:
+        return f"{body} WHERE 1=0 ORDER BY {order}", ()
+    joiner = " AND " if " WHERE " in body else " WHERE "
+    return f"{body}{joiner}{clause} ORDER BY {order}", (task_id,)
+
+
 def export_workspace(user_home: Path, output: Path | None = None, task_id: str | None = None) -> dict[str, Any]:
     try:
         from openpyxl import Workbook
@@ -55,7 +77,7 @@ def export_workspace(user_home: Path, output: Path | None = None, task_id: str |
 
     output = output or excel_path(user_home)
     roots = list(trusted_operator_roots(user_home))
-    data_root(user_home).mkdir(parents=True, exist_ok=True)
+    confined_makedirs(data_root(user_home), roots)
     output = resolve_within_allowed_roots(output, roots, must_exist=False)
     job_id = new_id("proj")
     now = utc_now()
@@ -73,7 +95,8 @@ def export_workspace(user_home: Path, output: Path | None = None, task_id: str |
         for sheet_name, query, headers in SHEETS:
             ws = workbook.create_sheet(sheet_name)
             ws.append(headers)
-            records = rows(conn, query)
+            scoped, params = _scoped_query(sheet_name, query, headers, task_id)
+            records = rows(conn, scoped, params)
             counts[sheet_name.lower().replace(" ", "_")] = len(records)
             for record in records:
                 ws.append([_safe(record.get(name)) for name in headers])
@@ -89,11 +112,9 @@ def export_workspace(user_home: Path, output: Path | None = None, task_id: str |
             for row in ws.iter_rows(min_row=2):
                 for cell in row:
                     cell.alignment = Alignment(wrap_text=True, vertical="top")
-        fd, temp_name = tempfile.mkstemp(prefix=f".{output.name}.", suffix=".xlsx", dir=str(output.parent))
-        os.close(fd)
-        temp = Path(temp_name)
-        workbook.save(temp)
-        os.replace(temp, output)
+        buf = io.BytesIO()
+        workbook.save(buf)
+        confined_bytes_write(output, buf.getvalue(), roots)
         digest = sha256_file(output, allowed_roots=roots, max_bytes=None)
         manifest = {
             "schema": "iot-ai.excel-projection.v3",

@@ -5,6 +5,10 @@ All notable changes are documented here. The project follows semantic versioning
 ## [Unreleased]
 
 ### Fixed
+- Public export is fail-closed: unknown binaries are blocked, XLSX/ZIP members are inspected, and Excel projection with a `task_id` no longer dumps the whole workspace.
+- Meeting created/acceptance events are read by `meeting_id` in the payload, not the latest event for the shared `task_id`.
+- Task progress updates telemetry only and no longer forces `active` or rewrites work-unit status.
+- Hosted public-boundary full-history scan now runs on `push` to `main` as well as pull requests.
 - CodeQL `py/path-injection` sinks now join each user path onto a trusted root, check `startswith(root)`, and perform I/O in the same function. Meeting xlsx/zip bundles are built in memory so report writes no longer call `mkstemp`/`mkdtemp` on a caller path.
 - Meeting knowledge-export failure logging no longer crashes a completed meeting: `logging_config.append_event` is imported under an unambiguous name so it cannot be shadowed by `workspace.append_event`, and the handler cannot raise.
 - Mesh CLI delegation now avoids Linux `E2BIG` when a synthesis prompt exceeds `MAX_ARG_STRLEN` by moving the prompt to stdin, records `failure_detail` beside `failure_class`, and retries once via stdin after an argv-side `OSError`.

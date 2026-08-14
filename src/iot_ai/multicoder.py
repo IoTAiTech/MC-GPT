@@ -458,6 +458,9 @@ def run(
         }
 
     if task_id and task_row:
+        # Recorded BEFORE the create, so the refusal path below can tell the operator
+        # whether this run is what moved the task revision.
+        existing_work_unit_preexisted = existing_work_unit is not None
         if not existing_work_unit:
             existing_work_unit = add_work_unit(
                 user_home,
@@ -472,6 +475,56 @@ def run(
             work_unit_id = existing_work_unit["id"]
         implementer = implementer or seats[0]
         claim = claim_work_unit(user_home, work_unit_id, implementer, f"{implementer}-{run_id}", 7200, enforce_validation=True, trigger_action="execute")
+        # claim_work_unit returns the VALIDATION GATE dict (no lease_id) whenever the gate
+        # does not pass -- tasks.py: `if validation.get("decision") != "pass": return validation`.
+        # Reading claim["lease_id"] blindly turned every gate refusal into a bare
+        # `KeyError: 'lease_id'`, which surfaced to the operator as `error: 'lease_id'` and
+        # hid the real, actionable reason (e.g. a stale revision-bound validation skip).
+        # Propagate the gate's own decision instead of masking it.
+        if "lease_id" not in claim:
+            # SELF-REVIEW FINDING (2026-08-13): `add_work_unit` above runs BEFORE this
+            # claim and does `UPDATE tasks SET revision=revision+1` (tasks.py:145). So on
+            # a FIRST run the work unit is created, the revision moves, and a validation
+            # skip recorded against the previous revision is invalidated by the very run
+            # it was authorising -- the gate then refuses and we land here. The work unit
+            # is NOT orphaned (the next run finds it via `existing_work_unit` and does not
+            # bump the revision again), so a re-issued skip succeeds. Report that
+            # precisely rather than leaving the operator to rediscover it.
+            created_wu = not existing_work_unit_preexisted
+            # Shape matches the sibling early-returns above (schema / provider_calls /
+            # global_compliance_claim_allowed) so downstream consumers see a consistent
+            # record -- peer review flagged that an omitted `schema` is what would bite.
+            return {
+                "schema": "iot-ai.multi-coder-result.v3",
+                "run_id": run_id,
+                "task_id": task_id,
+                "work_unit_id": work_unit_id,
+                "decision": claim.get("decision", "requires-user-confirmation"),
+                # Name the ACTUAL defect. "requires-user-confirmation" alone sends the
+                # operator into an infinite re-skip/re-run loop: a peer burned 59 of 61
+                # tasks that way. The run consumed its own authorisation.
+                "reason": (
+                    "validation-skip-stale-after-work-unit-creation"
+                    if created_wu else
+                    claim.get("reason", "work-unit-claim-refused")
+                ),
+                "work_unit_created_this_run": created_wu,
+                "remediation": (
+                    "This run created the work unit, which bumped the task revision and "
+                    "invalidated the validation skip bound to the previous revision -- the run "
+                    "consumed its own authorisation. Re-issue the skip and re-run; the work unit "
+                    "now exists, so the revision will not move again. To avoid the wasted run "
+                    "entirely, pre-create the work unit (`iot-ai tasks add-work-unit`) BEFORE "
+                    "recording the skip."
+                    if created_wu else
+                    "The validation gate refused this claim; resolve the gate decision below "
+                    "and re-run."
+                ),
+                "task_validation": claim,
+                "provider_calls": 0,
+                "execution_authorized": False,
+                "global_compliance_claim_allowed": False,
+            }
         lease_id = claim["lease_id"]
         lease_token = claim["lease_token"]
         record_progress(user_home, task_id, "planning", 10, "Multi-Coder planning started", work_unit_id, basis="manual-estimate", confidence="medium")

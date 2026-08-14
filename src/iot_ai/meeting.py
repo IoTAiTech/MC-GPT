@@ -19,7 +19,14 @@ from typing import Any
 
 from .eu_ai_act import classify_risk, record_prohibited_practice_screen, screen_prohibited_practices
 from .licensing import current
-from .logging_config import append_event
+# NAME COLLISION (fixed 2026-08-13): `from .workspace import append_event` on the later
+# import line shadowed this one, so every `append_event(user_home, ...)` call actually hit
+# workspace.append_event(conn, event_type, payload, ...) -- a different signature with no
+# `audit` kwarg. Result: `TypeError: append_event() got an unexpected keyword argument
+# 'audit'` raised *inside an exception handler*, which crashed the whole meeting run and
+# destroyed the record even though every seat had produced substantive output.
+# Import it under an unambiguous name so the two can never be confused again.
+from .logging_config import append_event as append_log_event
 from .mesh import delegate
 from .owned_delegate import owned_delegate
 from .projection import export_workspace
@@ -742,13 +749,20 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
 
         add_item(user_home, "meeting", meeting_id, task_id, f"Meeting: {topic}", consultation, "internal", ["meeting", current_record["depth"]])
     except Exception as exc:
-        append_event(
-            user_home,
-            "meeting.knowledge_export_failed",
-            {"meeting_id": meeting_id, "task_id": task_id, "error_type": type(exc).__name__, "error": str(exc)},
-            audit=True,
-            correlation_id=meeting_id,
-        )
+        # logging_config.append_event(user_home, ...) — NOT workspace.append_event(conn, ...).
+        # This is the only user_home-form call in this module; the rest take `conn`.
+        # It also must never itself raise: it runs inside an exception handler, so a failure
+        # here destroys an otherwise-complete meeting whose seats all produced output.
+        try:
+            append_log_event(
+                user_home,
+                "meeting.knowledge_export_failed",
+                {"meeting_id": meeting_id, "task_id": task_id, "error_type": type(exc).__name__, "error": str(exc)},
+                audit=True,
+                correlation_id=meeting_id,
+            )
+        except Exception:  # logging must never destroy the run it is reporting on
+            pass
     export_workspace(user_home, task_id=task_id)
     return show(user_home, meeting_id)
 

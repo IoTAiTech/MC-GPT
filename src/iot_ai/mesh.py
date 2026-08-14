@@ -202,6 +202,7 @@ def delegate(
         usage = _extract_usage({})
         output = ""
         failure_class = None
+        failure_detail = None  # exception message kept beside the class (see handler below)
         status = "failed"
         exit_code = None
 
@@ -216,14 +217,68 @@ def delegate(
                 exit_code = 0
             else:
                 command = _format_command(route["command"], safe_prompt, selected_model)
-                completed = subprocess.run(
-                    command,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                    env=os.environ.copy(),
-                    check=False,
-                )
+                # E2BIG GUARD (fixed 2026-08-13).
+                # The prompt is substituted into a single argv element, and Linux caps one
+                # argument at MAX_ARG_STRLEN (32 pages = 131072 bytes). The multi-coder
+                # SYNTHESIS stage concatenates every plan AND every critique, so a normal
+                # two-stage run overflows it: measured 33,677 bytes of content produced
+                # `OSError: [Errno 7] Argument list too long`, an empty synthesis, and the
+                # misleading `required-seats-did-not-accept-same-plan-digest` — discarding
+                # work the seat had already done (15,865-char plan + 17,812-char critique).
+                # Every supported CLI seat reads a prompt from stdin, so when the argument
+                # would breach the cap we drop it from argv and pipe it instead. Same bytes,
+                # same model, no truncation — only the transport changes.
+                _MAX_ARG = 131072
+                _SAFETY = 4096  # leave room for the rest of argv + envp
+                _stdin_payload = None
+                if any(len(part) > (_MAX_ARG - _SAFETY) for part in command):
+                    _stdin_payload = safe_prompt
+                    # Rebuild argv without the oversized prompt element.
+                    command = [
+                        part for part in command
+                        if len(part) <= (_MAX_ARG - _SAFETY)
+                    ]
+                try:
+                    completed = subprocess.run(
+                        command,
+                        input=_stdin_payload,
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout,
+                        env=os.environ.copy(),
+                        check=False,
+                    )
+                except OSError as _exc:
+                    # DIAGNOSTIC + LAST-RESORT RETRY (2026-08-13). A bare OSError here is
+                    # unattributable in a batch run: errno 7 (E2BIG) and errno 12 (ENOMEM,
+                    # fork pressure) both surface identically as `failure_class=OSError`
+                    # with an empty synthesis, discarding work the seat already did.
+                    # Record the errno and the exact argv shape so the cause is measured,
+                    # never guessed -- then, if the prompt was still travelling in argv,
+                    # retry once via stdin, which eliminates E2BIG as a possibility. If it
+                    # was already on stdin the fault is not argv size, and we re-raise.
+                    import sys as _sys
+                    print(
+                        f"[mesh] subprocess OSError errno={_exc.errno} ({_exc.strerror}); "
+                        f"argv_elems={len(command)} "
+                        f"max_elem={max((len(x) for x in command), default=0)} "
+                        f"stdin_used={_stdin_payload is not None}",
+                        file=_sys.stderr,
+                    )
+                    if _stdin_payload is None:
+                        _stdin_payload = safe_prompt
+                        command = [part for part in command if part != safe_prompt]
+                        completed = subprocess.run(
+                            command,
+                            input=_stdin_payload,
+                            capture_output=True,
+                            text=True,
+                            timeout=timeout,
+                            env=os.environ.copy(),
+                            check=False,
+                        )
+                    else:
+                        raise
                 exit_code = completed.returncode
                 raw_output = completed.stdout or completed.stderr
                 output, usage = _parse_cli_output(raw_output)
@@ -261,7 +316,17 @@ def delegate(
         except subprocess.TimeoutExpired:
             failure_class = "timeout"
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError) as exc:
+            # Keep the MESSAGE, not just the class (2026-08-13). Recording only
+            # `type(exc).__name__` produced bare `failure_class=RuntimeError` /
+            # `OSError` records that are unattributable after the fact: RuntimeError
+            # alone spans "invalid provider endpoint", "cloud API routes require
+            # HTTPS", "missing provider credential environment variable" and
+            # "unsupported API protocol" (mesh.py:48-148) -- four different operator
+            # actions behind one indistinguishable label. The class stays as the
+            # stable machine-readable key; the detail rides alongside so the next
+            # failure is diagnosable from the record instead of by re-running.
             failure_class = type(exc).__name__
+            failure_detail = str(exc)[:300] or repr(exc)[:300]
 
         latency = int((time.monotonic() - started) * 1000)
         request_id = usage.get("request_id") or generated_request_id
@@ -283,6 +348,7 @@ def delegate(
             "output_tokens": usage.get("output_tokens"),
             "reasoning_tokens": usage.get("reasoning_tokens"),
             "failure_class": failure_class,
+            "failure_detail": failure_detail,
             "fallback_used": index > 0,
             "auth_route": route.get("auth_mode"),
             "effort_requested": effort,

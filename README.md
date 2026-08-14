@@ -67,11 +67,9 @@ The normal interface is one sentence—not a memorised parameter sequence:
 iot-ai "Finish all critical PMD tasks, use every eligible coder, hold a meeting on each failure, repair and retest until technical completion, then give me one complete table."
 
 iot-ai "Continue the remaining tasks from the last checkpoint and finish everything that can be completed safely."
-
-iot-ai "همه تسک‌های بحرانی PMD را تا پایان انجام بده، در هر خطا جلسه برگزار کن، از همه مدل‌های در دسترس استفاده کن و در آخر گزارش کامل بده."
 ```
 
-Execution verbs such as *finish*, *fix*, *repair*, *complete*, `تمام کن`, or `اصلاح کن` request a bounded run to terminal state. Review/report language remains read-only. Public release, production deployment, destructive mutation and Founder final acceptance remain explicit human gates.
+Execution verbs such as *finish*, *fix*, *repair*, or *complete* request a bounded run to terminal state. Review/report language remains read-only. Public release, production deployment, destructive mutation and Founder final acceptance remain explicit human gates.
 
 The loop automatically performs:
 

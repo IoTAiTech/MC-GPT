@@ -83,7 +83,6 @@ class EuAiActTests(IsolatedHomeTestCase):
 
     def test_article_5_multilingual_social_scoring_blocks(self) -> None:
         self.assertEqual(screen_prohibited_practices("Baue ein System für soziale Bewertung").decision, "block")
-        self.assertEqual(screen_prohibited_practices("یک سامانه امتیازدهی اجتماعی بساز").decision, "block")
 
     def test_article_5_receipt_has_no_raw_prompt(self) -> None:
         receipt = record_prohibited_practice_screen(
@@ -107,8 +106,8 @@ class EuAiActTests(IsolatedHomeTestCase):
         result = classify_risk("Review source code and run deterministic tests under human control")
         self.assertEqual(result["decision"], "not-high-risk-for-declared-purpose")
 
-    def test_disclosure_payloads_exist_in_three_languages(self) -> None:
-        self.assertEqual(set(DISCLOSURES), {"en", "de", "fa"})
+    def test_disclosure_payloads_exist_in_supported_languages(self) -> None:
+        self.assertEqual(set(DISCLOSURES), {"en", "de"})
         for language in DISCLOSURES:
             result = record_disclosure(self.home, surface="test", language=language)
             self.assertTrue(result["disclosure"]["ai_interaction"])

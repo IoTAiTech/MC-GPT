@@ -105,7 +105,6 @@ PROHIBITED_PRACTICES: dict[str, dict[str, Any]] = {
             r"\bsocial\s+scor(?:e|ing)\b",
             r"\bscore\s+(?:citizens|people|employees)\s+across\s+contexts\b",
             r"\b(?:soziale?s?\s+scoring|sozialkredit|soziale\s+bewertung)\b",
-            r"(?:امتیازدهی|رتبه[‌ ]?بندی)\s+اجتماعی",
         ),
     },
     "profiling_only_criminal_risk": {
@@ -131,7 +130,6 @@ PROHIBITED_PRACTICES: dict[str, dict[str, Any]] = {
             r"\bemotion\s+recognition\b.{0,60}\b(?:workplace|employee|school|education|student)\b",
             r"\binfer\s+(?:worker|employee|student)\s+emotion\b",
             r"\bemotionserkennung\b.{0,60}\b(?:arbeitsplatz|beschäftigte|schule|bildung|studierende)\b",
-            r"(?:تشخیص|استنتاج)\s+احساسات.{0,50}(?:محل\s+کار|کارمند|مدرسه|آموزش|دانشجو)",
         ),
     },
     "sensitive_biometric_categorisation": {
@@ -141,7 +139,6 @@ PROHIBITED_PRACTICES: dict[str, dict[str, Any]] = {
             r"\bbiometric\s+categori[sz]ation\b.{0,100}\b(?:race|ethnic|political|religious|sexual|union|belief)\b",
             r"\binfer\s+(?:race|ethnicity|religion|sexual orientation|political opinion)\s+from\s+(?:face|biometric)\b",
             r"\bbiometrische\s+kategorisierung\b.{0,100}\b(?:rasse|ethnisch|politisch|religiös|sexuell|gewerkschaft)\b",
-            r"دسته[‌ ]?بندی\s+بیومتریک.{0,100}(?:نژاد|قومیت|مذهب|گرایش\s+جنسی|نظر\s+سیاسی)",
         ),
     },
     "real_time_remote_biometric_identification": {
@@ -175,7 +172,6 @@ REVIEW_CONTEXT_PATTERNS = tuple(
     for pattern in (
         r"\b(?:audit|review|assess|detect|prevent|block|prohibit|policy|compliance|research|test|red[- ]team|monitor)\b",
         r"\b(?:prüf(?:e|en|ung)|audit|begutacht(?:e|en|ung)|untersuch(?:e|en|ung)|verhinder(?:n|ung)|sperr(?:e|en)|compliance|richtlinie|forschung|test)\b",
-        r"(?:ممیزی|بازبینی|ارزیابی|شناسایی|پیشگیری|مسدود|ممنوع|انطباق|پژوهش|آزمون)",
         r"\bhow\s+(?:do|can)\s+we\s+(?:prevent|detect|block)\b",
         r"\bdo\s+not\s+(?:use|build|allow|enable)\b",
     )
@@ -186,9 +182,7 @@ OPERATIONAL_INTENT_PATTERNS = tuple(
     for pattern in (
         r"\b(?:build|deploy|implement|enable|operate|launch|sell|commerciali[sz]e|put\s+into\s+service)\b",
         r"\b(?:bau(?:e|en)|entwickel(?:n|t)|bereitstell(?:en|ung)|implementier(?:en|ung)|aktivier(?:en|ung)|betreib(?:en|en)|vermarkt(?:en|ung))\b",
-        r"(?:بساز|پیاده[‌ ]?سازی|مستقر|فعال|راه[‌ ]?اندازی|بفروش|تجاری[‌ ]?سازی)",
         r"\b(?:rank|score|profile|scrape|infer)\s+(?:citizens|people|employees|workers|students|applicants)\b",
-        r"(?:امتیازدهی|رتبه[‌ ]?بندی|پروفایل|جمع[‌ ]?آوری|استنتاج).{0,40}(?:شهروند|کارمند|دانشجو|متقاضی)",
     )
 )
 

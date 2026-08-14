@@ -23,26 +23,26 @@ from tests.common import IsolatedHomeTestCase
 
 class NaturalIntentTests:
     def test_execution_verbs_default_to_terminal_closed_loop(self):
-        intent = compile_intent("این تسک‌ها را تا آخر کامل کن")
+        intent = compile_intent("finish these tasks through to the end")
         assert intent["execution"]["requested"] is True
         assert intent["execution"]["until_terminal"] is True
         assert intent["execution"]["meeting_policy"] == "automatic"
         assert intent["execution"]["multi_coder_policy"] == "mandatory-at-gates"
 
     def test_plan_only_stays_non_mutating(self):
-        intent = compile_intent("فقط برنامه را بررسی کن و اجرا نکن")
+        intent = compile_intent("only inspect the plan and do not execute")
         assert intent["execution"]["requested"] is False
         assert intent["action"] == "plan"
 
     def test_continue_resolves_previous_task_set(self):
         state = empty_state("c1")
         state["selected_task_ids"] = ["task-abc", "task-def"]
-        intent = compile_intent("ادامه بده و بقیه را تمام کن", conversation_state=state, conversation_id="c1")
+        intent = compile_intent("continue and finish the rest", conversation_state=state, conversation_id="c1")
         assert intent["scope"]["task_ids"] == ["task-abc", "task-def"]
         assert intent["action"] == "continue"
 
     def test_all_tasks_is_a_broad_selection_not_a_new_task_query(self):
-        intent = compile_intent("همه تسک‌ها را تا انتها تمام کن")
+        intent = compile_intent("finish all tasks until the end")
         assert intent["scope"]["all_tasks"] is True
         assert intent["scope"]["task_query"] is None
         assert intent["scope"]["create_if_none"] is False

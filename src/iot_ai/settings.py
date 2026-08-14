@@ -102,7 +102,7 @@ DEFAULTS: dict[str, Any] = {
         "article_5_enforced": True,
         "article_50": {
             "first_interaction_disclosure": True,
-            "languages": ["en", "de", "fa"],
+            "languages": ["en", "de"],
             "machine_readable_marking": True,
             "visible_label_for_public_interest": True,
         },

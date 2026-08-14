@@ -88,8 +88,6 @@ CHANGELOG.md
 iot-ai "Finish all critical PMD tasks, use all available coders, hold a meeting on every failure, and continue until technical completion."
 
 iot-ai "Continue the remaining tasks from the last checkpoint and give me one full final table."
-
-iot-ai "همه تسک‌های بحرانی PMD را تا پایان انجام بده، در خطاها جلسه برگزار کن و از مالتی‌کدر استفاده کن."
 ```
 
 ## Safety and terminal rules

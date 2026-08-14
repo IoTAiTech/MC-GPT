@@ -35,10 +35,6 @@ _CONSTRAINT_MARKERS = (
     "forbid",
     "cannot",
     "can't",
-    "نباید",
-    "باید",
-    "فقط",
-    "بدون",
 )
 _SUCCESS_MARKERS = (
     "done when",
@@ -53,13 +49,9 @@ _SUCCESS_MARKERS = (
     "accuracy",
     "latency",
     "throughput",
-    "وقتی تمام",
-    "تا زمانی",
-    "هدف",
-    "پاس",
 )
-_WHY_MARKERS = ("because", "so that", "in order to", "why", "زیرا", "چون", "برای اینکه")
-_PRIORITY_MARKERS = ("priority", "first", "critical", "p0", "اولویت", "ابتدا", "بحرانی")
+_WHY_MARKERS = ("because", "so that", "in order to", "why")
+_PRIORITY_MARKERS = ("priority", "first", "critical", "p0")
 
 
 def _clean(value: str) -> str:
@@ -152,7 +144,7 @@ def compile_goal_contract(
         low = sentence.casefold()
         if _matches(sentence, _CONSTRAINT_MARKERS):
             constraints.append(sentence)
-            if any(marker in low for marker in ("must not", "do not", "don't", "never", "without", "نباید", "بدون")):
+            if any(marker in low for marker in ("must not", "do not", "don't", "never", "without")):
                 non_goals.append(sentence)
         if _matches(sentence, _SUCCESS_MARKERS):
             success.append(sentence)
@@ -160,7 +152,7 @@ def compile_goal_contract(
             priorities.append(sentence)
         if _matches(sentence, _WHY_MARKERS):
             why_candidates.append(sentence)
-        if any(marker in low for marker in ("current", "existing", "context", "project", "system", "source", "file", "dashboard", "اکنون", "فعلی", "پروژه", "سیستم")):
+        if any(marker in low for marker in ("current", "existing", "context", "project", "system", "source", "file", "dashboard")):
             context.append(sentence)
 
     outcome = sentences[0] if sentences else normalized_goal

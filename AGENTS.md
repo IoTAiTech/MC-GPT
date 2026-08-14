@@ -4,7 +4,7 @@ Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
 Version: 6.7.0-beta.5
 
 1. Read `LICENSE_POLICY.json`, `EDITION_BOUNDARY.json`, `SECURITY.md`, the nearest task scope and the current intent contract before writing.
-2. Accept normal English, Persian or German goals; do not force the operator to learn internal flags when intent can be resolved safely.
+2. Accept normal English or German goals; do not force the operator to learn internal flags when intent can be resolved safely.
 3. Execution verbs start a bounded closed loop: Task → validation → Meeting → Multi-Coder → tests → failure Meeting/repair → independent review → audit → terminal report.
 4. Continue automatically until complete, technical-complete-awaiting-Founder, externally/authority/safety blocked, cancelled or budget-exhausted. Do not stop at a narrative progress update.
 5. Use all eligible required coder/model seats at material planning, implementation-review and release gates. Record every unavailable seat; never fabricate consensus.

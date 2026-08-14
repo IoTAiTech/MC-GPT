@@ -36,20 +36,11 @@ DISCLOSURES: dict[str, dict[str, str]] = {
             "eine menschliche Freigabe; Anbieter- und Modellangaben stehen in den Sitzungsnachweisen."
         ),
     },
-    "fa": {
-        "title": "اعلان تعامل با هوش مصنوعی",
-        "text": (
-            "شما با یک سامانه هوش مصنوعی تحت مسئولیت IoT-AI.Tech تعامل می‌کنید. "
-            "خروجی‌ها ممکن است نادرست یا ناقص باشند. اقدامات مهم نیازمند تأیید انسانی هستند و "
-            "اطلاعات ارائه‌دهنده و مدل در شواهد نشست ثبت می‌شود."
-        ),
-    },
 }
 
 VISIBLE_LABELS = {
     "en": "AI-assisted content. Human review and editorial responsibility must be recorded before publication.",
     "de": "KI-unterstützter Inhalt. Vor der Veröffentlichung müssen menschliche Prüfung und redaktionelle Verantwortung dokumentiert sein.",
-    "fa": "محتوای تولیدشده با کمک هوش مصنوعی؛ پیش از انتشار باید بازبینی انسانی و مسئولیت تحریریه ثبت شود.",
 }
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"

@@ -10,7 +10,7 @@ PUBLIC = {
         "purpose": "Describe the outcome in natural language. MC-GPT resolves context, selects the authoritative task backend, runs Task → Meeting → Multi-Coder → test/repair/audit loops and continues to a truthful terminal state.",
         "examples": [
             "iot-ai 'Finish all critical PMD tasks, use all available coders, meet on every failure, and continue until technical completion.'",
-            "iot-ai 'ادامه بده، بقیه تسک‌ها را تا پایان انجام بده و در آخر یک جدول کامل بده.'",
+            "iot-ai 'Continue, finish the remaining tasks, and give one complete table at the end.'",
         ],
         "boundary": "Writes require the active task and authorization policy. Provider availability is not inferred from installation alone.",
     },

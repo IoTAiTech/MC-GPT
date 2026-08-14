@@ -10,7 +10,6 @@ Examples:
 
 ```text
 /iot-ai finish all critical PMD tasks and keep working until each is complete, awaiting Founder, or externally blocked
-/iot-ai ادامه بده و بقیه تسک‌های قبلی را تا انتها انجام بده
 /iot-ai prüfe die Fehler, repariere sie vollständig und liefere den Abschlussbericht
 ```
 

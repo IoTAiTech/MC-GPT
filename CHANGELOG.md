@@ -4,6 +4,9 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+### Removed
+- Persian/Farsi natural-language terms, Article 50 `fa` disclosures, and `fa` CLI/settings locales. Operator languages are English and German only.
+
 ### Fixed
 - Public export is fail-closed: unknown binaries are blocked, XLSX/ZIP members are inspected, and Excel projection with a `task_id` no longer dumps the whole workspace.
 - Meeting created/acceptance events are read by `meeting_id` in the payload, not the latest event for the shared `task_id`.

@@ -11,7 +11,7 @@
     {
       "id": "iot-ai-tasks",
       "purpose": "Authoritative task lifecycle, validation, WIP waves, evidence and Founder handoff.",
-      "example": "/iot-ai-tasks ادامه بده و بقیه تسک‌ها را تمام کن"
+      "example": "/iot-ai-tasks continue and finish the remaining tasks"
     },
     {
       "id": "iot-ai-meeting",

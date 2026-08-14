@@ -17,38 +17,34 @@ TASK_ID_RE = re.compile(r"\b(?:task-[a-z0-9]+|PMD-REQ-[A-Za-z0-9-]+|PRCS-[A-Za-z
 
 EXECUTE_TERMS = (
     "finish", "complete", "fix", "repair", "implement", "apply", "execute", "solve", "do all",
-    "continue", "run everything", "close all", "انجام بده", "تمام کن", "حل کن", "اصلاح کن",
-    "اجرا کن", "ادامه بده", "تا پایان", "تا انتها", "به پایان برسان", "fertig", "beheben",
+    "continue", "run everything", "close all", "fertig", "beheben",
     "reparieren", "ausführen", "fortsetzen", "abschließen",
 )
 PLAN_TERMS = (
     "review", "analyse", "analyze", "inspect", "show", "report", "summarize", "plan",
-    "بررسی", "تحلیل", "گزارش", "نمایش", "خلاصه", "برنامه", "prüfen", "analysieren",
-    "anzeigen", "bericht", "planen",
+    "prüfen", "analysieren", "anzeigen", "bericht", "planen",
 )
 ONE_STEP_TERMS = (
     "one step", "single step", "only inspect", "plan only", "do not execute", "dry run",
-    "فقط یک مرحله", "فقط بررسی", "فقط برنامه", "اجرا نکن", "nur ein schritt", "nur planen", "nicht ausführen",
+    "nur ein schritt", "nur planen", "nicht ausführen",
 )
 UNTIL_TERMINAL_TERMS = (
     "until complete", "until finished", "until the end", "keep working", "finish all", "complete all",
-    "تا پایان", "تا انتها", "همه را تمام", "همه‌شان را", "بقیه را تمام", "کامل انجام بده",
     "bis zum ende", "bis alles fertig", "vollständig bearbeiten",
 )
 DESTRUCTIVE_TERMS = (
     "delete", "remove data", "drop database", "force push", "replace history", "production deploy",
-    "publish release", "release to github", "migrate production", "حذف", "پاک کن", "انتشار عمومی",
-    "پروداکشن", "جایگزینی تاریخچه", "löschen", "produktiver deploy", "veröffentlichen",
+    "publish release", "release to github", "migrate production",
+    "löschen", "produktiver deploy", "veröffentlichen",
 )
-REPORT_TERMS = ("brief", "simple", "full", "complete", "کامل", "خلاصه", "vollständig", "kurz")
+REPORT_TERMS = ("brief", "simple", "full", "complete", "vollständig", "kurz")
 ALL_TASK_TERMS = (
     "all tasks", "all open tasks", "every task", "finish everything", "complete everything",
-    "همه تسک", "همه کار", "تمام تسک", "تمام کار", "کل تسک", "همه را",
     "alle aufgaben", "alle offenen aufgaben", "alles fertig",
 )
 REFERENCE_TERMS = (
-    "continue", "remaining", "the rest", "same tasks", "those tasks", "ادامه", "بقیه", "همان تسک",
-    "همه‌شان", "آنها", "fortsetzen", "restlichen", "dieselben aufgaben",
+    "continue", "remaining", "the rest", "same tasks", "those tasks",
+    "fortsetzen", "restlichen", "dieselben aufgaben",
 )
 
 
@@ -57,10 +53,9 @@ def _contains(text: str, terms: tuple[str, ...]) -> bool:
 
 
 def _language(raw: str) -> str:
-    has_fa = bool(re.search(r"[\u0600-\u06FF]", raw))
     has_de = bool(re.search(r"\b(?:und|alle|aufgaben|fertig|prüfen|fortsetzen|vollständig|bericht)\b", raw, re.IGNORECASE))
     has_en = bool(re.search(r"\b(?:the|and|task|finish|continue|review|report|all)\b", raw, re.IGNORECASE))
-    active = [name for name, value in (("fa", has_fa), ("de", has_de), ("en", has_en)) if value]
+    active = [name for name, value in (("de", has_de), ("en", has_en)) if value]
     return active[0] if len(active) == 1 else "mixed" if active else "en"
 
 
@@ -71,10 +66,10 @@ def _canonical(value: Any) -> str:
 def _priorities(text: str) -> list[str]:
     found: list[str] = []
     mapping = {
-        "critical": ("critical", "بحرانی", "kritisch"),
-        "high": ("high priority", "اولویت بالا", "hohe priorität"),
-        "medium": ("medium", "متوسط", "mittel"),
-        "low": ("low priority", "کم", "niedrig"),
+        "critical": ("critical", "kritisch"),
+        "high": ("high priority", "hohe priorität"),
+        "medium": ("medium", "mittel"),
+        "low": ("low priority", "niedrig"),
     }
     for priority, terms in mapping.items():
         if _contains(text, terms):
@@ -122,12 +117,12 @@ def compile_intent(
     # An execution verb means an outcome-oriented run by default. Users should
     # not need a second "continue" command merely because one internal phase
     # completed. Irreversible/public actions remain separately human-gated.
-    action = "continue" if execute and reference_used else "finish" if execute else "report" if "report" in text or "گزارش" in text or "bericht" in text else "plan" if plan else "inspect"
+    action = "continue" if execute and reference_used else "finish" if execute else "report" if "report" in text or "bericht" in text else "plan" if plan else "inspect"
     until_terminal = bool(execute and not one_step)
     product = _product(raw, state)
     backend = "pmd-api" if product == "PMD" or any(value.upper().startswith(("PMD-REQ-", "PRCS-")) for value in task_ids) else "suite"
     priorities = _priorities(text)
-    view = "full" if any(term in text for term in ("full", "complete", "کامل", "vollständig")) else "brief"
+    view = "full" if any(term in text for term in ("full", "complete", "vollständig")) else "brief"
     intent_id = "intent-" + hashlib.sha256((raw + "\n" + utc_now()).encode("utf-8")).hexdigest()[:16]
     human_gates: list[dict[str, Any]] = []
     if destructive:

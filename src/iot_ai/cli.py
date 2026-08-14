@@ -477,7 +477,7 @@ def parser() -> argparse.ArgumentParser:
     cops.add_parser("status")
     cops.add_parser("system-card")
     cscreen = cops.add_parser("screen"); cscreen.add_argument("--text", required=True)
-    cdisc = cops.add_parser("disclosure"); cdisc.add_argument("--surface", required=True); cdisc.add_argument("--language", choices=("en", "de", "fa"), default="en")
+    cdisc = cops.add_parser("disclosure"); cdisc.add_argument("--surface", required=True); cdisc.add_argument("--language", choices=("en", "de"), default="en")
     cmark = cops.add_parser("mark"); cmark.add_argument("file"); cmark.add_argument("--provider", action="append", default=[]); cmark.add_argument("--model", action="append", default=[]); cmark.add_argument("--human-reviewed", action="store_true"); cmark.add_argument("--editor"); cmark.add_argument("--public-interest", action="store_true"); cmark.add_argument("--deepfake", action="store_true"); cmark.add_argument("--visible-label", action="store_true")
     cverify = cops.add_parser("verify"); cverify.add_argument("file")
     clit = cops.add_parser("literacy"); clit.add_argument("--subject-id", required=True); clit.add_argument("--role", required=True); clit.add_argument("--curriculum-version", required=True); clit.add_argument("--assessment", choices=("pass", "needs-work", "expired"), required=True); clit.add_argument("--refresher-due", required=True)

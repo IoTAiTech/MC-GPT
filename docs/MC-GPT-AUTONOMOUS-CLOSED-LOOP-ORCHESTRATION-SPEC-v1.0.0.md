@@ -49,8 +49,6 @@ iot-ai "Finish all critical PMD tasks and keep working until they are technicall
 
 iot-ai "Continue yesterday's work from the last checkpoint, use all available coders, and only stop for a real external blocker or my approval."
 
-iot-ai "بررسی و اصلاح همه تسک‌های بحرانی PMD را تا پایان ادامه بده، در خطاها جلسه برگزار کن و در آخر یک جدول کامل بده."
-
 iot-ai "Alle kritischen PMD-Aufgaben vollständig bearbeiten, bei Fehlern automatisch ein Multi-Coder-Meeting starten und am Ende einen vollständigen Bericht erstellen."
 ```
 
@@ -147,9 +145,6 @@ The router must resolve phrases such as:
 continue
 finish the rest
 do all of them
-همه‌شان را ادامه بده
-بقیه را تمام کن
-همان تسک‌های دیروز
 ```
 
 It may ask a question only when ambiguity changes authority, safety, product boundary, destructive scope, or the measurable definition of done.
@@ -554,8 +549,8 @@ final_report_contract:
 
 At least the following deterministic tests are required:
 
-1. Persian natural-language finish intent.
-2. English and German equivalent intents.
+1. English natural-language finish intent.
+2. German equivalent intents.
 3. Pronoun resolution from previous conversation state.
 4. Bulk PMD selector without individual `--task-id` calls.
 5. `awaiting_founder` progress preserves status.

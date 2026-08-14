@@ -4,6 +4,9 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+### Added
+- Public AI/SEO index: root `llms.txt`, `robots.txt`, `sitemap.xml`, and `docs/document-map.md` so assistants and crawlers can find English/German docs without scraping the whole tree.
+
 ### Removed
 - Persian/Farsi natural-language terms, Article 50 `fa` disclosures, and `fa` CLI/settings locales. Operator languages are English and German only.
 

@@ -11,7 +11,8 @@
 </p>
 
 > **IOT-AI Suite 6.7.0-beta.5 · MC-GPT 0.8.0-alpha.5**  
-> Community Developer Preview · `production_claim: false`
+> Community Developer Preview · `production_claim: false` · English and German  
+> Latest `main` is newer than the last GitHub Release tag. See [Unreleased](CHANGELOG.md#unreleased).
 
 MC-GPT is a source-available, natural-language-first control plane for governed multi-agent software engineering with Claude Code, OpenAI Codex, Gemini CLI, Grok CLI and exact Ollama local/cloud seats. Describe the outcome once; MC-GPT resolves conversational context, selects the authoritative task backend, validates and optimises the work, runs full hybrid meetings, executes Multi-Coder implementation and deterministic tests, diagnoses failures, repairs and retests, audits the evidence, and continues until a truthful terminal state.
 
@@ -20,6 +21,8 @@ MC-GPT is a source-available, natural-language-first control plane for governed 
 </p>
 
 <p align="center"><sub>AI-generated visual supplied by the Founder; reviewed and approved by Dr.-Ing. Babak Sorkhpour. Provenance: <a href="assets/brand/MC-GPT-Control-Plane-Infographic.provenance.json">JSON</a>.</sub></p>
+
+**For AI assistants and crawlers:** start at [`llms.txt`](llms.txt) and [`docs/document-map.md`](docs/document-map.md). Do not scrape private or generated trees.
 
 ## Table of contents
 
@@ -374,7 +377,19 @@ A written IoT-AI.Tech commercial licence is required for company-internal operat
 
 ## GitHub discoverability and release hygiene
 
-The public repository is prepared for GitHub search and external indexing through a descriptive README lead, package metadata, badges, repository map, citation metadata, structured issue templates and explicit release notes. Recommended repository description and topics are versioned in [`docs/github-seo-and-release.md`](docs/github-seo-and-release.md).
+Search this repository through:
+
+| Surface | Path |
+|---|---|
+| AI index | [`llms.txt`](llms.txt) |
+| Document map | [`docs/document-map.md`](docs/document-map.md) |
+| Robots / sitemap | [`robots.txt`](robots.txt), [`sitemap.xml`](sitemap.xml) |
+| Citation | [`CITATION.cff`](CITATION.cff) |
+| Topics and About | GitHub repository sidebar (see [`docs/github-seo-and-release.md`](docs/github-seo-and-release.md)) |
+
+The **Releases** tab follows annotated tags. `main` can be several commits ahead of the latest tag (`v6.7.0-beta.5`). Use Commits or CHANGELOG Unreleased for current source.
+
+Recommended repository description and topics are versioned in [`docs/github-seo-and-release.md`](docs/github-seo-and-release.md).
 
 Before every package or GitHub prerelease, the release operator must re-check current `main`, open pull requests, CodeQL/security findings, CI, public-tree and Git-history boundary scans, README/version alignment, release assets and clone-back verification. A private delivery is never uploaded to the public repository.
 

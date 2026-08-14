@@ -32,6 +32,26 @@ sovereign-ai
 
 Repository topics and description are GitHub settings and must be applied by an authorised repository administrator; packaging scripts must not silently mutate them.
 
+## Why the Releases tab can look stale
+
+GitHub **Releases** lists annotated tags, not `main`. After `v6.7.0-beta.5` (2026-08-08) later hygiene and security commits land on `main` only until the Founder authorises a new tag. Always compare:
+
+1. https://github.com/IoTAiTech/MC-GPT/commits/main
+2. https://github.com/IoTAiTech/MC-GPT/releases
+3. [`CHANGELOG.md`](../CHANGELOG.md) Unreleased
+
+## AI and crawler files
+
+| File | Role |
+|---|---|
+| [`llms.txt`](../llms.txt) | llmstxt.org index for assistants |
+| [`docs/document-map.md`](document-map.md) | Human table of public docs |
+| [`robots.txt`](../robots.txt) | Allow public indexing |
+| [`sitemap.xml`](../sitemap.xml) | Key URL list |
+| [`CITATION.cff`](../CITATION.cff) | Citation metadata |
+
+GitHub Pages, when enabled from `docs/` on `main`, publishes `docs/index.md` at `https://iotaitech.github.io/MC-GPT/`.
+
 
 ## Administrator application command
 

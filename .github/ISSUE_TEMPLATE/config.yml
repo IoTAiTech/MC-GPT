@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Product site
+    url: https://iot-ai.tech
+    about: IoT-AI.Tech product and contact
+  - name: AI document index
+    url: https://github.com/IoTAiTech/MC-GPT/blob/main/llms.txt
+    about: Start here if you are an assistant or crawler
+  - name: Security
+    url: https://github.com/IoTAiTech/MC-GPT/blob/main/SECURITY.md
+    about: Report a vulnerability privately

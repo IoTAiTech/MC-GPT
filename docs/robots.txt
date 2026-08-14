@@ -1,0 +1,7 @@
+# Allow public indexing of Community documentation.
+# Canonical product site: https://iot-ai.tech
+User-agent: *
+Allow: /
+
+Sitemap: https://iotaitech.github.io/MC-GPT/sitemap.xml
+Sitemap: https://github.com/IoTAiTech/MC-GPT/raw/main/sitemap.xml

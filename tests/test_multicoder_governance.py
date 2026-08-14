@@ -9,7 +9,7 @@ import sys
 import re
 from unittest.mock import patch
 
-from iot_ai.multicoder import run
+from iot_ai.multicoder import claim_refusal_copy, run
 
 from tests.common import IsolatedHomeTestCase
 
@@ -155,6 +155,24 @@ class MultiCoderGovernanceTests(IsolatedHomeTestCase):
         self.assertEqual(result["decision"], "needs-work")
         self.assertFalse(result["execution_authorized"])
         self.assertNotIn("implementation", stages)
+
+
+class ClaimRefusalCopyTests(IsolatedHomeTestCase):
+    def test_created_unit_is_not_always_a_skip(self) -> None:
+        reason, remediation = claim_refusal_copy(
+            {"decision": "requires-user-confirmation", "reason": "task-validation-required"},
+            created_work_unit=True,
+        )
+        self.assertEqual(reason, "task-validation-required")
+        self.assertNotIn("Re-issue the skip", remediation)
+
+    def test_skip_bound_create_names_stale_skip(self) -> None:
+        reason, remediation = claim_refusal_copy(
+            {"source": "explicit-risk-acceptance", "status": "skipped"},
+            created_work_unit=True,
+        )
+        self.assertEqual(reason, "validation-skip-stale-after-work-unit-creation")
+        self.assertIn("Re-issue the skip", remediation)
 
 
 if __name__ == "__main__":

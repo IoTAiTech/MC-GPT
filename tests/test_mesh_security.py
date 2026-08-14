@@ -8,7 +8,7 @@ import json
 import subprocess
 from unittest.mock import Mock, patch
 
-from iot_ai.mesh import _validate_endpoint, delegate
+from iot_ai.mesh import _prepare_cli_invocation, _validate_endpoint, delegate
 
 from tests.common import IsolatedHomeTestCase
 
@@ -80,6 +80,52 @@ class MeshSecurityTests(IsolatedHomeTestCase):
         self.assertTrue(result["fallback_used"])
         self.assertEqual(run_mock.call_count, 2)
 
+    def test_prepare_cli_moves_only_prompt_slot_on_byte_overflow(self) -> None:
+        huge = "x" * 140000
+        argv, stdin, used = _prepare_cli_invocation(
+            ["claude", "-p", "{prompt}"], huge, "model-a", "claude"
+        )
+        self.assertTrue(used)
+        self.assertEqual(stdin, huge)
+        self.assertEqual(argv, ["claude", "-p"])
+        self.assertNotIn(huge, argv)
+
+    def test_prepare_cli_keeps_deny_flag_and_rewrites_gemini_headless(self) -> None:
+        huge = "y" * 140000
+        argv, stdin, used = _prepare_cli_invocation(
+            ["gemini", "-p", "{prompt}", "--deny", "shell"], huge, "model-a", "gemini"
+        )
+        self.assertTrue(used)
+        self.assertEqual(stdin, huge)
+        self.assertEqual(argv, ["gemini", "--deny", "shell", "-p", ""])
+        self.assertNotIn(huge, argv)
+
+    def test_prepare_cli_short_prompt_stays_in_argv(self) -> None:
+        argv, stdin, used = _prepare_cli_invocation(
+            ["codex", "exec", "{prompt}"], "short plan", "model-a", "codex"
+        )
+        self.assertFalse(used)
+        self.assertIsNone(stdin)
+        self.assertEqual(argv, ["codex", "exec", "short plan"])
+
+    @patch("iot_ai.mesh.save_receipt")
+    @patch("iot_ai.mesh.record", return_value="contribution-1")
+    @patch("iot_ai.mesh.eligible_routes")
+    @patch("iot_ai.mesh.subprocess.run")
+    def test_e2big_without_stdin_retries_via_stdin(self, run_mock, eligible_mock, record_mock, receipt_mock) -> None:
+        eligible_mock.return_value = [self._route()]
+        passed = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"model": "model-a", "response": "substantive answer", "id": "req-e2big"}',
+            stderr="",
+        )
+        run_mock.side_effect = [OSError(7, "Argument list too long"), passed]
+        result = delegate(self.home, "test", "Review this design", model="model-a")
+        self.assertEqual(run_mock.call_count, 2)
+        second_kwargs = run_mock.call_args_list[1].kwargs
+        self.assertEqual(second_kwargs.get("input"), "Review this design")
+        self.assertEqual(result["status"], "pass")
 
     @patch("iot_ai.mesh.save_receipt")
     @patch("iot_ai.mesh.record", return_value="contribution-ollama")

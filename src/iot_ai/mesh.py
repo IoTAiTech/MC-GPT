@@ -34,6 +34,63 @@ def _format_command(template: list[str], prompt: str, model: str) -> list[str]:
     return [part.replace("{prompt}", prompt).replace("{model}", model) for part in template]
 
 
+# Linux MAX_ARG_STRLEN is 32 pages (131072 bytes) per argv element. Measure
+# UTF-8 bytes, not Unicode code points. Leave headroom for the rest of argv.
+MAX_ARG_STRLEN_BYTES = 131072
+ARG_SAFETY_BYTES = 8192
+# Provider flags that *consume the next token as the user prompt*. Claude's
+# `-p` is `--print` (boolean) and must stay. Gemini `-p` is `--prompt` (value).
+# Grok `-p` is `--single` (value).
+PROMPT_VALUE_FLAGS = {
+    "gemini": {"-p", "--prompt"},
+    "grok": {"-p", "--single", "--prompt"},
+}
+
+
+def _utf8_bytes(value: str) -> int:
+    return len(value.encode("utf-8"))
+
+
+def _prepare_cli_invocation(
+    template: list[str],
+    prompt: str,
+    model: str,
+    provider: str,
+    *,
+    force_stdin: bool = False,
+) -> tuple[list[str], str | None, bool]:
+    """Build argv. Move only `{prompt}` slots to stdin when they would E2BIG.
+
+    Returns (argv, stdin_payload_or_None, used_stdin).
+    """
+    formatted = _format_command(template, prompt, model)
+    prompt_indexes = [index for index, part in enumerate(template) if "{prompt}" in part]
+    oversized = any(
+        _utf8_bytes(part) > (MAX_ARG_STRLEN_BYTES - ARG_SAFETY_BYTES) for part in formatted
+    )
+    if not force_stdin and not oversized:
+        return formatted, None, False
+
+    drop = set(prompt_indexes)
+    flags = PROMPT_VALUE_FLAGS.get(str(provider or "").casefold(), set())
+    argv: list[str] = []
+    for index, part in enumerate(formatted):
+        if index in drop:
+            continue
+        if part in flags and (index + 1) in drop:
+            continue
+        argv.append(part)
+    provider_key = str(provider or "").casefold()
+    # Gemini needs `-p` to stay headless; empty -p plus stdin is appended.
+    if provider_key == "gemini" and "-p" not in argv and "--prompt" not in argv:
+        argv.extend(["-p", ""])
+    # Grok `-p/--single` takes the prompt value; file+stdin keeps single-turn.
+    if provider_key == "grok" and "-p" not in argv and "--single" not in argv:
+        if "--prompt-file" not in argv:
+            argv.extend(["--prompt-file", "/dev/stdin"])
+    return argv, prompt, True
+
+
 def _is_private_host(host: str) -> bool:
     try:
         return ipaddress.ip_address(host).is_private
@@ -216,28 +273,10 @@ def delegate(
                 failure_class = None if output.strip() else "empty-output"
                 exit_code = 0
             else:
-                command = _format_command(route["command"], safe_prompt, selected_model)
-                # E2BIG GUARD (fixed 2026-08-13).
-                # The prompt is substituted into a single argv element, and Linux caps one
-                # argument at MAX_ARG_STRLEN (32 pages = 131072 bytes). The multi-coder
-                # SYNTHESIS stage concatenates every plan AND every critique, so a normal
-                # two-stage run overflows it: measured 33,677 bytes of content produced
-                # `OSError: [Errno 7] Argument list too long`, an empty synthesis, and the
-                # misleading `required-seats-did-not-accept-same-plan-digest` — discarding
-                # work the seat had already done (15,865-char plan + 17,812-char critique).
-                # Every supported CLI seat reads a prompt from stdin, so when the argument
-                # would breach the cap we drop it from argv and pipe it instead. Same bytes,
-                # same model, no truncation — only the transport changes.
-                _MAX_ARG = 131072
-                _SAFETY = 4096  # leave room for the rest of argv + envp
-                _stdin_payload = None
-                if any(len(part) > (_MAX_ARG - _SAFETY) for part in command):
-                    _stdin_payload = safe_prompt
-                    # Rebuild argv without the oversized prompt element.
-                    command = [
-                        part for part in command
-                        if len(part) <= (_MAX_ARG - _SAFETY)
-                    ]
+                template = list(route["command"])
+                command, _stdin_payload, _stdin_used = _prepare_cli_invocation(
+                    template, safe_prompt, selected_model, str(route.get("provider") or provider)
+                )
                 try:
                     completed = subprocess.run(
                         command,
@@ -249,34 +288,44 @@ def delegate(
                         check=False,
                     )
                 except OSError as _exc:
-                    # DIAGNOSTIC + LAST-RESORT RETRY (2026-08-13). A bare OSError here is
-                    # unattributable in a batch run: errno 7 (E2BIG) and errno 12 (ENOMEM,
-                    # fork pressure) both surface identically as `failure_class=OSError`
-                    # with an empty synthesis, discarding work the seat already did.
-                    # Record the errno and the exact argv shape so the cause is measured,
-                    # never guessed -- then, if the prompt was still travelling in argv,
-                    # retry once via stdin, which eliminates E2BIG as a possibility. If it
-                    # was already on stdin the fault is not argv size, and we re-raise.
-                    import sys as _sys
-                    print(
-                        f"[mesh] subprocess OSError errno={_exc.errno} ({_exc.strerror}); "
+                    failure_class = "OSError"
+                    failure_detail = (
+                        f"errno={_exc.errno} ({_exc.strerror}); "
                         f"argv_elems={len(command)} "
-                        f"max_elem={max((len(x) for x in command), default=0)} "
-                        f"stdin_used={_stdin_payload is not None}",
-                        file=_sys.stderr,
-                    )
-                    if _stdin_payload is None:
-                        _stdin_payload = safe_prompt
-                        command = [part for part in command if part != safe_prompt]
-                        completed = subprocess.run(
-                            command,
-                            input=_stdin_payload,
-                            capture_output=True,
-                            text=True,
-                            timeout=timeout,
-                            env=os.environ.copy(),
-                            check=False,
+                        f"max_elem_bytes={max((_utf8_bytes(x) for x in command), default=0)} "
+                        f"stdin_used={_stdin_used}"
+                    )[:300]
+                    # Retry once via stdin if the prompt was still in argv.
+                    # A second OSError is recorded, not raised through the handler.
+                    if not _stdin_used and _exc.errno == 7:
+                        command, _stdin_payload, _stdin_used = _prepare_cli_invocation(
+                            template,
+                            safe_prompt,
+                            selected_model,
+                            str(route.get("provider") or provider),
+                            force_stdin=True,
                         )
+                        try:
+                            completed = subprocess.run(
+                                command,
+                                input=_stdin_payload,
+                                capture_output=True,
+                                text=True,
+                                timeout=timeout,
+                                env=os.environ.copy(),
+                                check=False,
+                            )
+                            failure_class = None
+                            failure_detail = None
+                        except OSError as retry_exc:
+                            failure_class = "OSError"
+                            failure_detail = (
+                                f"errno={retry_exc.errno} ({retry_exc.strerror}); "
+                                f"argv_elems={len(command)} "
+                                f"max_elem_bytes={max((_utf8_bytes(x) for x in command), default=0)} "
+                                f"stdin_used={_stdin_used}"
+                            )[:300]
+                            raise
                     else:
                         raise
                 exit_code = completed.returncode
@@ -315,6 +364,10 @@ def delegate(
                     failure_class = "empty-output"
         except subprocess.TimeoutExpired:
             failure_class = "timeout"
+        except OSError as exc:
+            failure_class = "OSError"
+            if not failure_detail:
+                failure_detail = (str(exc)[:300] or repr(exc)[:300])
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError) as exc:
             # Keep the MESSAGE, not just the class (2026-08-13). Recording only
             # `type(exc).__name__` produced bare `failure_class=RuntimeError` /

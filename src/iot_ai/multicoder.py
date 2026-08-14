@@ -38,6 +38,43 @@ from .transparency import record_disclosure, runtime_output_provenance
 from .util import atomic_json, atomic_text, sha256_file, utc_now
 from .workspace import connect_read, connect_write, evidence_root, new_id, one
 
+
+def claim_refusal_copy(claim: dict[str, Any], *, created_work_unit: bool) -> tuple[str, str]:
+    """Return (reason, remediation) for a claim that has no lease_id."""
+    claim_source = str(claim.get("source") or "").casefold()
+    claim_status = str(claim.get("status") or "").casefold()
+    claim_why = " ".join(
+        str(claim.get(key) or "") for key in ("reason", "why", "warning")
+    ).casefold()
+    skip_bound = (
+        claim_status == "skipped"
+        or claim_source in {"explicit-risk-acceptance"}
+        or "skip" in claim_why
+    )
+    if created_work_unit and skip_bound:
+        return (
+            "validation-skip-stale-after-work-unit-creation",
+            "This run created the work unit, which bumped the task revision and "
+            "invalidated the validation skip bound to the previous revision -- the run "
+            "consumed its own authorisation. Re-issue the skip and re-run; the work unit "
+            "now exists, so the revision will not move again. To avoid the wasted run "
+            "entirely, pre-create the work unit (`iot-ai tasks add-work-unit`) BEFORE "
+            "recording the skip.",
+        )
+    if created_work_unit:
+        return (
+            str(claim.get("reason") or "task-validation-required-after-work-unit-creation"),
+            "This run created the work unit and bumped the task revision, so a "
+            "validation that passed at the previous revision no longer matches. "
+            "Re-run validation or approval for the current revision. Do not skip "
+            "unless you intend to accept the risk. The work unit already exists.",
+        )
+    return (
+        str(claim.get("reason") or "work-unit-claim-refused"),
+        "The validation gate refused this claim; resolve the gate decision below "
+        "and re-run.",
+    )
+
 TEST_TIERS = ("unit", "integration", "smoke", "ab", "stress", "security", "e2e", "quality")
 SYNTHESIZER_ORDER = ("codex", "grok", "claude", "gemini", "ollama")
 
@@ -491,35 +528,16 @@ def run(
             # bump the revision again), so a re-issued skip succeeds. Report that
             # precisely rather than leaving the operator to rediscover it.
             created_wu = not existing_work_unit_preexisted
-            # Shape matches the sibling early-returns above (schema / provider_calls /
-            # global_compliance_claim_allowed) so downstream consumers see a consistent
-            # record -- peer review flagged that an omitted `schema` is what would bite.
+            reason, remediation = claim_refusal_copy(claim, created_work_unit=created_wu)
             return {
                 "schema": "iot-ai.multi-coder-result.v3",
                 "run_id": run_id,
                 "task_id": task_id,
                 "work_unit_id": work_unit_id,
                 "decision": claim.get("decision", "requires-user-confirmation"),
-                # Name the ACTUAL defect. "requires-user-confirmation" alone sends the
-                # operator into an infinite re-skip/re-run loop: a peer burned 59 of 61
-                # tasks that way. The run consumed its own authorisation.
-                "reason": (
-                    "validation-skip-stale-after-work-unit-creation"
-                    if created_wu else
-                    claim.get("reason", "work-unit-claim-refused")
-                ),
+                "reason": reason,
                 "work_unit_created_this_run": created_wu,
-                "remediation": (
-                    "This run created the work unit, which bumped the task revision and "
-                    "invalidated the validation skip bound to the previous revision -- the run "
-                    "consumed its own authorisation. Re-issue the skip and re-run; the work unit "
-                    "now exists, so the revision will not move again. To avoid the wasted run "
-                    "entirely, pre-create the work unit (`iot-ai tasks add-work-unit`) BEFORE "
-                    "recording the skip."
-                    if created_wu else
-                    "The validation gate refused this claim; resolve the gate decision below "
-                    "and re-run."
-                ),
+                "remediation": remediation,
                 "task_validation": claim,
                 "provider_calls": 0,
                 "execution_authorized": False,

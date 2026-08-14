@@ -7,7 +7,8 @@ All notable changes are documented here. The project follows semantic versioning
 ### Fixed
 - Meeting knowledge-export failure logging no longer crashes a completed meeting: `logging_config.append_event` is imported under an unambiguous name so it cannot be shadowed by `workspace.append_event`, and the handler cannot raise.
 - Mesh CLI delegation now avoids Linux `E2BIG` when a synthesis prompt exceeds `MAX_ARG_STRLEN` by moving the prompt to stdin, records `failure_detail` beside `failure_class`, and retries once via stdin after an argv-side `OSError`.
-- Multi-Coder work-unit claim now returns the validation-gate decision instead of `KeyError: 'lease_id'`, and names the first-run skip/revision collision so operators do not loop on a consumed skip.
+- Multi-Coder work-unit claim now returns the validation-gate decision instead of `KeyError: 'lease_id'`. A first-run revision bump is labeled as a stale skip only when the gate itself was skip-bound; an approved validation that went stale tells the operator to re-validate, not to skip.
+- Mesh E2BIG handling measures UTF-8 bytes, removes only `{prompt}` slots (keeping deny/policy flags), preserves Gemini headless `-p` and Grok `--prompt-file /dev/stdin`, records `OSError` errno/detail, and retries once via stdin.
 
 ## [6.7.0-beta.5] — 2026-08-08
 

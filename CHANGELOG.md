@@ -5,6 +5,7 @@ All notable changes are documented here. The project follows semantic versioning
 ## [Unreleased]
 
 ### Fixed
+- CodeQL `py/path-injection` sinks now join each user path onto a trusted root, check `startswith(root)`, and perform I/O in the same function. Meeting xlsx/zip bundles are built in memory so report writes no longer call `mkstemp`/`mkdtemp` on a caller path.
 - Meeting knowledge-export failure logging no longer crashes a completed meeting: `logging_config.append_event` is imported under an unambiguous name so it cannot be shadowed by `workspace.append_event`, and the handler cannot raise.
 - Mesh CLI delegation now avoids Linux `E2BIG` when a synthesis prompt exceeds `MAX_ARG_STRLEN` by moving the prompt to stdin, records `failure_detail` beside `failure_class`, and retries once via stdin after an argv-side `OSError`.
 - Multi-Coder work-unit claim now returns the validation-gate decision instead of `KeyError: 'lease_id'`. A first-run revision bump is labeled as a stale skip only when the gate itself was skip-bound; an approved validation that went stale tells the operator to re-validate, not to skip.

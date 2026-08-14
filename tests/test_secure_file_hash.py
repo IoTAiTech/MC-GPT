@@ -5,7 +5,7 @@
 from __future__ import annotations
 import os,tempfile,unittest
 from pathlib import Path
-from iot_ai.util import PathSecurityError,open_secure,resolve_within_allowed_roots,sha256_file
+from iot_ai.util import PathSecurityError,confined_text_write,open_secure,resolve_within_allowed_roots,sha256_file
 class SecureFileHashTests(unittest.TestCase):
  def setUp(self): self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);(self.root/'ok.txt').write_text('ok')
  def tearDown(self): self.tmp.cleanup()
@@ -34,4 +34,15 @@ class SecureFileHashTests(unittest.TestCase):
   target=self.root/'report.json'
   resolved=resolve_within_allowed_roots(target,self.root,must_exist=False)
   self.assertEqual(resolved,self.root/'report.json')
+ def test_confined_write_rejects_symlink(self):
+  outside=Path(tempfile.mkdtemp())/'secret.txt';outside.write_text('secret')
+  link=self.root/'out.txt'
+  try: link.symlink_to(outside)
+  except (OSError,NotImplementedError):
+   outside.unlink();outside.parent.rmdir();self.skipTest('symlink unavailable')
+  try:
+   with self.assertRaises(PathSecurityError): confined_text_write(link,'pwn',[self.root])
+   self.assertEqual(outside.read_text(),'secret')
+  finally:
+   link.unlink(missing_ok=True);outside.unlink();outside.parent.rmdir()
 if __name__=='__main__': unittest.main()

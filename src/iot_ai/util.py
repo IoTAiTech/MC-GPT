@@ -63,91 +63,198 @@ def _confined_to_root(candidate: str, root: str) -> bool:
         return False
     return candidate == root or candidate.startswith(root + os.sep)
 
-def resolve_within_allowed_roots(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, must_exist: bool=True) -> Path:
-    """Return a path only after realpath + commonpath + prefix confinement."""
-    roots = _as_path_list(allowed_roots)
-    raw = os.fspath(path)
-    if os.name == "nt" and (raw.startswith("\\\\?\\") or raw.startswith("\\\\.\\")):
+def _reject_device_or_empty(path: Path | str) -> str:
+    filename = os.fspath(path)
+    if os.name == "nt" and (filename.startswith("\\\\?\\") or filename.startswith("\\\\.\\")):
         raise PathSecurityError("Windows device paths are not allowed")
-    expanded = os.path.expanduser(raw)
-    absolute = os.path.abspath(expanded)
-    parent = os.path.dirname(absolute)
-    name = os.path.basename(absolute)
-    if name in {"", ".", ".."}:
+    if os.path.basename(os.path.normpath(filename)) in {"", ".", ".."}:
         raise PathSecurityError(f"path rejects empty or parent name: {path}")
-    if not os.path.isdir(parent):
-        raise PathSecurityError(f"path parent does not exist: {path}")
-    parent_real = os.path.realpath(parent)
-    candidate = os.path.join(parent_real, name)
-    if os.path.islink(candidate):
-        raise PathSecurityError(f"symlink rejected: {path}")
-    if os.path.exists(candidate):
-        final = _normcase_text(os.path.realpath(candidate))
-    else:
-        if must_exist:
-            raise PathSecurityError(f"path does not exist: {path}")
-        final = _normcase_text(candidate)
-    allowed = False
-    for root in roots:
-        try:
-            common = os.path.commonpath([root, final])
-        except ValueError:
-            continue
-        if common == root and (final == root or final.startswith(root + os.sep)):
-            allowed = True
-            break
-    if not allowed:
-        raise PathSecurityError(f"path escapes allowed_roots: {path}")
-    return Path(final)
+    return filename
 
-def _assert_prefix_confined(final: str, roots: Sequence[str]) -> str:
-    """Same-function CodeQL guard: realpath result must stay under a root prefix."""
+def resolve_within_allowed_roots(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, must_exist: bool=True) -> Path:
+    """Join the user path onto each trusted root, then accept only startswith(root)."""
+    roots = _as_path_list(allowed_roots)
+    filename = _reject_device_or_empty(path)
+    last_error = "path escapes allowed_roots"
     for root in roots:
-        if (final == root or final.startswith(root + os.sep)) and os.path.commonpath([root, final]) == root:
-            return final
-    raise PathSecurityError("path escapes allowed_roots")
+        fullpath = os.path.normpath(os.path.join(root, filename))
+        if not fullpath.startswith(root):
+            continue
+        if fullpath != root and not fullpath.startswith(root + os.sep):
+            continue
+        if must_exist and not os.path.exists(fullpath):
+            last_error = "path does not exist"
+            continue
+        return Path(fullpath)
+    raise PathSecurityError(f"{last_error}: {path}")
+
+def _write_flags() -> int:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
+
+def _read_flags() -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
 
 def confined_text_write(path: Path | str, text: str, allowed_roots: Sequence[Path | str] | Path | str, *, encoding: str="utf-8", newline: str|None=None) -> Path:
-    resolved = resolve_within_allowed_roots(path, allowed_roots, must_exist=False)
-    final = _assert_prefix_confined(os.fspath(resolved), _as_path_list(allowed_roots))
-    kwargs: dict[str, Any] = {"encoding": encoding}
-    if newline is not None:
-        kwargs["newline"] = newline
-    with open(final, "w", **kwargs) as handle:
-        handle.write(text)
-    return Path(final)
+    roots = _as_path_list(allowed_roots)
+    filename = _reject_device_or_empty(path)
+    for root in roots:
+        fullpath = os.path.normpath(os.path.join(root, filename))
+        if not fullpath.startswith(root):
+            continue
+        if fullpath == root or not fullpath.startswith(root + os.sep):
+            continue
+        kwargs: dict[str, Any] = {"encoding": encoding}
+        if newline is not None:
+            kwargs["newline"] = newline
+        try:
+            fd = os.open(fullpath, _write_flags(), 0o600)
+        except OSError as exc:
+            raise PathSecurityError(f"secure write failed: {path}") from exc
+        with os.fdopen(fd, "w", **kwargs) as handle:
+            handle.write(text)
+        return Path(fullpath)
+    raise PathSecurityError(f"path escapes allowed_roots: {path}")
 
 def confined_text_read(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, encoding: str="utf-8") -> str:
-    resolved = resolve_within_allowed_roots(path, allowed_roots, must_exist=True)
-    final = _assert_prefix_confined(os.fspath(resolved), _as_path_list(allowed_roots))
-    with open(final, "r", encoding=encoding) as handle:
-        return handle.read()
+    roots = _as_path_list(allowed_roots)
+    filename = _reject_device_or_empty(path)
+    for root in roots:
+        fullpath = os.path.normpath(os.path.join(root, filename))
+        if not fullpath.startswith(root):
+            continue
+        if fullpath == root or not fullpath.startswith(root + os.sep):
+            continue
+        try:
+            fd = os.open(fullpath, _read_flags())
+        except OSError as exc:
+            raise PathSecurityError(f"secure read failed: {path}") from exc
+        with os.fdopen(fd, "r", encoding=encoding) as handle:
+            return handle.read()
+    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+
+def confined_bytes_write(path: Path | str, data: bytes, allowed_roots: Sequence[Path | str] | Path | str) -> Path:
+    roots = _as_path_list(allowed_roots)
+    filename = _reject_device_or_empty(path)
+    for root in roots:
+        fullpath = os.path.normpath(os.path.join(root, filename))
+        if not fullpath.startswith(root):
+            continue
+        if fullpath == root or not fullpath.startswith(root + os.sep):
+            continue
+        try:
+            fd = os.open(fullpath, _write_flags(), 0o600)
+        except OSError as exc:
+            raise PathSecurityError(f"secure write failed: {path}") from exc
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        return Path(fullpath)
+    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+
+def confined_makedirs(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str) -> Path:
+    roots = _as_path_list(allowed_roots)
+    filename = _reject_device_or_empty(path)
+    for root in roots:
+        fullpath = os.path.normpath(os.path.join(root, filename))
+        if not fullpath.startswith(root):
+            continue
+        if fullpath != root and not fullpath.startswith(root + os.sep):
+            continue
+        if os.path.lexists(fullpath) and os.path.islink(fullpath):
+            raise PathSecurityError(f"symlink rejected: {path}")
+        os.makedirs(fullpath, exist_ok=True)
+        real = os.path.realpath(fullpath)
+        if real != root and not real.startswith(root + os.sep):
+            raise PathSecurityError(f"path escapes allowed_roots: {path}")
+        return Path(fullpath)
+    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+
+def confined_unlink(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str) -> None:
+    roots = _as_path_list(allowed_roots)
+    filename = _reject_device_or_empty(path)
+    for root in roots:
+        fullpath = os.path.normpath(os.path.join(root, filename))
+        if not fullpath.startswith(root):
+            continue
+        if fullpath == root or not fullpath.startswith(root + os.sep):
+            continue
+        os.unlink(fullpath)
+        return
+    raise PathSecurityError(f"path escapes allowed_roots: {path}")
 
 def assert_secure_regular_file(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, max_bytes: int | None=DEFAULT_MAX_HASH_BYTES) -> Path:
-    resolved=resolve_within_allowed_roots(path,allowed_roots,must_exist=True)
-    try: st=os.lstat(resolved)
-    except OSError as exc: raise PathSecurityError(f"cannot stat path: {resolved}") from exc
-    if stat.S_ISLNK(st.st_mode): raise PathSecurityError(f"symlink rejected: {resolved}")
-    if not stat.S_ISREG(st.st_mode): raise PathSecurityError(f"not a regular file: {resolved}")
-    if max_bytes is not None and st.st_size>max_bytes: raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {resolved}")
-    return resolved
+    roots = _as_path_list(allowed_roots)
+    filename = _reject_device_or_empty(path)
+    for root in roots:
+        fullpath = os.path.normpath(os.path.join(root, filename))
+        if not fullpath.startswith(root):
+            continue
+        if fullpath == root or not fullpath.startswith(root + os.sep):
+            continue
+        try:
+            st = os.lstat(fullpath)
+        except OSError as exc:
+            raise PathSecurityError(f"cannot stat path: {fullpath}") from exc
+        if stat.S_ISLNK(st.st_mode):
+            raise PathSecurityError(f"symlink rejected: {fullpath}")
+        if not stat.S_ISREG(st.st_mode):
+            raise PathSecurityError(f"not a regular file: {fullpath}")
+        if max_bytes is not None and st.st_size > max_bytes:
+            raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {fullpath}")
+        return Path(fullpath)
+    raise PathSecurityError(f"path escapes allowed_roots: {path}")
 
 def open_secure(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, max_bytes: int | None=DEFAULT_MAX_HASH_BYTES) -> BinaryIO:
-    resolved=assert_secure_regular_file(path,allowed_roots,max_bytes=max_bytes)
-    flags=os.O_RDONLY
-    if hasattr(os,"O_CLOEXEC"): flags|=os.O_CLOEXEC
-    if hasattr(os,"O_NOFOLLOW"): flags|=os.O_NOFOLLOW
-    try: fd=os.open(resolved,flags)
-    except OSError as exc: raise PathSecurityError(f"secure open failed: {resolved}") from exc
-    try:
-        st=os.fstat(fd)
-        if not stat.S_ISREG(st.st_mode): raise PathSecurityError(f"opened handle is not a regular file: {resolved}")
-        if max_bytes is not None and st.st_size>max_bytes: raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {resolved}")
-        return os.fdopen(fd,"rb")
-    except Exception:
-        try: os.close(fd)
-        except OSError: pass
-        raise
+    roots = _as_path_list(allowed_roots)
+    filename = _reject_device_or_empty(path)
+    flags = os.O_RDONLY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    for root in roots:
+        fullpath = os.path.normpath(os.path.join(root, filename))
+        if not fullpath.startswith(root):
+            continue
+        if fullpath == root or not fullpath.startswith(root + os.sep):
+            continue
+        try:
+            st = os.lstat(fullpath)
+        except OSError as exc:
+            raise PathSecurityError(f"cannot stat path: {fullpath}") from exc
+        if stat.S_ISLNK(st.st_mode):
+            raise PathSecurityError(f"symlink rejected: {fullpath}")
+        if not stat.S_ISREG(st.st_mode):
+            raise PathSecurityError(f"not a regular file: {fullpath}")
+        if max_bytes is not None and st.st_size > max_bytes:
+            raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {fullpath}")
+        try:
+            fd = os.open(fullpath, flags)
+        except OSError as exc:
+            raise PathSecurityError(f"secure open failed: {fullpath}") from exc
+        try:
+            opened = os.fstat(fd)
+            if not stat.S_ISREG(opened.st_mode):
+                raise PathSecurityError(f"opened handle is not a regular file: {fullpath}")
+            if max_bytes is not None and opened.st_size > max_bytes:
+                raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {fullpath}")
+            return os.fdopen(fd, "rb")
+        except Exception:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            raise
+    raise PathSecurityError(f"path escapes allowed_roots: {path}")
 
 def sha256_file(path: Path | str, *, allowed_roots: Sequence[Path | str] | Path | str, max_bytes: int | None=DEFAULT_MAX_HASH_BYTES) -> str:
     handle=open_secure(path,allowed_roots,max_bytes=max_bytes)

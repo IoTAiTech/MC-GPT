@@ -18,7 +18,7 @@ from typing import Any, Sequence
 from .export_gate import redact_text, rewrite_public_export
 from .meeting import project_meeting_view, show
 from .paths import data_root, db_path
-from .util import assert_secure_regular_file, sha256_file, trusted_operator_roots, utc_now
+from .util import assert_secure_regular_file, resolve_within_allowed_roots, sha256_file, trusted_operator_roots, utc_now
 from .workspace import connect_read, rows
 
 ANSI_ESCAPE=re.compile(r"(?:\x1B[@-_][0-?]*[ -/]*[@-~]|\x1B\][^\x07]*(?:\x07|\x1B\\))")
@@ -231,15 +231,23 @@ def _participant_rows(payload:dict[str,Any])->list[dict[str,Any]]:
 
 def _decision_rows(payload:dict[str,Any])->list[dict[str,Any]]:
     return [{"meeting_id":_meeting_id(i),"status":(i.get("meeting") or i).get("status") or i.get("status"),"decision":(i.get("meeting") or i).get("final_decision") or i.get("final_decision"),"founder_approval":bool(i.get("founder_approval") or (i.get("meeting") or {}).get("user_approved")),"blockers":json.dumps(i.get("blockers") or [],ensure_ascii=False)} for i in payload["meetings"]]
-def _write_csv(path:Path,data:list[dict[str,Any]],fallback:list[str])->None:
+def _report_roots(user_home:Path)->list[Path]:
+    return list(trusted_operator_roots(user_home))
+
+def _safe_report_path(path:Path|str,roots:Sequence[Path],*,must_exist:bool=False)->Path:
+    return resolve_within_allowed_roots(path,roots,must_exist=must_exist)
+
+def _write_csv(path:Path,data:list[dict[str,Any]],fallback:list[str],*,roots:Sequence[Path])->None:
+    path=_safe_report_path(path,roots,must_exist=False)
     fields=list(data[0]) if data else fallback
     with path.open("w",encoding="utf-8",newline="") as h:w=csv.DictWriter(h,fieldnames=fields,extrasaction="ignore");w.writeheader();w.writerows(data)
-def _write_markdown(path:Path,payload:dict[str,Any])->None:
+def _write_markdown(path:Path,payload:dict[str,Any],*,roots:Sequence[Path])->None:
     lines=["# IOT-AI Meeting Report","",f"Classification: `{payload['classification']}`",f"Generated: {payload['generated_at']}",f"Meetings: {payload['meeting_count']}",""]
     for item in payload["meetings"]:
         m=item.get("meeting") or item;lines.extend([f"## {_meeting_id(item)}","",f"- Source: `{(item.get('source') or {}).get('label')}`",f"- Status: `{m.get('status') or item.get('status')}`",f"- Decision: `{m.get('final_decision') or item.get('final_decision')}`",f"- Privacy: `{_privacy_class(item)}`",f"- Topic: {m.get('topic') or item.get('topic') or item.get('topic_preview') or ''}",f"- Lifecycle issues: `{', '.join(item.get('lifecycle_issues') or []) or 'none'}`",""])
         for p in item.get("participants") or []:lines.append(f"- **{p.get('seat')}** · {p.get('status')} · {p.get('model_served') or 'unverified'} · {p.get('decision') or ''}")
         if not payload["public_export"]:lines.extend(["",item.get("synthesis_summary") or m.get("synthesis") or "",""])
+    path=_safe_report_path(path,roots,must_exist=False)
     path.write_text("\n".join(lines).rstrip()+"\n",encoding="utf-8")
 def _style_sheet(ws,widths:dict[str,int]|None=None)->None:
     from openpyxl.styles import Font,PatternFill,Alignment
@@ -248,7 +256,7 @@ def _style_sheet(ws,widths:dict[str,int]|None=None)->None:
     for row in ws.iter_rows(min_row=2):
         for c in row:c.alignment=Alignment(vertical="top",wrap_text=True)
     for col,w in (widths or {}).items():ws.column_dimensions[col].width=w
-def _write_xlsx(path:Path,payload:dict[str,Any])->None:
+def _write_xlsx(path:Path,payload:dict[str,Any],*,roots:Sequence[Path])->None:
     from openpyxl import Workbook
     wb=Workbook();ws=wb.active;ws.title="Meetings";data=_flat(payload);heads=list(data[0]) if data else ["meeting_id","status"];ws.append(heads)
     for r in data:ws.append([r.get(h) for h in heads])
@@ -262,6 +270,7 @@ def _write_xlsx(path:Path,payload:dict[str,Any])->None:
     summary=wb.create_sheet("Summary");summary.append(["Metric","Value"]);summary.append(["Classification",payload["classification"]]);summary.append(["Generated",payload["generated_at"]]);summary.append(["Meetings included",payload["meeting_count"]]);summary.append(["Meetings omitted",payload["omitted_count"]]);summary.append(["Payload SHA-256",payload["report_payload_sha256"]])
     for group,values in payload["summary"].items():summary.append([group,json.dumps(values,ensure_ascii=False,sort_keys=True) if isinstance(values,dict) else values])
     _style_sheet(summary,{"A":28,"B":90})
+    path=_safe_report_path(path,roots,must_exist=False)
     fd,tmp=tempfile.mkstemp(prefix=".meeting-report-",suffix=".xlsx",dir=str(path.parent));os.close(fd)
     try:wb.save(tmp);os.replace(tmp,path)
     finally:Path(tmp).unlink(missing_ok=True)
@@ -269,9 +278,11 @@ def _write_xlsx(path:Path,payload:dict[str,Any])->None:
 def managed_report_output(user_home:Path,filename:str)->Path:
     name=str(filename or "").strip()
     if not name or name in {".",".."} or Path(name).name!=name or any(ch not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for ch in name):raise ValueError("invalid report filename")
-    root=(data_root(user_home)/"meeting-reports").resolve();root.mkdir(parents=True,exist_ok=True);output=(root/name).resolve()
-    if output.parent!=root:raise PermissionError("report output escaped managed root")
-    return output
+    roots=_report_roots(user_home)
+    root=data_root(user_home)/"meeting-reports"
+    root.mkdir(parents=True,exist_ok=True)
+    confined_root=resolve_within_allowed_roots(root, roots, must_exist=True)
+    return resolve_within_allowed_roots(confined_root/name, roots, must_exist=False)
 
 def _manifest(output:Path,payload:dict[str,Any],gate:dict[str,Any]|None)->dict[str,Any]:
     return {"schema":"iot-ai.meeting-report-file.v2","classification":payload["classification"],"generated_at":payload["generated_at"],"report_payload_sha256":payload["report_payload_sha256"],"meeting_count":payload["meeting_count"],"file":output.name,"public_export":gate,"source_manifest":payload["source_manifest"]}
@@ -280,52 +291,72 @@ def write_report(user_home:Path,output:Path,*,output_format:str,view:str="brief"
     fmt=output_format.lower()
     if fmt in {"bundle","all"}:return write_report_bundle(user_home,output,view=view,**kwargs)
     output=managed_report_output(user_home,output.name)
-    payload=collect(user_home,view=view,**kwargs);output.parent.mkdir(parents=True,exist_ok=True)
+    roots=_report_roots(user_home)
+    payload=collect(user_home,view=view,**kwargs)
+    output=_safe_report_path(output,roots,must_exist=False)
+    output.parent.mkdir(parents=True,exist_ok=True)
     if fmt=="json":output.write_text(json.dumps(payload,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
-    elif fmt=="csv":_write_csv(output,_flat(payload),["meeting_id","status","final_decision"])
-    elif fmt in {"md","markdown"}:_write_markdown(output,payload)
-    elif fmt=="xlsx":_write_xlsx(output,payload)
+    elif fmt=="csv":_write_csv(output,_flat(payload),["meeting_id","status","final_decision"],roots=roots)
+    elif fmt in {"md","markdown"}:_write_markdown(output,payload,roots=roots)
+    elif fmt=="xlsx":_write_xlsx(output,payload,roots=roots)
     else:raise ValueError("format must be json, csv, markdown, xlsx or bundle")
-    public=bool(payload["public_export"]);gate=rewrite_public_export(output) if public else None
+    public=bool(payload["public_export"]);gate=rewrite_public_export(output,allowed_roots=list(roots)) if public else None
     if public and (gate or {}).get("decision")!="pass":output.unlink(missing_ok=True);raise PermissionError(f"public report export blocked: {(gate or {}).get('findings')}")
-    manifest=output.with_name(output.name+(".public-manifest.json" if public else ".manifest.json"));manifest.write_text(json.dumps(_manifest(output,payload,gate),ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
-    digest=sha256_file(output,allowed_roots=trusted_operator_roots(user_home),max_bytes=None);side=output.with_name(output.name+".sha256");side.write_text(f"{digest}  {output.name}\n",encoding="utf-8")
-    return {"decision":"pass","output":str(output),"format":fmt,"view":payload["view"],"classification":payload["classification"],"meeting_count":payload["meeting_count"],"omitted_count":payload["omitted_count"],"sha256":digest,"sha256_sidecar":str(side),"manifest":str(manifest),"manifest_sha256":sha256_file(manifest,allowed_roots=trusted_operator_roots(user_home),max_bytes=None),"public_export":gate}
+    manifest=_safe_report_path(output.with_name(output.name+(".public-manifest.json" if public else ".manifest.json")),roots,must_exist=False)
+    manifest.write_text(json.dumps(_manifest(output,payload,gate),ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+    digest=sha256_file(output,allowed_roots=roots,max_bytes=None)
+    side=_safe_report_path(output.with_name(output.name+".sha256"),roots,must_exist=False)
+    side.write_text(f"{digest}  {output.name}\n",encoding="utf-8")
+    return {"decision":"pass","output":str(output),"format":fmt,"view":payload["view"],"classification":payload["classification"],"meeting_count":payload["meeting_count"],"omitted_count":payload["omitted_count"],"sha256":digest,"sha256_sidecar":str(side),"manifest":str(manifest),"manifest_sha256":sha256_file(manifest,allowed_roots=roots,max_bytes=None),"public_export":gate}
 
 def write_report_bundle(user_home:Path,output_dir:Path,*,view:str="brief",**kwargs:Any)->dict[str,Any]:
-    output_dir=Path(output_dir)
-    if output_dir.suffix.lower()==".zip":
-        output_dir.parent.mkdir(parents=True,exist_ok=True);stage=Path(tempfile.mkdtemp(prefix=".iot-ai-meeting-bundle-",dir=str(output_dir.parent)))
+    requested=Path(output_dir)
+    roots=list(trusted_operator_roots(user_home))
+    if requested.suffix.lower()==".zip":
+        zip_path=_safe_report_path(requested,roots,must_exist=False)
+        stage=Path(tempfile.mkdtemp(prefix=".iot-ai-meeting-bundle-",dir=str(zip_path.parent)))
         try:
-            result=write_report_bundle(user_home,stage,view=view,**kwargs);tmp=output_dir.with_name("."+output_dir.name+".tmp")
+            result=write_report_bundle(user_home,stage,view=view,**kwargs)
+            tmp=_safe_report_path(zip_path.with_name("."+zip_path.name+".tmp"),roots,must_exist=False)
             with zipfile.ZipFile(tmp,"w",zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
                 for p in sorted(stage.iterdir()):
                     if p.is_file():
                         info=zipfile.ZipInfo(p.name,date_time=(2026,8,8,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o644<<16;archive.writestr(info,p.read_bytes())
-            os.replace(tmp,output_dir);digest=sha256_file(output_dir,allowed_roots=[user_home,output_dir.parent.resolve()],max_bytes=None);side=output_dir.with_name(output_dir.name+".sha256");side.write_text(f"{digest}  {output_dir.name}\n",encoding="utf-8");members=sorted(p.name for p in stage.iterdir() if p.is_file())
-            return {"decision":"pass","output":str(output_dir),"archive":True,"classification":result["classification"],"meeting_count":result["meeting_count"],"omitted_count":result["omitted_count"],"files":len(members),"archive_members":members,"internal_manifest":"MANIFEST.json","internal_checksums":"SHA256SUMS.txt","sha256":digest,"sha256_sidecar":str(side)}
+            os.replace(tmp,zip_path)
+            digest=sha256_file(zip_path,allowed_roots=roots,max_bytes=None)
+            side=_safe_report_path(zip_path.with_name(zip_path.name+".sha256"),roots,must_exist=False)
+            side.write_text(f"{digest}  {zip_path.name}\n",encoding="utf-8")
+            members=sorted(p.name for p in stage.iterdir() if p.is_file())
+            return {"decision":"pass","output":str(zip_path),"archive":True,"classification":result["classification"],"meeting_count":result["meeting_count"],"omitted_count":result["omitted_count"],"files":len(members),"archive_members":members,"internal_manifest":"MANIFEST.json","internal_checksums":"SHA256SUMS.txt","sha256":digest,"sha256_sidecar":str(side)}
         finally:
             for p in sorted(stage.rglob("*"),reverse=True):
                 if p.is_file():p.unlink(missing_ok=True)
                 elif p.is_dir():p.rmdir()
             stage.rmdir()
-    output_dir.mkdir(parents=True,exist_ok=True);payload=collect(user_home,view=view,**kwargs);public=bool(payload["public_export"])
+    output_dir=_safe_report_path(requested,roots,must_exist=requested.exists())
+    output_dir.mkdir(parents=True,exist_ok=True)
+    output_dir=_safe_report_path(output_dir,roots,must_exist=True)
+    payload=collect(user_home,view=view,**kwargs);public=bool(payload["public_export"])
     files={"MEETINGS_INDEX.json":"json","MEETINGS_SUMMARY.csv":"csv","MEETINGS_REPORT.md":"markdown","MEETINGS_REPORT.xlsx":"xlsx"};results=[]
     for name,fmt in files.items():
-        p=output_dir/name
+        p=_safe_report_path(output_dir/name,roots,must_exist=False)
         if fmt=="json":p.write_text(json.dumps(payload,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
-        elif fmt=="csv":_write_csv(p,_flat(payload),["meeting_id","status","final_decision"])
-        elif fmt=="markdown":_write_markdown(p,payload)
-        else:_write_xlsx(p,payload)
-        gate=rewrite_public_export(p) if public else None
+        elif fmt=="csv":_write_csv(p,_flat(payload),["meeting_id","status","final_decision"],roots=roots)
+        elif fmt=="markdown":_write_markdown(p,payload,roots=roots)
+        else:_write_xlsx(p,payload,roots=roots)
+        gate=rewrite_public_export(p,allowed_roots=list(roots)) if public else None
         if public and (gate or {}).get("decision")!="pass":raise PermissionError(f"public report bundle blocked for {name}")
-        results.append({"path":name,"sha256":sha256_file(p,allowed_roots=[user_home,output_dir.resolve()],max_bytes=None),"format":fmt})
+        results.append({"path":name,"sha256":sha256_file(p,allowed_roots=roots,max_bytes=None),"format":fmt})
     extras={"MODEL_PARTICIPATION.csv":payload["model_participation"],"DECISIONS_AND_DISSENTS.csv":_decision_rows(payload),"LIFECYCLE_ISSUES.csv":payload["lifecycle_issues"]}
     for name,data in extras.items():
-        p=output_dir/name;fallback=["provider","model_served","attempted"] if name.startswith("MODEL") else ["meeting_id","status","decision","blockers"] if name.startswith("DECISIONS") else ["meeting_id","source","issue"]
-        _write_csv(p,data,fallback);results.append({"path":name,"sha256":sha256_file(p,allowed_roots=[user_home,output_dir.resolve()],max_bytes=None),"format":"csv"})
-    provenance=output_dir/"PROVENANCE.json";provenance.write_text(json.dumps({"schema":"iot-ai.meeting-report-provenance.v2","generated_at":payload["generated_at"],"classification":payload["classification"],"source_manifest":payload["source_manifest"],"claims":payload["claims"],"ansi_control_characters_removed":True,"legacy_stores_read_only":True},ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8");results.append({"path":provenance.name,"sha256":sha256_file(provenance,allowed_roots=[user_home,output_dir.resolve()],max_bytes=None),"format":"json"})
+        p=_safe_report_path(output_dir/name,roots,must_exist=False);fallback=["provider","model_served","attempted"] if name.startswith("MODEL") else ["meeting_id","status","decision","blockers"] if name.startswith("DECISIONS") else ["meeting_id","source","issue"]
+        _write_csv(p,data,fallback,roots=roots);results.append({"path":name,"sha256":sha256_file(p,allowed_roots=roots,max_bytes=None),"format":"csv"})
+    provenance=_safe_report_path(output_dir/"PROVENANCE.json",roots,must_exist=False)
+    provenance.write_text(json.dumps({"schema":"iot-ai.meeting-report-provenance.v2","generated_at":payload["generated_at"],"classification":payload["classification"],"source_manifest":payload["source_manifest"],"claims":payload["claims"],"ansi_control_characters_removed":True,"legacy_stores_read_only":True},ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8");results.append({"path":provenance.name,"sha256":sha256_file(provenance,allowed_roots=roots,max_bytes=None),"format":"json"})
     manifest={"schema":"iot-ai.meeting-report-bundle.v2","classification":payload["classification"],"generated_at":payload["generated_at"],"report_payload_sha256":payload["report_payload_sha256"],"meeting_count":payload["meeting_count"],"omitted_count":payload["omitted_count"],"included_meeting_ids":[_meeting_id(i) for i in payload["meetings"]],"omitted":payload["omitted"],"source_manifest":payload["source_manifest"],"files":results};text=json.dumps(manifest,ensure_ascii=False,indent=2,sort_keys=True)+"\n"
-    for name in (["PUBLIC_REPORT_MANIFEST.json","MANIFEST.json"] if public else ["REPORT_MANIFEST.json","MANIFEST.json"]):(output_dir/name).write_text(text,encoding="utf-8")
-    sums=output_dir/"SHA256SUMS.txt";sums.write_text("".join(f"{sha256_file(p,allowed_roots=[user_home,output_dir.resolve()],max_bytes=None)}  {p.name}\n" for p in sorted(output_dir.iterdir()) if p.is_file() and p.name!="SHA256SUMS.txt"),encoding="utf-8")
-    return {"decision":"pass","output":str(output_dir),"classification":payload["classification"],"meeting_count":payload["meeting_count"],"omitted_count":payload["omitted_count"],"files":len([p for p in output_dir.iterdir() if p.is_file()]),"manifest":str(output_dir/"MANIFEST.json"),"manifest_sha256":sha256_file(output_dir/"MANIFEST.json",allowed_roots=[user_home,output_dir.resolve()],max_bytes=None),"checksums":str(sums),"checksums_sha256":sha256_file(sums,allowed_roots=[user_home,output_dir.resolve()],max_bytes=None)}
+    for name in (["PUBLIC_REPORT_MANIFEST.json","MANIFEST.json"] if public else ["REPORT_MANIFEST.json","MANIFEST.json"]):
+        _safe_report_path(output_dir/name,roots,must_exist=False).write_text(text,encoding="utf-8")
+    sums=_safe_report_path(output_dir/"SHA256SUMS.txt",roots,must_exist=False)
+    sums.write_text("".join(f"{sha256_file(_safe_report_path(p,roots,must_exist=True),allowed_roots=roots,max_bytes=None)}  {p.name}\n" for p in sorted(output_dir.iterdir()) if p.is_file() and p.name!="SHA256SUMS.txt"),encoding="utf-8")
+    manifest_path=_safe_report_path(output_dir/"MANIFEST.json",roots,must_exist=True)
+    return {"decision":"pass","output":str(output_dir),"classification":payload["classification"],"meeting_count":payload["meeting_count"],"omitted_count":payload["omitted_count"],"files":len([p for p in output_dir.iterdir() if p.is_file()]),"manifest":str(manifest_path),"manifest_sha256":sha256_file(manifest_path,allowed_roots=roots,max_bytes=None),"checksums":str(sums),"checksums_sha256":sha256_file(sums,allowed_roots=roots,max_bytes=None)}

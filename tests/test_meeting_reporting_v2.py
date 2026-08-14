@@ -15,6 +15,7 @@ import zipfile
 from pathlib import Path
 
 from iot_ai.meeting_reporting import collect, write_report, write_report_bundle
+from iot_ai.projection import export_workspace
 from iot_ai.util import PathSecurityError
 from tests.common import IsolatedHomeTestCase
 
@@ -160,6 +161,40 @@ class MeetingReportingV2Tests(IsolatedHomeTestCase):
                 with patch("iot_ai.meeting_reporting.trusted_operator_roots", return_value=(self.home.resolve(),)):
                     with self.assertRaises(PathSecurityError):
                         collect(self.home, legacy_dbs=[outside], include_current=False)
+            finally:
+                if old is not None:
+                    os.environ["IOT_AI_ALLOWED_READ_ROOTS"] = old
+
+    def test_bundle_zip_outside_trusted_roots_is_rejected(self) -> None:
+        legacy = self.make_legacy(self.home / "legacy.sqlite3")
+        with tempfile.TemporaryDirectory() as tmp:
+            outside = Path(tmp) / "escape.zip"
+            old = os.environ.pop("IOT_AI_ALLOWED_READ_ROOTS", None)
+            try:
+                with patch("iot_ai.meeting_reporting.trusted_operator_roots", return_value=(self.home.resolve(),)):
+                    with self.assertRaises(PathSecurityError):
+                        write_report_bundle(
+                            self.home,
+                            outside,
+                            view="brief",
+                            legacy_dbs=[legacy],
+                            include_current=False,
+                            classification="restricted",
+                        )
+                self.assertFalse(outside.exists())
+            finally:
+                if old is not None:
+                    os.environ["IOT_AI_ALLOWED_READ_ROOTS"] = old
+
+    def test_excel_export_outside_trusted_roots_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            outside = Path(tmp) / "pwn" / "out.xlsx"
+            old = os.environ.pop("IOT_AI_ALLOWED_READ_ROOTS", None)
+            try:
+                with patch("iot_ai.projection.trusted_operator_roots", return_value=(self.home.resolve(),)):
+                    with self.assertRaises(PathSecurityError):
+                        export_workspace(self.home, outside)
+                self.assertFalse(outside.exists())
             finally:
                 if old is not None:
                     os.environ["IOT_AI_ALLOWED_READ_ROOTS"] = old

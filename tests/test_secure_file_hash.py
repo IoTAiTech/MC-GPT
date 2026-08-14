@@ -5,7 +5,7 @@
 from __future__ import annotations
 import os,tempfile,unittest
 from pathlib import Path
-from iot_ai.util import PathSecurityError,open_secure,sha256_file
+from iot_ai.util import PathSecurityError,open_secure,resolve_within_allowed_roots,sha256_file
 class SecureFileHashTests(unittest.TestCase):
  def setUp(self): self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);(self.root/'ok.txt').write_text('ok')
  def tearDown(self): self.tmp.cleanup()
@@ -26,4 +26,12 @@ class SecureFileHashTests(unittest.TestCase):
   with self.assertRaises(PathSecurityError): sha256_file(self.root/'ok.txt',allowed_roots=[self.root],max_bytes=1)
  def test_root_not_trusted(self):
   with self.assertRaises(PathSecurityError): sha256_file(self.root/'ok.txt',allowed_roots=[Path(self.root.anchor)])
+ def test_resolve_rejects_parent_escape(self):
+  escaped=self.root/'..'/'escape.txt'
+  with self.assertRaises(PathSecurityError):
+   resolve_within_allowed_roots(escaped,self.root,must_exist=False)
+ def test_resolve_accepts_confined_new_file(self):
+  target=self.root/'report.json'
+  resolved=resolve_within_allowed_roots(target,self.root,must_exist=False)
+  self.assertEqual(resolved,self.root/'report.json')
 if __name__=='__main__': unittest.main()

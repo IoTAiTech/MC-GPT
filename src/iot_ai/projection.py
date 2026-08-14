@@ -11,8 +11,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .paths import db_path
-from .util import atomic_json, sha256_file, utc_now
+from .paths import data_root, db_path
+from .util import atomic_json, resolve_within_allowed_roots, sha256_file, trusted_operator_roots, utc_now
 from .workspace import connect_read, connect_write, excel_manifest_path, excel_path, new_id, rows
 
 SHEETS: list[tuple[str, str, list[str]]] = [
@@ -54,7 +54,9 @@ def export_workspace(user_home: Path, output: Path | None = None, task_id: str |
         raise RuntimeError("openpyxl>=3.1 is required for Excel export") from exc
 
     output = output or excel_path(user_home)
-    output.parent.mkdir(parents=True, exist_ok=True)
+    roots = list(trusted_operator_roots(user_home))
+    data_root(user_home).mkdir(parents=True, exist_ok=True)
+    output = resolve_within_allowed_roots(output, roots, must_exist=False)
     job_id = new_id("proj")
     now = utc_now()
     write = connect_write(user_home)
@@ -92,7 +94,7 @@ def export_workspace(user_home: Path, output: Path | None = None, task_id: str |
         temp = Path(temp_name)
         workbook.save(temp)
         os.replace(temp, output)
-        digest = sha256_file(output, allowed_roots=[user_home, output.parent.resolve()], max_bytes=None)
+        digest = sha256_file(output, allowed_roots=roots, max_bytes=None)
         manifest = {
             "schema": "iot-ai.excel-projection.v3",
             "generated_at": utc_now(),

@@ -27,45 +27,78 @@ def utc_now() -> str:
 def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
-def _normcase(path: Path) -> Path:
-    return Path(os.path.normcase(str(path))) if os.name == "nt" else path
+def _normcase_text(path: str) -> str:
+    return os.path.normcase(path) if os.name == "nt" else path
 
-def _as_path_list(roots: Sequence[Path | str] | Path | str) -> list[Path]:
+def _trusted_directory(root: Path | str) -> str:
+    """Normalize an allow-list directory. The operator supplies the trust root."""
+    text = os.path.expanduser(os.fspath(root))
+    if os.name == "nt" and (text.startswith("\\\\?\\") or text.startswith("\\\\.\\")):
+        raise PathSecurityError("Windows device paths are not allowed")
+    if not os.path.isdir(text):
+        raise PathSecurityError(f"allowed root does not exist: {root}")
+    real = os.path.realpath(text)
+    if not os.path.isdir(real):
+        raise PathSecurityError(f"allowed root is not a directory: {root}")
+    if os.path.dirname(real) == real:
+        raise PathSecurityError("filesystem root is not an allowed trust boundary")
+    return _normcase_text(real)
+
+def _as_path_list(roots: Sequence[Path | str] | Path | str) -> list[str]:
     items = [roots] if isinstance(roots, (str, Path)) else roots
     if not items:
         raise PathSecurityError("allowed_roots must not be empty")
-    result=[]
+    result: list[str] = []
     for root in items:
-        candidate=Path(root).expanduser()
-        try: resolved=candidate.resolve(strict=True)
-        except FileNotFoundError as exc: raise PathSecurityError(f"allowed root does not exist: {candidate}") from exc
-        if not resolved.is_dir(): raise PathSecurityError(f"allowed root is not a directory: {candidate}")
-        if resolved == Path(resolved.anchor): raise PathSecurityError("filesystem root is not an allowed trust boundary")
-        normalized=_normcase(resolved)
-        if normalized not in result: result.append(normalized)
+        normalized = _trusted_directory(root)
+        if normalized not in result:
+            result.append(normalized)
     return result
 
-def _is_within(path: Path, root: Path) -> bool:
-    try: path.relative_to(root); return True
-    except ValueError: return False
+def _confined_to_root(candidate: str, root: str) -> bool:
+    try:
+        if os.path.commonpath([root, candidate]) != root:
+            return False
+    except ValueError:
+        return False
+    return candidate == root or candidate.startswith(root + os.sep)
 
 def resolve_within_allowed_roots(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, must_exist: bool=True) -> Path:
-    roots=_as_path_list(allowed_roots)
-    raw=Path(path).expanduser()
-    if os.name == "nt" and (str(raw).startswith("\\\\?\\") or str(raw).startswith("\\\\.\\")):
+    """Return a path only after realpath + commonpath + prefix confinement."""
+    roots = _as_path_list(allowed_roots)
+    raw = os.fspath(path)
+    if os.name == "nt" and (raw.startswith("\\\\?\\") or raw.startswith("\\\\.\\")):
         raise PathSecurityError("Windows device paths are not allowed")
-    try:
-        parent=(raw.parent if raw.is_absolute() else (Path.cwd()/raw).parent).resolve(strict=True)
-    except FileNotFoundError as exc:
-        raise PathSecurityError(f"path parent does not exist: {raw}") from exc
-    final=parent/raw.name
-    if final.is_symlink(): raise PathSecurityError(f"symlink rejected: {raw}")
-    try: resolved=final.resolve(strict=must_exist)
-    except FileNotFoundError as exc: raise PathSecurityError(f"path does not exist: {raw}") from exc
-    normalized=_normcase(resolved)
-    if not any(_is_within(normalized, root) for root in roots):
-        raise PathSecurityError(f"path escapes allowed_roots: {raw}")
-    return resolved
+    expanded = os.path.expanduser(raw)
+    absolute = os.path.abspath(expanded)
+    parent = os.path.dirname(absolute)
+    name = os.path.basename(absolute)
+    if name in {"", ".", ".."}:
+        raise PathSecurityError(f"path rejects empty or parent name: {path}")
+    if not os.path.isdir(parent):
+        raise PathSecurityError(f"path parent does not exist: {path}")
+    parent_real = os.path.realpath(parent)
+    candidate = os.path.join(parent_real, name)
+    if os.path.islink(candidate):
+        raise PathSecurityError(f"symlink rejected: {path}")
+    if os.path.exists(candidate):
+        final = _normcase_text(os.path.realpath(candidate))
+    else:
+        if must_exist:
+            raise PathSecurityError(f"path does not exist: {path}")
+        final = _normcase_text(candidate)
+    allowed = False
+    for root in roots:
+        try:
+            common = os.path.commonpath([root, final])
+        except ValueError:
+            continue
+        if common == root and (final == root or final.startswith(root + os.sep)):
+            allowed = True
+            break
+    if not allowed:
+        raise PathSecurityError(f"path escapes allowed_roots: {path}")
+    return Path(final)
 
 def assert_secure_regular_file(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, max_bytes: int | None=DEFAULT_MAX_HASH_BYTES) -> Path:
     resolved=resolve_within_allowed_roots(path,allowed_roots,must_exist=True)

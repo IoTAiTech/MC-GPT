@@ -637,7 +637,8 @@ def main(argv: list[str] | None = None) -> int:
                 exported = export_workspace(h, Path(a.output), meeting_show(h, a.meeting_id)["task_id"])
                 if a.public:
                     from .export_gate import rewrite_public_export
-                    gate = rewrite_public_export(Path(a.output))
+                    from .util import trusted_operator_roots
+                    gate = rewrite_public_export(Path(a.output), allowed_roots=list(trusted_operator_roots(h)))
                     if gate.get("decision") != "pass": raise PermissionError("public export blocked")
                     emit({**exported, "public_export_gate": gate})
                 else: emit(exported)

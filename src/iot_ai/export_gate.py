@@ -8,6 +8,7 @@ import hashlib
 import re
 from pathlib import Path
 from .privacy import sanitize
+from .util import resolve_within_allowed_roots, trusted_operator_roots
 
 PRIVATE_IP = re.compile(r"\b(?:10|127)\.\d{1,3}\.\d{1,3}\.\d{1,3}\b|\b192\.168\.\d{1,3}\.\d{1,3}\b|\b172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}\b")
 PRIVATE_PATH = re.compile(r"(?:/(?:home|root)/[A-Za-z0-9._-]+(?:/[^\s\"']+)?|[A-Za-z]:\\Users\\[^\r\n\"']+)")
@@ -30,34 +31,38 @@ def redact_text(text: str) -> dict:
         "sha256": hashlib.sha256(out.encode("utf-8")).hexdigest(),
     }
 
-def inspect_export_file(path: Path) -> dict:
-    raw = path.read_bytes()
+def inspect_export_file(path: Path, *, allowed_roots: list[Path] | None = None) -> dict:
+    roots = allowed_roots or list(trusted_operator_roots())
+    safe = resolve_within_allowed_roots(path, roots, must_exist=True)
+    raw = safe.read_bytes()
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
-        return {"decision": "pass", "kind": "binary", "path": str(path), "findings": []}
+        return {"decision": "pass", "kind": "binary", "path": str(safe), "findings": []}
     result = redact_text(text)
     findings = list(result["findings"])
     if SECRET_RESIDUAL.search(text) or SECRET_RESIDUAL.search(result["text"]):
         findings.append("secret_residual")
     return {
         "decision": "pass" if not findings else "redact-required",
-        "path": str(path),
+        "path": str(safe),
         "findings": sorted(set(findings)),
         "redacted_sha256": result["sha256"],
         "redacted_text": result["text"],
     }
 
-def assert_export_safe(path: Path, *, public: bool = True) -> dict:
-    result = inspect_export_file(path)
+def assert_export_safe(path: Path, *, public: bool = True, allowed_roots: list[Path] | None = None) -> dict:
+    result = inspect_export_file(path, allowed_roots=allowed_roots)
     if public and result["decision"] != "pass":
         return {**result, "decision": "block"}
     return result
 
-def rewrite_public_export(path: Path) -> dict:
-    result = inspect_export_file(path)
+def rewrite_public_export(path: Path, *, allowed_roots: list[Path] | None = None) -> dict:
+    roots = allowed_roots or list(trusted_operator_roots())
+    safe = resolve_within_allowed_roots(path, roots, must_exist=True)
+    result = inspect_export_file(safe, allowed_roots=roots)
     if "secret_residual" in result.get("findings", []):
         return {**result, "decision": "block"}
     if result.get("kind") != "binary" and result.get("decision") == "redact-required":
-        path.write_text(str(result["redacted_text"]), encoding="utf-8")
+        safe.write_text(str(result["redacted_text"]), encoding="utf-8")
     return {k: v for k, v in {**result, "decision": "pass"}.items() if k != "redacted_text"}

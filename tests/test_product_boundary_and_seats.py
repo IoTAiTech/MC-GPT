@@ -35,7 +35,7 @@ class ExportGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "leak.txt"
             path.write_text("-----BEGIN " + "PRIVATE" + " KEY-----\nfixture\n-----END " + "PRIVATE" + " KEY-----\n", encoding="utf-8")
-            self.assertEqual(assert_export_safe(path)["decision"], "block")
+            self.assertEqual(assert_export_safe(path, allowed_roots=[Path(tmp)])["decision"], "block")
 
 class MeetingViewTests(unittest.TestCase):
     def test_brief_has_semantic_participant_summary(self):

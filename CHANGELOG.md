@@ -9,6 +9,7 @@ All notable changes are documented here. The project follows semantic versioning
 - Mesh CLI delegation now avoids Linux `E2BIG` when a synthesis prompt exceeds `MAX_ARG_STRLEN` by moving the prompt to stdin, records `failure_detail` beside `failure_class`, and retries once via stdin after an argv-side `OSError`.
 - Multi-Coder work-unit claim now returns the validation-gate decision instead of `KeyError: 'lease_id'`. A first-run revision bump is labeled as a stale skip only when the gate itself was skip-bound; an approved validation that went stale tells the operator to re-validate, not to skip.
 - Mesh E2BIG handling measures UTF-8 bytes, removes only `{prompt}` slots (keeping deny/policy flags), preserves Gemini headless `-p` and Grok `--prompt-file /dev/stdin`, records `OSError` errno/detail, and retries once via stdin.
+- Cross-meeting report tests now assert files in the managed `meeting-reports` store. `write_report` remaps the caller path to that store; checking the original home path was a false CI failure.
 
 ## [6.7.0-beta.5] — 2026-08-08
 

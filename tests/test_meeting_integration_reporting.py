@@ -37,10 +37,18 @@ class MeetingIntegrationReportingTests(IsolatedHomeTestCase):
         start(self.home,"First review",["claude"],quorum=1)
         start(self.home,"Second review",["codex"],quorum=1)
         self.assertEqual(collect(self.home,view="brief")["meeting_count"],2)
+        written={}
         for fmt,suffix in (("json","json"),("csv","csv"),("markdown","md"),("xlsx","xlsx")):
-            output=self.home/f"report.{suffix}"; result=write_report(self.home,output,output_format=fmt,view="brief")
-            self.assertEqual(result["meeting_count"],2); self.assertTrue(output.is_file())
-        self.assertEqual(load_workbook(self.home/"report.xlsx")["Meetings"].max_row,3)
+            requested=self.home/f"report.{suffix}"
+            result=write_report(self.home,requested,output_format=fmt,view="brief")
+            stored=Path(result["output"])
+            canonical=managed_report_output(self.home, f"report.{suffix}")
+            self.assertEqual(result["meeting_count"],2)
+            self.assertEqual(stored, canonical)
+            self.assertTrue(stored.is_file(), msg=stored)
+            self.assertNotEqual(stored, requested)
+            written[fmt]=stored
+        self.assertEqual(load_workbook(written["xlsx"])["Meetings"].max_row,3)
         with self.assertRaises(ValueError): managed_report_output(self.home,"../escape.json")
 
     @patch("iot_ai.seat_selection._ollama_cloud_seats", return_value=([], []))

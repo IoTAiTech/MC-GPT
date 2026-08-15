@@ -65,7 +65,7 @@ from .projection import export_workspace
 from .providers import add_route, load as load_routes, mutate_route, static_status
 from .readiness import provider_candidates
 from .seat_selection import resolve_meeting_seats
-from .privacy import sanitize
+from .privacy import SECRET_PATTERNS, sanitize
 from .report import render as render_report
 from .setup_wizard import discover as setup_discover, init_inventory, show_inventory
 from .status import unified_status
@@ -107,25 +107,50 @@ def _sensitive_key(key_text: str) -> bool:
     return key_text.endswith(("_password", "_secret", "_token", "_api_key", "_private_key"))
 
 
-def _redact_sensitive(value: Any) -> Any:
+def _mask_secret_text(text: str) -> str:
+    masked = text
+    for pattern in SECRET_PATTERNS:
+        masked = pattern.sub("[REDACTED]", masked)
+    return masked
+
+
+def _public_cli_view(value: Any) -> Any:
+    """Return a newly built object that never contains secret-classified fields."""
     if isinstance(value, dict):
-        redacted: dict[Any, Any] = {}
+        public: dict[Any, Any] = {}
         for key, item in value.items():
-            key_text = str(key).casefold()
-            if _sensitive_key(key_text):
-                redacted[key] = "***REDACTED***"
-            else:
-                redacted[key] = _redact_sensitive(item)
-        return redacted
+            if _sensitive_key(str(key).casefold()):
+                continue
+            public[key] = _public_cli_view(item)
+        return public
     if isinstance(value, list):
-        return [_redact_sensitive(item) for item in value]
+        return [_public_cli_view(item) for item in value]
     if isinstance(value, tuple):
-        return tuple(_redact_sensitive(item) for item in value)
+        return [_public_cli_view(item) for item in value]
+    if isinstance(value, str):
+        return _mask_secret_text(value)
     return value
 
 
+def _redact_sensitive(value: Any) -> Any:
+    return _public_cli_view(value)
+
+
+def _cli_public_text(value: Any) -> str:
+    if isinstance(value, str):
+        return _mask_secret_text(value)
+    return json.dumps(
+        _public_cli_view(value),
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+        default=str,
+    )
+
+
 def emit(value: Any) -> None:
-    print(value if isinstance(value, str) else json.dumps(_redact_sensitive(value), ensure_ascii=False, indent=2, sort_keys=True, default=str))
+    text = _cli_public_text(value)
+    print(text)
 
 
 def _split(value: str | None) -> list[str]:

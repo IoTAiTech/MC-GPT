@@ -4,6 +4,9 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+### Security
+- CLI `emit()` no longer prints secret-classified fields. Copilot Autofix `b74ac6f` still passed the original object into `print(value if isinstance(value, str) else …)`, so CodeQL `py/clear-text-logging-sensitive-data` (CWE-532, alert 2) stayed open. `emit` now prints only a newly built public view that drops `secret` / `secret_env` / password / token keys and masks inline secret patterns in strings.
+
 ## [6.7.0-beta.6] — 2026-08-15
 
 ### Added

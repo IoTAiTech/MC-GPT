@@ -29,6 +29,8 @@ MC-GPT is a source-available, natural-language-first control plane for governed 
 - [Why MC-GPT](#why-mc-gpt)
 - [Natural-language closed loop](#natural-language-closed-loop)
 - [Install in 60 seconds](#install-in-60-seconds)
+- [Usage](#usage)
+- [Licence](#licence)
 - [What the final report contains](#what-the-final-report-contains)
 - [Safety and authority boundaries](#safety-and-authority-boundaries)
 - [Supported coders](#supported-coders)
@@ -38,7 +40,7 @@ MC-GPT is a source-available, natural-language-first control plane for governed 
 - [Competitive comparison](#competitive-comparison)
 - [European regulatory engineering](#european-regulatory-engineering)
 - [Testing](#testing)
-- [Licence and contact](#licence)
+- [Founder and contact](#founder-and-contact)
 
 ## Why MC-GPT
 
@@ -133,6 +135,40 @@ cd iot-ai-suite
 ```
 
 A live GitHub Release download and hosted attestation must be verified after the actual tag/assets exist; local clean-room curl/npx/npm qualification never substitutes for that live gate. See [Bootstrap installation](docs/bootstrap-installation.md).
+
+## Usage
+
+After a successful install, the default interface is one sentence. See [`USAGE.md`](USAGE.md).
+
+```bash
+iot-ai status
+iot-ai "Finish the selected work, use every eligible coder, meet on failures, repair, retest and report."
+iot-ai "Review the remaining work and show one brief report; do not execute."
+```
+
+`--plan` is a no-write preview. Expert commands stay available; they are not required:
+
+```bash
+iot-ai meeting seat-plan --seats all-coders+ollama-clouds
+iot-ai tasks run --all --mode hybrid --plan
+iot-ai multi-coder run --task-id <task-id> --plan
+```
+
+## Licence
+
+**SPDX:** `PolyForm-Noncommercial-1.0.0` · **File:** [`LICENSE`](LICENSE) (official PolyForm text) · **Notices:** [`NOTICE`](NOTICE)
+
+This is source-available, not OSI “open source”. GitHub’s Fork button does not grant commercial rights.
+
+| You may (Community) | You need a written commercial licence |
+|---|---|
+| Personal use, study, hobby and testing | Company-internal operational or production use |
+| Noncommercial research | Paid consulting, integration or support |
+| Modify and keep a private fork | Managed hosting or SaaS |
+| Share noncommercial copies with the licence and notices | Resale, bundling or commercial redistribution |
+| Publish research with attribution | Commercial forks, customer deployments, Enterprise / PMD |
+
+Commercial enquiries: [info@iot-ai.tech](mailto:info@iot-ai.tech) · [`COMMERCIAL.md`](COMMERCIAL.md) · [`docs/licensing-and-forks.md`](docs/licensing-and-forks.md).
 
 ## What the final report contains
 
@@ -361,12 +397,6 @@ Release totals are regenerated during the final deterministic build and recorded
 ## Release status
 
 This is a Developer Preview, not a stable or production-ready release. External gates include real Windows on-device qualification, live provider-account and exact-served-model qualification, real GitHub Actions provenance/attestation, Enterprise PostgreSQL/RLS/restore validation and deployment-specific German/EU legal review.
-
-## Licence
-
-The Community source uses **PolyForm Noncommercial 1.0.0**. Personal use, noncommercial research, study, modification, derivative works, forks and noncommercial redistribution are permitted when the licence and required notices remain with the work.
-
-A written IoT-AI.Tech commercial licence is required for company-internal operational/production use, paid services, managed hosting, resale, commercial distribution, commercial forks, customer deployments and Enterprise features. See [`docs/licensing-and-forks.md`](docs/licensing-and-forks.md).
 
 ## Founder and contact
 

@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 REQUIRED = {
-    "README.md", "CONTACT.md", "LICENSE", "SECURITY.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md",
+    "README.md", "USAGE.md", "CONTACT.md", "LICENSE", "SECURITY.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md",
     "SUPPORT.md", "GOVERNANCE.md", "TRADEMARKS.md", "NOTICE", "THIRD_PARTY_NOTICES.md",
     "CITATION.cff", "SBOM.cdx.json", "CHANGELOG.md", "PUBLIC_REPOSITORY_NOTICE.md",
     "pyproject.toml", ".github/CODEOWNERS", ".github/PULL_REQUEST_TEMPLATE.md",

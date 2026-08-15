@@ -1,6 +1,11 @@
 # Licensing, Forks and Research Use
 
-The Community source is available under **PolyForm Noncommercial 1.0.0**.
+**SPDX:** `PolyForm-Noncommercial-1.0.0`  
+**Canonical text:** [`LICENSE`](../LICENSE) (official PolyForm Noncommercial 1.0.0)  
+**Copyright and commercial pointer:** [`NOTICE`](../NOTICE) · [`COMMERCIAL.md`](../COMMERCIAL.md)  
+**How to run it:** [`USAGE.md`](../USAGE.md)
+
+The Community source is available under **PolyForm Noncommercial 1.0.0**. GitHub should detect that SPDX identifier from the official `LICENSE` file. Extra product notices live in `NOTICE` so they do not break license detection.
 
 ## You may, for noncommercial purposes
 

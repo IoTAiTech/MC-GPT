@@ -45,9 +45,10 @@ iot-ai-multi-coder = "iot_ai.entrypoints:multicoder_main"
 
 [project.urls]
 Homepage = "https://iot-ai.tech"
-Documentation = "https://github.com/IoTAiTech/MC-GPT#readme"
+Documentation = "https://iotaitech.github.io/MC-GPT/"
 Repository = "https://github.com/IoTAiTech/MC-GPT"
 Issues = "https://github.com/IoTAiTech/MC-GPT/issues"
+License = "https://github.com/IoTAiTech/MC-GPT/blob/main/LICENSE"
 Releases = "https://github.com/IoTAiTech/MC-GPT/releases"
 Commercial = "https://iot-ai.tech"
 

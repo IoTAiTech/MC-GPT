@@ -9,7 +9,8 @@ Operator languages: English and German. `production_claim: false`.
 
 | Doc | Purpose |
 |---|---|
-| [README](../README.md) | Product lead, install, closed loop, licence |
+| [README](../README.md) | Product lead, install, usage, licence |
+| [USAGE](../USAGE.md) | After-install commands and may/may-not table |
 | [llms.txt](../llms.txt) | AI crawler index |
 | [Quickstart](quickstart.md) | One-sentence operator examples |
 | [Product guide](PRODUCT_GUIDE.md) | Human product walkthrough |
@@ -25,6 +26,8 @@ Operator languages: English and German. `production_claim: false`.
 | [Tasks](tasks.md) | Task store and authority |
 | [Providers](providers.md) | Claude, Codex, Gemini, Grok, Ollama |
 | [Settings](settings.md) | Portable settings |
+| [Usage](usage.md) | Pages copy of USAGE.md |
+| [Licensing and forks](licensing-and-forks.md) | Community vs commercial rights |
 | [Installation](installation.md) | Linux and Windows install |
 | [Setup](setup.md) | First-run wizard |
 | [Update](update.md) | Transactional update |

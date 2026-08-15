@@ -4,6 +4,9 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+### Changed
+- Licence and usage now match the public GitHub presentation bar used by ECC, OpenSandbox, Paperclip, VerneMQ and similar projects: official PolyForm Noncommercial 1.0.0 text in `LICENSE` (so GitHub can detect SPDX instead of “Other”), first-class `USAGE.md` plus Pages `usage.md`, and a may/may-not table on the README and GitHub Pages. Community terms are unchanged. Commercial use still needs a written IoT-AI.Tech licence.
+
 ### Security
 - CLI `emit()` no longer prints secret-classified fields. Copilot Autofix `b74ac6f` still passed the original object into `print(value if isinstance(value, str) else …)`, so CodeQL `py/clear-text-logging-sensitive-data` (CWE-532, alert 2) stayed open. `emit` now prints only a newly built public view that drops `secret` / `secret_env` / password / token keys and masks inline secret patterns in strings.
 

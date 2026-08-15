@@ -12,7 +12,8 @@ This file is the AI-readable index (llmstxt.org). Prefer these paths over scrapi
 
 ## Start here
 
-- [README](https://github.com/IoTAiTech/MC-GPT/blob/main/README.md): product lead, install, closed loop, licence
+- [README](https://github.com/IoTAiTech/MC-GPT/blob/main/README.md): product lead, install, usage, licence
+- [USAGE](https://github.com/IoTAiTech/MC-GPT/blob/main/USAGE.md): after-install commands and may/may-not table
 - [Quickstart](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/quickstart.md): one-sentence operator examples
 - [Document map](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/document-map.md): every public doc
 - [Repository map](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/repository-map.md): what is public vs never published
@@ -47,7 +48,7 @@ This file is the AI-readable index (llmstxt.org). Prefer these paths over scrapi
 
 ## Licence
 
-- [LICENSE](https://github.com/IoTAiTech/MC-GPT/blob/main/LICENSE): PolyForm Noncommercial 1.0.0
+- [LICENSE](https://github.com/IoTAiTech/MC-GPT/blob/main/LICENSE): official PolyForm Noncommercial 1.0.0 (SPDX `PolyForm-Noncommercial-1.0.0`)
 - [Commercial](https://github.com/IoTAiTech/MC-GPT/blob/main/COMMERCIAL.md)
 - [Licensing and forks](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/licensing-and-forks.md)
 

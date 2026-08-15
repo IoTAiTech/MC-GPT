@@ -152,7 +152,10 @@ iot-ai "Review the remaining work and show one brief report; do not execute."
 iot-ai meeting seat-plan --seats all-coders+ollama-clouds
 iot-ai tasks run --all --mode hybrid --plan
 iot-ai multi-coder run --task-id <task-id> --plan
+iot-ai github-analyze https://github.com/example/tool
 ```
+
+`github-analyze` is technical, commercial, license, and relevance only. Relevant ideas may be rewritten in our tree. The analyzed repository is never added as a dependency.
 
 ## Licence
 

@@ -29,6 +29,14 @@ PUBLIC = {
         "examples": ["iot-ai update status", "iot-ai update plan", "iot-ai update apply --package <zip> --expected-sha256 <sha>"],
         "boundary": "No published signed target is reported honestly; no silent apply or in-place overwrite.",
     },
+    "github-analyze": {
+        "purpose": "Analyze inbound GitHub repositories for technical fit, commercial terms, license grant, and relevance. Reuse only our own rewrite of a pattern, model, or idea.",
+        "examples": [
+            "iot-ai github-analyze https://github.com/example/tool",
+            "iot-ai github-analyze --offline-json records.json --no-network",
+        ],
+        "boundary": "Never adds a dependency, never infers MIT, never copies another project's license onto ours, and never vendors copyleft or unlicensed code.",
+    },
     "diagnostics": {
         "purpose": "Collect, validate, explain and compare sanitized correlation bundles.",
         "examples": ["iot-ai diagnostics collect --correlation-id <id> --output diagnostics.zip"],

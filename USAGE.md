@@ -19,9 +19,12 @@ Read-only review language stays read-only. Words such as *finish*, *repair* or *
 iot-ai meeting seat-plan --seats all-coders+ollama-clouds
 iot-ai tasks run --all --mode hybrid --plan
 iot-ai multi-coder run --task-id <task-id> --plan
+iot-ai github-analyze https://github.com/example/tool
 ```
 
 `--plan` is preview only. A run without `--plan` executes.
+
+`github-analyze` judges technical fit, commercial terms, license, and relevance. If a repo is relevant, MC-GPT may reuse only the **pattern, model, or idea** as our own rewrite. It never adds that repository as a dependency and never takes an illegal license.
 
 ## What you may do under Community
 

@@ -27,6 +27,7 @@ from .eu_ai_act import (
     runtime_compliance_status,
     screen_prohibited_practices,
 )
+from .github_analysis import analyze_refs
 from .graph_runtime import compile_graph, validate_graph
 from .help_system import QUICKSTART, list_topics, search as help_search, show as help_show
 from .installer import HOSTS, install as package_install, plan as package_plan, repair as package_repair, rollback as package_rollback, status as package_status, uninstall as package_uninstall, upgrade as package_upgrade, verify as package_verify
@@ -84,7 +85,7 @@ from .suite_package import clean_install_state
 from .update_manager import apply_local as update_apply_local, plan as update_plan, rollback as update_rollback, status as update_status
 from .worktrees import cleanup as worktree_cleanup, create as worktree_create, list_runs as worktree_list, promotion_plan as worktree_promotion_plan, show as worktree_show
 
-PUBLIC_COMMANDS = {"help", "status", "settings", "update", "license", "run"}
+PUBLIC_COMMANDS = {"help", "status", "settings", "update", "license", "run", "github-analyze"}
 ADVANCED_COMMANDS = {"setup", "privacy", "provider", "mesh", "meeting", "tasks", "multi-coder", "knowledge", "graph", "diagnostics", "compliance", "package", "report", "worktree"}
 ALL_COMMANDS = PUBLIC_COMMANDS | ADVANCED_COMMANDS
 
@@ -362,6 +363,14 @@ def parser() -> argparse.ArgumentParser:
 
     lic = commands.add_parser("license", help="Show edition and commercial entitlement state")
     lic.add_argument("--json", action="store_true")
+
+    gha = commands.add_parser(
+        "github-analyze",
+        help="Analyze inbound GitHub repos (technical, commercial, license, relevance). Ideas only; no dependency.",
+    )
+    gha.add_argument("refs", nargs="*", help="GitHub owner/name or https://github.com/owner/name")
+    gha.add_argument("--offline-json", help="Fixture records; no network")
+    gha.add_argument("--no-network", action="store_true", help="Do not call GitHub; missing license stays BLOCK")
 
     setup = commands.add_parser("setup", help=argparse.SUPPRESS)
     ops = setup.add_subparsers(dest="op", required=True); ops.add_parser("discover"); ops.add_parser("show")
@@ -881,6 +890,18 @@ def main(argv: list[str] | None = None) -> int:
             else: emit(package_rollback(h) if a.apply else {"decision": "plan", "operation": "rollback", "logs": log_locations(h)})
             return 0
         if a.cmd == "report": emit(render_report(h, a.window, a.format)); return 0
+        if a.cmd == "github-analyze":
+            offline = None
+            if a.offline_json:
+                offline = json.loads(Path(a.offline_json).read_text(encoding="utf-8"))
+                if isinstance(offline, dict) and "repos" in offline:
+                    offline = offline["repos"]
+                if not isinstance(offline, list):
+                    raise ValueError("offline JSON must be a list of repo records")
+            if not offline and not a.refs:
+                raise ValueError("provide GitHub refs or --offline-json")
+            emit(analyze_refs(list(a.refs), fetch=not a.no_network and offline is None, offline=offline))
+            return 0
     except (ValueError, KeyError, RuntimeError, PermissionError, FileNotFoundError) as exc:
         append_event(h, "cli.command.error", {"command": a.cmd, "operation": getattr(a, "op", None), "error_type": type(exc).__name__, "error": str(exc)}, audit=True)
         print(f"error: {exc}", file=sys.stderr)

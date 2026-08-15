@@ -18,6 +18,7 @@ This release adapts architecture patterns; it does not copy third-party product 
 | Ollama local/cloud API symmetry | Cloud models can be distinct specialist candidates | Model-specific Ollama Cloud seats, live model identity and telemetry | A successful Ollama call cannot qualify Grok/xAI or another adapter |
 | Knowledge-first orchestration | Reuse validated prior work before another full meeting | Coverage analysis and gap-only mini-review graph | Stale or superseded knowledge is not silently trusted |
 | Human approval and rollback | Consequential actions require explicit authority | Task/assignment/lease boundaries, founder decision separation and rollback receipts | Founder override cannot rewrite a blocked synthesis into consensus |
+| Inbound GitHub evaluation | Judge technical, commercial, license and relevance before adopting anything | `iot-ai github-analyze` plus LICENSE_POLICY inbound rules | Their tree is never a dependency; unlicensed and copyleft code is not vendored |
 
 ## Product differentiation
 

@@ -27,6 +27,7 @@ Operator languages: English and German. `production_claim: false`.
 | [Providers](providers.md) | Claude, Codex, Gemini, Grok, Ollama |
 | [Settings](settings.md) | Portable settings |
 | [Usage](usage.md) | Pages copy of USAGE.md |
+| [GitHub analysis](github-analysis.md) | Inbound repo review: ideas only, no dependency |
 | [Licensing and forks](licensing-and-forks.md) | Community vs commercial rights |
 | [Installation](installation.md) | Linux and Windows install |
 | [Setup](setup.md) | First-run wizard |

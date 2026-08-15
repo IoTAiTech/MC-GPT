@@ -26,8 +26,17 @@
   "forbidden": [
     "infer MIT",
     "copy license from another project",
-    "publish enterprise source in public export"
+    "publish enterprise source in public export",
+    "add analyzed GitHub as a dependency",
+    "vendor copyleft or unlicensed inbound code"
   ],
+  "inbound_github_analysis": {
+    "policy_id": "GITHUB_ANALYSIS_NO_DEPENDENCY_v1",
+    "axes": ["technical", "commercial", "license", "relevance"],
+    "reuse": "pattern_model_idea_rewrite_only",
+    "adds_dependency": false,
+    "relicense_us": false
+  },
   "schema": "iot-ai-tech.license-policy.v2",
   "suite_version": "6.7.0-beta.6"
 }

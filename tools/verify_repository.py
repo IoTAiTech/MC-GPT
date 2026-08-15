@@ -33,6 +33,7 @@ REQUIRED = {
     "tools/brand_identity_check.py", "LEGACY_IDENTITY_ALLOWLIST.json",
     "docs/brand-identity-migration.md", "docs/worktree-orchestration.md",
     "docs/comparison/ORCA_COMPARISON.md", "docs/comparison/ORCA_COMPARISON.json",
+    "docs/github-analysis.md",
     "schemas/worktree-run-v1.schema.json", "docs/meeting-integration.md", "docs/bootstrap-installation.md",
     "installers/bootstrap.sh", "npm/package.json", "npm/bin/iot-ai-bootstrap.mjs",
     "scripts/PREPARE_SANITIZED_HISTORY.sh", "scripts/REPLACE_PUBLIC_HISTORY.sh",

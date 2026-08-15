@@ -14,6 +14,7 @@ This file is the AI-readable index (llmstxt.org). Prefer these paths over scrapi
 
 - [README](https://github.com/IoTAiTech/MC-GPT/blob/main/README.md): product lead, install, usage, licence
 - [USAGE](https://github.com/IoTAiTech/MC-GPT/blob/main/USAGE.md): after-install commands and may/may-not table
+- [GitHub analysis](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/github-analysis.md): inbound repo review; ideas only; no dependency
 - [Quickstart](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/quickstart.md): one-sentence operator examples
 - [Document map](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/document-map.md): every public doc
 - [Repository map](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/repository-map.md): what is public vs never published

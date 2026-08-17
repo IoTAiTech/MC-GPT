@@ -22,6 +22,9 @@ Public company facts used on [GitHub Pages](index.html) and [iotaitech.github.io
 | Founder LinkedIn | [linkedin.com/in/dr-babakskr](https://www.linkedin.com/in/dr-babakskr) |
 | Email | [info@iot-ai.tech](mailto:info@iot-ai.tech) |
 | Public product on this site | [MC-GPT Community Developer Preview](index.html) |
+| Official company logo | [iotaitech.github.io/brand/iot-ai-tech-company-logo-192.png](https://iotaitech.github.io/brand/iot-ai-tech-company-logo-192.png) |
+| Other products | AIMDB, ProductX, HID, FCC, PMD, ACE, HealthLab, DGX/DLD, public website — see [company Pages](https://iotaitech.github.io/#products) |
+| CWS visitor site | [iot-ai.tech](https://iot-ai.tech) — governed AI for industrial operations; pilot-only except AIMDB MVP and this Community preview |
 
 ## About (from company LinkedIn, rewritten)
 
@@ -38,8 +41,14 @@ The company looks for pilot partners, system integrators, research collaborators
 ## Public LinkedIn talking points (paraphrase)
 
 - “Real intelligence must have roots. AI without operational grounding creates noise. Automation without governance creates risk.” ([post](https://www.linkedin.com/posts/iot-ai-tech_ai-iot-aiot-activity-7476571056925933568-DFoO))
+- “Say the outcome. The Suite runs the loop.” ([company post](https://www.linkedin.com/posts/iot-ai-tech_mc-gpt-say-the-outcome-the-suite-runs-activity-7495261169574924288-osL7))
 - MC-GPT is the public Community control plane: one English or German sentence becomes Task, Meeting, Multi-Coder, tests, repair and an evidence report. ([company update](https://www.linkedin.com/posts/iot-ai-tech_github-iotaitechmc-gpt-natural-language-activity-7494170723779891200-CwFO))
+- Generated change may only propose a fix. Physical mutation stays blocked until an operator approves. That is orientation, not a live plant-control claim. ([post](https://www.linkedin.com/posts/iot-ai-tech_predictivemaintenance-agenticai-datasovereignty-activity-7491627752672894976-g6tl))
 - More agents is not better engineering. Independent plans, cross-critique, one authorised writer and deterministic gates outrank model consensus.
+
+## CWS public context (visitor concept)
+
+The customer website at [iot-ai.tech](https://iot-ai.tech) frames the company as founder-led engineering in Aschaffenburg: see the AI you already run, then test one bounded workflow with human review. Product groups: AIMDB (working MVP), MC-GPT (Community preview), ProductX (under validation), design-partner pilots (HID, FCC, PMD, HealthLab, DGX/DLD), and the public website itself. Pilot steps: name the problem · set the boundary · review evidence · keep authority human.
 
 Do **not** copy a LinkedIn post’s product-family marketing onto this Community preview as a live delivery claim. Community MC-GPT is PolyForm Noncommercial 1.0.0. Company production, paid services, hosting and commercial forks need a written licence.
 

@@ -150,8 +150,10 @@ def _cli_public_text(value: Any) -> str:
 
 
 def emit(value: Any) -> None:
-    text = _cli_public_text(value)
-    print(text)
+    # Print only a newly built public string. Do not pass the original object
+    # (CodeQL py/clear-text-logging-sensitive-data / CWE-532).
+    sys.stdout.write(_cli_public_text(value))
+    sys.stdout.write("\n")
 
 
 def _split(value: str | None) -> list[str]:

@@ -6,7 +6,7 @@ All notable changes are documented here. The project follows semantic versioning
 
 ### Added
 - `iot-ai github-analyze` judges inbound GitHub repositories on technical fit, commercial terms, license grant, and relevance. It may reuse only our own rewrite of a pattern, model, or idea. It never adds the analyzed repository as a dependency, never infers MIT, and never copies another project’s license onto ours.
-- GitHub modernization: official CodeQL (`codeql.yml`) and pull-request dependency review, `.gitattributes`, `.editorconfig`, and `FUNDING.yml` pointing at the product site.
+- GitHub modernization: pull-request dependency review, `.gitattributes`, `.editorconfig`, and `FUNDING.yml` pointing at the product site. Code scanning stays on GitHub default CodeQL (an extra advanced workflow cannot upload while default setup is enabled).
 
 ### Changed
 - Licence and usage now match the public GitHub presentation bar used by ECC, OpenSandbox, Paperclip, VerneMQ and similar projects: official PolyForm Noncommercial 1.0.0 text in `LICENSE` (so GitHub can detect SPDX instead of “Other”), first-class `USAGE.md` plus Pages `usage.md`, and a may/may-not table on the README and GitHub Pages. Community terms are unchanged. Commercial use still needs a written IoT-AI.Tech licence.

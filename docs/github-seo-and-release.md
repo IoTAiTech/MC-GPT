@@ -59,7 +59,7 @@ GitHub Pages is enabled from `docs/` on `main`. The home page is static `docs/in
 | `.github/workflows/ci.yml` | Compile, public-boundary, EU AI Act gate, repository contract, pytest on Python 3.11–3.13 |
 | `.github/workflows/security.yml` | Weekly public-boundary + SBOM |
 | `.github/workflows/public-boundary.yml` | Full-history public/Enterprise boundary |
-| `.github/workflows/codeql.yml` | Official GitHub CodeQL for Python |
+| GitHub default CodeQL / Code quality | Default setup is the scanner. An extra advanced `codeql.yml` cannot upload while default setup is on. |
 | `.github/workflows/dependency-review.yml` | Official GitHub dependency review on pull requests |
 | `.github/workflows/release.yml` | Annotated-tag Developer Preview assets |
 | `.github/dependabot.yml` | Weekly pip and Actions updates |

@@ -19,7 +19,7 @@ REQUIRED = {
     ".github/dependabot.yml", ".github/FUNDING.yml",
     ".github/workflows/ci.yml", ".github/workflows/security.yml",
     ".github/workflows/public-boundary.yml", ".github/workflows/release.yml",
-    ".github/workflows/codeql.yml", ".github/workflows/dependency-review.yml",
+    ".github/workflows/dependency-review.yml",
     ".gitattributes", ".editorconfig",
     "docs/compliance/LEGAL_BASELINE.json", "docs/compliance/AI_ACT_SYSTEM_CARD.json",
     "docs/compliance/EU_AI_ACT_COMPLIANCE_MATRIX.json", "docs/compliance/UPSTREAM_MODEL_REGISTER.json",

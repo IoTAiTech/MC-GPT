@@ -45,9 +45,29 @@
         "email": "info@iot-ai.tech",
         "logo": "https://raw.githubusercontent.com/IoTAiTech/MC-GPT/main/assets/brand/MC-GPT-Logo-Master-1024.png",
         "sameAs": [
+          "https://github.com/IoTAiTech",
           "https://github.com/IoTAiTech/MC-GPT",
-          "https://www.linkedin.com/company/iot-ai-tech"
-        ]
+          "https://iotaitech.github.io/",
+          "https://www.linkedin.com/company/iot-ai-tech",
+          "https://de.linkedin.com/company/iot-ai-tech"
+        ],
+        "foundingDate": "2026",
+        "slogan": "AI/IoT Product Portfolio Coordination",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Aschaffenburg",
+          "addressRegion": "Bayern",
+          "postalCode": "63743",
+          "addressCountry": "DE"
+        },
+        "founder": {
+          "@type": "Person",
+          "name": "Dr.-Ing. Babak Sorkhpour",
+          "sameAs": [
+            "https://www.linkedin.com/in/dr-babakskr",
+            "https://de.linkedin.com/in/dr-babakskr"
+          ]
+        }
       },
       {
         "@type": "WebSite",
@@ -66,7 +86,7 @@
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Linux, Windows, macOS",
         "softwareVersion": "6.7.0-beta.6",
-        "dateModified": "2026-08-15",
+        "dateModified": "2026-08-18",
         "inLanguage": ["en", "de"],
         "isAccessibleForFree": true,
         "license": "https://spdx.org/licenses/PolyForm-Noncommercial-1.0.0.html",
@@ -125,6 +145,14 @@
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "No. It is a Community Developer Preview. production_claim is false. It is not a legal certification or a production install."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Who makes MC-GPT?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "IoT-AI.Tech in Aschaffenburg, Bavaria, Germany. Founder: Dr.-Ing. Babak Sorkhpour. Company LinkedIn: https://www.linkedin.com/company/iot-ai-tech"
             }
           }
         ]
@@ -198,6 +226,9 @@
       border: 1px solid var(--line); border-radius: 999px; padding: .28rem .7rem;
       color: var(--muted); font-size: .86rem;
     }
+    a.chip { color: var(--ink); text-decoration: none; }
+    a.chip:hover { border-color: var(--accent); color: var(--accent); }
+    .loop p { margin: 0; color: var(--ink); }
     .stats, .grid, .steps {
       display: grid; gap: 1rem;
     }
@@ -267,6 +298,8 @@
       <a href="#license">License</a>
       <a href="llms.txt">AI index</a>
       <a href="#faq">FAQ</a>
+      <a href="company.md">Company</a>
+      <a href="https://www.linkedin.com/company/iot-ai-tech">LinkedIn</a>
       <a href="https://iot-ai.tech">iot-ai.tech</a>
     </nav>
   </header>
@@ -280,6 +313,7 @@
         <a class="btn btn-ghost" href="https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6">Get v6.7.0-beta.6</a>
         <a class="btn btn-ghost" href="usage.md">Usage and licence</a>
         <a class="btn btn-ghost" href="quickstart.md">Read the quickstart</a>
+        <a class="btn btn-ghost" href="https://www.linkedin.com/company/iot-ai-tech">Company on LinkedIn</a>
       </div>
       <p class="note">Community Developer Preview. <code>production_claim: false</code>. Not a certification or production install.</p>
       <p class="chips" aria-label="Supported coder families">
@@ -360,6 +394,37 @@ iot-ai "Review the remaining work and show one brief report; do not execute."</c
       <figcaption>Founder-reviewed infographic. Provenance is in the repository brand assets.</figcaption>
     </figure>
 
+    <h2 id="company">Company — IoT-AI.Tech</h2>
+    <p class="lede">MC-GPT is built by <strong>IoT-AI.Tech</strong> in Aschaffenburg, Bavaria, Germany. The company coordinates a sovereign AI-IoT product portfolio for industrial and regulated buyers. Official profile: <a href="https://www.linkedin.com/company/iot-ai-tech">linkedin.com/company/iot-ai-tech</a>. Founder: <a href="https://www.linkedin.com/in/dr-babakskr">Dr.-Ing. Babak Sorkhpour</a>.</p>
+    <p class="lede">From the company LinkedIn About (rewritten, not a live-production claim): IoT-AI.Tech applies a systematic technology-application selection approach so a local-first AI-IoT factory can become validated industrial, regulated and commercially scalable use cases for the German and European market — especially Mittelstand, infrastructure, energy, logistics, smart-city and regulated B2B environments.</p>
+    <section class="grid" aria-label="Priority areas from the company LinkedIn About">
+      <article class="card">
+        <h3>1. Agent control and evidence</h3>
+        <p>A governance and execution layer for agentic AI: context, policy control, human approval, audit trails and operational evidence. MC-GPT is the public Community preview of that idea.</p>
+      </article>
+      <article class="card">
+        <h3>2. Local AI compute and learning</h3>
+        <p>Local-first infrastructure for operational data validation, model evaluation, adapter training and controlled capability release without unnecessary data egress.</p>
+      </article>
+      <article class="card">
+        <h3>3. Industrial edge and operations</h3>
+        <p>Modular dashboards and command surfaces for fleet and asset visibility, predictive maintenance and project intelligence. Those surfaces are not this Community preview.</p>
+      </article>
+    </section>
+    <blockquote class="loop" cite="https://www.linkedin.com/posts/iot-ai-tech_ai-iot-aiot-activity-7476571056925933568-DFoO">
+      <p>“Real intelligence must have roots. AI without operational grounding creates noise. Automation without governance creates risk.” — IoT-AI.Tech on <a href="https://www.linkedin.com/posts/iot-ai-tech_ai-iot-aiot-activity-7476571056925933568-DFoO">LinkedIn</a></p>
+    </blockquote>
+    <p class="lede">The company is looking for pilot partners, system integrators, research collaborators, public-funding partners and investors who want trustworthy, sovereign and auditable AI systems. Community MC-GPT stays <code>production_claim: false</code>.</p>
+    <p class="chips" aria-label="Company links">
+      <a class="chip" href="https://www.linkedin.com/company/iot-ai-tech">Company LinkedIn</a>
+      <a class="chip" href="https://www.linkedin.com/in/dr-babakskr">Founder LinkedIn</a>
+      <a class="chip" href="https://iot-ai.tech">iot-ai.tech</a>
+      <a class="chip" href="https://iotaitech.github.io/">Company GitHub Pages</a>
+      <a class="chip" href="https://github.com/IoTAiTech">GitHub org</a>
+      <a class="chip" href="company.md">Company data page</a>
+      <a class="chip" href="mailto:info@iot-ai.tech">info@iot-ai.tech</a>
+    </p>
+
     <h2 id="faq">FAQ for people and search</h2>
     <details open>
       <summary>What is MC-GPT?</summary>
@@ -385,10 +450,15 @@ iot-ai "Review the remaining work and show one brief report; do not execute."</c
       <summary>Where is the source and the current tag?</summary>
       <p><a href="https://github.com/IoTAiTech/MC-GPT">github.com/IoTAiTech/MC-GPT</a> · tag <a href="https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6">v6.7.0-beta.6</a>.</p>
     </details>
+    <details>
+      <summary>Who makes MC-GPT?</summary>
+      <p><a href="https://www.linkedin.com/company/iot-ai-tech">IoT-AI.Tech</a>, Aschaffenburg, Bavaria. Founder <a href="https://www.linkedin.com/in/dr-babakskr">Dr.-Ing. Babak Sorkhpour</a>. Company Pages: <a href="https://iotaitech.github.io/">iotaitech.github.io</a>. Email <a href="mailto:info@iot-ai.tech">info@iot-ai.tech</a>.</p>
+    </details>
 
     <section class="de" id="de" lang="de">
       <h2>Auf Deutsch</h2>
       <p>MC-GPT ist die Steuerungsebene der IOT-AI Suite. Sie beschreiben das Ergebnis auf Deutsch oder Englisch. Die Suite führt Task, Meeting, Multi-Coder, Tests, Reparatur und Bericht aus. Sprachen: nur Englisch und Deutsch. Vorschau, kein Produktionsanspruch.</p>
+      <p>Anbieter: <a href="https://www.linkedin.com/company/iot-ai-tech">IoT-AI.Tech</a>, Aschaffenburg, Bayern. Gründer: <a href="https://de.linkedin.com/in/dr-babakskr">Dr.-Ing. Babak Sorkhpour</a>. Firmenseite: <a href="https://iotaitech.github.io/">iotaitech.github.io</a>.</p>
     </section>
 
     <section class="grid" aria-label="Start paths">
@@ -402,11 +472,12 @@ iot-ai "Review the remaining work and show one brief report; do not execute."</c
       </article>
       <article class="card">
         <h3>Contact</h3>
-        <p>Dr.-Ing. Babak Sorkhpour · <a href="mailto:info@iot-ai.tech">info@iot-ai.tech</a> · <a href="https://www.linkedin.com/company/iot-ai-tech">LinkedIn</a></p>
+        <p>Dr.-Ing. Babak Sorkhpour · <a href="mailto:info@iot-ai.tech">info@iot-ai.tech</a> · <a href="https://www.linkedin.com/company/iot-ai-tech">Company LinkedIn</a> · <a href="https://www.linkedin.com/in/dr-babakskr">Founder LinkedIn</a> · <a href="company.md">Company data</a></p>
       </article>
     </section>
   </main>
   <footer>
+    <p>IoT-AI.Tech · Aschaffenburg, Bayern · <a href="https://www.linkedin.com/company/iot-ai-tech">LinkedIn</a> · <a href="https://iotaitech.github.io/">Company Pages</a> · <a href="https://iot-ai.tech">iot-ai.tech</a></p>
     <p>PolyForm Noncommercial 1.0.0 · Commercial use needs a written IoT-AI.Tech licence · <a href="https://github.com/IoTAiTech/MC-GPT/blob/main/LICENSE">Licence</a></p>
   </footer>
 </body>

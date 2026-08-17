@@ -11,5 +11,8 @@ Governed multi-agent coding control plane from [IoT-AI.Tech](https://iot-ai.tech
 - AI index: [llms.txt](../llms.txt)
 - Document map: [document-map.md](document-map.md)
 - Quickstart: [quickstart.md](quickstart.md)
+- Company: [company.md](company.md)
+- LinkedIn: [linkedin.com/company/iot-ai-tech](https://www.linkedin.com/company/iot-ai-tech)
+- Company Pages: [iotaitech.github.io](https://iotaitech.github.io/)
 
 Languages: English and German. `production_claim: false`.

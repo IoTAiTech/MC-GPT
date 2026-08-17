@@ -15,6 +15,8 @@ Operator languages: English and German. `production_claim: false`.
 | [Quickstart](quickstart.md) | One-sentence operator examples |
 | [Product guide](PRODUCT_GUIDE.md) | Human product walkthrough |
 | [Repository map](repository-map.md) | Public vs never-published paths |
+| [Company](company.md) | IoT-AI.Tech facts and LinkedIn About rewrite |
+| [Contact](../CONTACT.md) | Email, LinkedIn, headquarters |
 
 ## Use
 

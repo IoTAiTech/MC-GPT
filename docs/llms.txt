@@ -7,6 +7,10 @@ Human landing page: https://iotaitech.github.io/MC-GPT/
 Product site: https://iot-ai.tech
 Release: https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6
 Contact: info@iot-ai.tech
+Company: IoT-AI.Tech, Aschaffenburg, Bayern, Germany
+Company LinkedIn: https://www.linkedin.com/company/iot-ai-tech
+Founder LinkedIn: https://www.linkedin.com/in/dr-babakskr
+Company Pages: https://iotaitech.github.io/
 
 This file is the AI-readable index (llmstxt.org). Prefer these paths over scraping the whole tree.
 
@@ -18,6 +22,8 @@ This file is the AI-readable index (llmstxt.org). Prefer these paths over scrapi
 - [Document map](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/document-map.md): every public doc
 - [Repository map](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/repository-map.md): what is public vs never published
 - [Citation](https://github.com/IoTAiTech/MC-GPT/blob/main/CITATION.cff): machine-readable citation
+- [Company](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/company.md): IoT-AI.Tech facts and LinkedIn About rewrite
+- [Contact](https://github.com/IoTAiTech/MC-GPT/blob/main/CONTACT.md): email, LinkedIn, headquarters
 
 ## Product
 

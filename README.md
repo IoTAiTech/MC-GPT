@@ -407,7 +407,11 @@ This is a Developer Preview, not a stable or production-ready release. External 
 **Dr.-Ing. Babak Sorkhpour** — Founder / Owner
 **IoT-AI.Tech · Germany**
 **Email:** [info@iot-ai.tech](mailto:info@iot-ai.tech)
+**Company:** IoT-AI.Tech, Aschaffenburg, Bayern, Germany
 **LinkedIn:** [https://www.linkedin.com/company/iot-ai-tech](https://www.linkedin.com/company/iot-ai-tech)
+**Founder LinkedIn:** [https://www.linkedin.com/in/dr-babakskr](https://www.linkedin.com/in/dr-babakskr)
+**Company Pages:** [https://iotaitech.github.io/](https://iotaitech.github.io/)
+**MC-GPT Pages:** [https://iotaitech.github.io/MC-GPT/](https://iotaitech.github.io/MC-GPT/)
 
 ## GitHub discoverability and release hygiene
 

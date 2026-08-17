@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://iotaitech.github.io/MC-GPT/</loc><lastmod>2026-08-15</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://iotaitech.github.io/MC-GPT/</loc><lastmod>2026-08-18</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://iotaitech.github.io/MC-GPT/company.md</loc><lastmod>2026-08-18</lastmod></url>
+  <url><loc>https://iotaitech.github.io/</loc><lastmod>2026-08-18</lastmod></url>
+  <url><loc>https://www.linkedin.com/company/iot-ai-tech</loc><lastmod>2026-08-18</lastmod></url>
   <url><loc>https://iotaitech.github.io/MC-GPT/llms.txt</loc><lastmod>2026-08-15</lastmod></url>
   <url><loc>https://github.com/IoTAiTech/MC-GPT</loc><lastmod>2026-08-15</lastmod></url>
   <url><loc>https://github.com/IoTAiTech/MC-GPT/blob/main/README.md</loc></url>

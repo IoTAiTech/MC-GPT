@@ -40,6 +40,20 @@ class LicenseUsagePagesTests(unittest.TestCase):
         self.assertIn("PolyForm-Noncommercial-1.0.0", html)
         self.assertIn("usage.md", html)
 
+    def test_pages_and_contact_have_company_linkedin(self) -> None:
+        html = (ROOT / "docs/index.html").read_text(encoding="utf-8")
+        contact = (ROOT / "CONTACT.md").read_text(encoding="utf-8")
+        company = (ROOT / "docs/company.md").read_text(encoding="utf-8")
+        self.assertIn('id="company"', html)
+        self.assertIn("https://www.linkedin.com/company/iot-ai-tech", html)
+        self.assertIn("https://www.linkedin.com/in/dr-babakskr", html)
+        self.assertIn("https://iotaitech.github.io/", html)
+        self.assertIn("Aschaffenburg", html)
+        self.assertIn("https://www.linkedin.com/company/iot-ai-tech", contact)
+        self.assertIn("Aschaffenburg", contact)
+        self.assertIn("AI/IoT Product Portfolio Coordination", company)
+        self.assertIn("production_claim: false", company)
+
 
 if __name__ == "__main__":
     unittest.main()

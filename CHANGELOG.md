@@ -5,6 +5,7 @@ All notable changes are documented here. The project follows semantic versioning
 ## [Unreleased]
 
 ### Added
+- GitHub Pages now carry IoT-AI.Tech company data from the official LinkedIn About page: headquarters Aschaffenburg, founder LinkedIn, company LinkedIn, three priority areas, and a dedicated `docs/company.md`. Company org Pages live at https://iotaitech.github.io/.
 - `iot-ai github-analyze` judges inbound GitHub repositories on technical fit, commercial terms, license grant, and relevance. It may reuse only our own rewrite of a pattern, model, or idea. It never adds the analyzed repository as a dependency, never infers MIT, and never copies another project’s license onto ours.
 - GitHub modernization: pull-request dependency review, `.gitattributes`, `.editorconfig`, and `FUNDING.yml` pointing at the product site. Code scanning stays on GitHub default CodeQL (an extra advanced workflow cannot upload while default setup is enabled).
 

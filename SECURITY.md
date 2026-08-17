@@ -6,7 +6,9 @@ Only the latest tagged Developer Preview receives security fixes until a stable 
 
 ## Reporting
 
-Use GitHub private vulnerability reporting. Do not disclose credentials, customer data or exploit details in public issues.
+Use GitHub private vulnerability reporting at
+<https://github.com/IoTAiTech/MC-GPT/security/advisories/new>.
+Do not disclose credentials, customer data or exploit details in public issues.
 
 ## Security defaults
 

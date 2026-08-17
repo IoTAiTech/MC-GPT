@@ -1,10 +1,12 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 * text=auto eol=lf
-*.sh text eol=lf
-*.ps1 text eol=crlf
 *.png binary
 *.jpg binary
 *.jpeg binary
-*.gif binary
-*.xlsx binary
+*.webp binary
+*.ico binary
 *.whl binary
 *.zip binary
+installers/wheels/** linguist-vendored
+npm/package-lock.json linguist-generated
+SBOM.cdx.json linguist-generated

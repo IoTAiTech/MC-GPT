@@ -52,6 +52,20 @@ GitHub **Releases** lists annotated tags, not `main`. Current public tag: `v6.7.
 
 GitHub Pages is enabled from `docs/` on `main`. The home page is static `docs/index.html` (not Markdown, because `.nojekyll` is present) at `https://iotaitech.github.io/MC-GPT/`.
 
+## Modern GitHub automation
+
+| Workflow | Role |
+|---|---|
+| `.github/workflows/ci.yml` | Compile, public-boundary, EU AI Act gate, repository contract, pytest on Python 3.11–3.13 |
+| `.github/workflows/security.yml` | Weekly public-boundary + SBOM |
+| `.github/workflows/public-boundary.yml` | Full-history public/Enterprise boundary |
+| `.github/workflows/codeql.yml` | Official GitHub CodeQL for Python |
+| `.github/workflows/dependency-review.yml` | Official GitHub dependency review on pull requests |
+| `.github/workflows/release.yml` | Annotated-tag Developer Preview assets |
+| `.github/dependabot.yml` | Weekly pip and Actions updates |
+
+Checkout pins disable persisted credentials. Release jobs do not cancel in-progress runs.
+
 
 ## Administrator application command
 

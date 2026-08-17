@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.7.0-beta.6 | Date: 2026-08-17
 set -eu
 [ "$#" -ge 1 ] || { echo "usage: $0 <backup-dir> [--home <home>]" >&2; exit 2; }
 BACKUP="$1"; shift
 HOME_DIR="${HOME}"
 while [ "$#" -gt 0 ]; do case "$1" in --home) shift; HOME_DIR="$1" ;; *) echo "unknown option: $1" >&2; exit 2 ;; esac; shift; done
 DATA_HOME="${XDG_DATA_HOME:-$HOME_DIR/.local/share}"
-RUNTIME_ROOT="$DATA_HOME/iot-ai-tech/iot-ai-suite/v1/suite/6.7.0-beta.5"
+RUNTIME_ROOT="$DATA_HOME/iot-ai-tech/iot-ai-suite/v1/suite/6.7.0-beta.6"
 [ -d "$BACKUP/runtime" ] || { echo "invalid backup" >&2; exit 1; }
 rm -rf "$RUNTIME_ROOT"
 mkdir -p "$(dirname "$RUNTIME_ROOT")"

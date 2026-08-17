@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.7.0-beta.6 | Date: 2026-08-17
 """Unified IOT-AI command surface with backward-compatible advanced commands."""
 from __future__ import annotations
 
@@ -166,10 +166,11 @@ def normalize_meeting_argv(argv: list[str]) -> list[str]:
     """Normalize a meeting alias or natural-language meeting command."""
     import re
 
+    prefix, argv = hoist_root_options(argv)
     if argv and argv[0] in {"-h", "--help"}:
-        return ["meeting", argv[0]]
+        return [*prefix, "meeting", argv[0]]
     if argv and argv[0] in MEETING_OPERATIONS:
-        return ["meeting", *argv]
+        return [*prefix, "meeting", *argv]
 
     max_parallel: str | None = None
     remaining: list[str] = []
@@ -188,7 +189,7 @@ def normalize_meeting_argv(argv: list[str]) -> list[str]:
 
     raw_topic = " ".join(remaining).strip()
     if not raw_topic:
-        return ["meeting", "seat-plan", "--seats", "all-coders+ollama-clouds"]
+        return [*prefix, "meeting", "seat-plan", "--seats", "all-coders+ollama-clouds"]
     normalized = raw_topic.casefold()
     wants_all_coders = bool(re.search(r"\ball\s+coders?\b|\ball\s+coder\b", normalized))
     wants_ollama_cloud = bool(re.search(r"\bollama\s+clouds?\b|\bollama-cloud", normalized))
@@ -202,7 +203,7 @@ def normalize_meeting_argv(argv: list[str]) -> list[str]:
     command = ["meeting", "start", "--topic", topic, "--seats", selector, "--depth", "deep", "--effort", "high"]
     if max_parallel:
         command.extend(["--max-parallel", max_parallel])
-    return command
+    return [*prefix, *command]
 
 
 def _runtime_mark_for_mesh(result: dict[str, Any] | list[dict[str, Any]]) -> dict[str, Any]:
@@ -229,6 +230,33 @@ def _screen_text(value: str, user_home: Path | None = None, *, context: str = "c
     return decision
 
 
+def hoist_root_options(argv: list[str]) -> tuple[list[str], list[str]]:
+    """Pull --home/--version out of wrapper and post-command positions.
+
+    Dedicated entrypoints inject the command first, so `iot-ai-status --home PATH`
+    arrives as `status --home PATH`. Natural-language goals after `--goal` are left alone.
+    """
+    prefix: list[str] = []
+    rest: list[str] = []
+    after_goal = False
+    index = 0
+    while index < len(argv):
+        value = argv[index]
+        if not after_goal and value == "--home" and index + 1 < len(argv) and not str(argv[index + 1]).startswith("-"):
+            prefix.extend(["--home", argv[index + 1]])
+            index += 2
+            continue
+        if not after_goal and value == "--version":
+            prefix.append("--version")
+            index += 1
+            continue
+        if value == "--goal":
+            after_goal = True
+        rest.append(value)
+        index += 1
+    return prefix, rest
+
+
 def _normalize_argv(argv: list[str] | None) -> list[str]:
     """Normalize the five-command surface and natural-language goal syntax.
 
@@ -236,33 +264,23 @@ def _normalize_argv(argv: list[str] | None) -> list[str]:
       iot-ai "review this design"
       iot-ai --profile ultracode --execute "fix and verify this defect"
       iot-ai --home /tmp/demo --profile balanced "plan this change"
+      iot-ai status --home /tmp/demo
     """
     values = list(sys.argv[1:] if argv is None else argv)
     if not values:
         return ["help", "quickstart"]
 
-    root_prefix: list[str] = []
-    index = 0
-    while index < len(values):
-        value = values[index]
-        if value == "--home":
-            if index + 1 >= len(values):
-                return values
-            root_prefix.extend(values[index:index + 2])
-            index += 2
-            continue
-        if value == "--version":
-            return values
-        break
+    root_prefix, remaining = hoist_root_options(values)
+    if "--version" in root_prefix:
+        return ["--version"]
 
-    remaining = values[index:]
     if remaining and remaining[0] == "task":
         remaining[0] = "tasks"
         values = [*root_prefix, *remaining]
     if remaining and remaining[0] == "meeting" and (len(remaining) == 1 or remaining[1] not in MEETING_OPERATIONS):
         return [*root_prefix, *normalize_meeting_argv(remaining[1:])]
     if remaining and remaining[0] in ALL_COMMANDS:
-        return values
+        return [*root_prefix, *remaining]
 
     run_flags = {"--execute", "--apply", "--allow-static", "--resume"}
     run_options = {
@@ -826,11 +844,22 @@ def main(argv: list[str] | None = None) -> int:
             if a.test_command_json:
                 value = json.loads(Path(a.test_command_json).read_text()); test_argv = value.get("argv")
                 if not isinstance(test_argv, list) or not all(isinstance(x, str) for x in test_argv): raise ValueError("test command JSON must contain a string argv list")
-            providers = [c["provider"] for c in provider_candidates(h, require_live=True)] if a.providers == "auto" else _split(a.providers)
+            providers = [c["provider"] for c in provider_candidates(h, require_live=not a.plan)] if a.providers == "auto" else _split(a.providers)
             providers = list(dict.fromkeys(providers))
-            if not providers: raise RuntimeError("no live-ready multi-coder providers")
             if a.plan:
-                emit({"decision": "plan", "provider_calls": 0, "implements_code": False, "task_id": a.task_id, "task": a.task, "providers": providers, "quorum": min(a.quorum, len(providers)), "next": "repeat without --plan or use one natural-language iot-ai goal"})
+                emit({
+                    "decision": "plan",
+                    "provider_calls": 0,
+                    "implements_code": False,
+                    "task_id": a.task_id,
+                    "task": a.task,
+                    "providers": providers,
+                    "quorum": min(a.quorum, len(providers)) if providers else a.quorum,
+                    "reason": None if providers else "no-live-ready-multi-coder-providers",
+                    "next": "repeat without --plan or use one natural-language iot-ai goal",
+                })
+            elif not providers:
+                raise RuntimeError("no live-ready multi-coder providers")
             else:
                 emit(multicoder_run(h, a.task, providers, min(a.quorum, len(providers)), test_argv, Path(a.cwd), task_id=a.task_id, implementer=a.implementer, test_profile=Path(a.test_profile) if a.test_profile else None, risk_class=a.risk_class, effort=a.effort, max_repair_rounds=a.max_repair_rounds))
             return 0

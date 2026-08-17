@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.7.0-beta.6 | Date: 2026-08-17
 set -eu
+VERSION="6.7.0-beta.6"
+PY_VERSION="6.7.0b6"
 
 APPLY=false
 HOME_DIR="${HOME}"
@@ -28,7 +30,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 DATA_HOME="${XDG_DATA_HOME:-$HOME_DIR/.local/share}"
 STATE_HOME="${XDG_STATE_HOME:-$HOME_DIR/.local/state}"
 SUITE_BASE="$DATA_HOME/iot-ai-tech/iot-ai-suite/v1/suite"
-RUNTIME_ROOT="$SUITE_BASE/6.7.0-beta.5"
+RUNTIME_ROOT="$SUITE_BASE/$VERSION"
 TX_ID="shell-install-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 TX_ROOT="$DATA_HOME/iot-ai-tech/iot-ai-suite/v1/update-transactions/$TX_ID"
 LOG_ROOT="$STATE_HOME/iot-ai-tech/iot-ai-suite/v1/logs"
@@ -36,7 +38,7 @@ VENV="$RUNTIME_ROOT/venv"
 WHEEL_ROOT="$ROOT/wheels"
 [ -d "$WHEEL_ROOT" ] || WHEEL_ROOT="$ROOT/installers/wheels"
 
-printf '%s\n' '{"schema":"iot-ai.install-plan.v3","version":"6.7.0-beta.5","home":"'"$HOME_DIR"'","runtime":"'"$RUNTIME_ROOT"'","apply":'"$APPLY"',"clean_install":true,"pep668_safe":true,"logs_root":"'"$LOG_ROOT"'"}'
+printf '%s\n' '{"schema":"iot-ai.install-plan.v3","version":"'"$VERSION"'","home":"'"$HOME_DIR"'","runtime":"'"$RUNTIME_ROOT"'","apply":'"$APPLY"',"clean_install":true,"pep668_safe":true,"logs_root":"'"$LOG_ROOT"'"}'
 [ "$APPLY" = true ] || exit 0
 
 mkdir -p "$SUITE_BASE" "$TX_ROOT"
@@ -65,22 +67,27 @@ if [ -e "$RUNTIME_ROOT" ]; then
 fi
 
 python3 -m venv "$VENV"
-"$VENV/bin/python" -m pip install --no-index --disable-pip-version-check --no-input --find-links "$WHEEL_ROOT" "iot-ai-coder-suite==6.7.0b5"
+if ls "$WHEEL_ROOT"/iot_ai_coder_suite-${PY_VERSION}*.whl >/dev/null 2>&1; then
+  "$VENV/bin/python" -m pip install --no-index --disable-pip-version-check --no-input --find-links "$WHEEL_ROOT" "iot-ai-coder-suite==$PY_VERSION"
+else
+  "$VENV/bin/python" -m pip install --disable-pip-version-check --no-input "setuptools>=75" "wheel>=0.45"
+  "$VENV/bin/python" -m pip install --no-build-isolation --no-index --disable-pip-version-check --no-input --find-links "$WHEEL_ROOT" "$ROOT"
+fi
 "$VENV/bin/iot-ai" --home "$HOME_DIR" package install --hosts "$HOSTS" --apply
 ADAPTER_MUTATED=true
 "$VENV/bin/iot-ai" --home "$HOME_DIR" package verify
 
 if [ -n "$PACKAGE_STORE" ]; then
   if [ -z "$CURRENT_PACKAGE" ]; then
-    CURRENT_PACKAGE="$PACKAGE_STORE/IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.5-ALL-IN-ONE.zip"
+    CURRENT_PACKAGE="$PACKAGE_STORE/IoT-AI-Tech-iot-ai-Coder-Suite-v$VERSION-ALL-IN-ONE.zip"
   fi
   [ -f "$CURRENT_PACKAGE" ] || { echo "current package not found: $CURRENT_PACKAGE" >&2; exit 2; }
-  set -- --current-version "6.7.0-beta.5" --package-store "$PACKAGE_STORE" --current-package "$CURRENT_PACKAGE"
+  set -- --current-version "$VERSION" --package-store "$PACKAGE_STORE" --current-package "$CURRENT_PACKAGE"
   if [ -n "$PACKAGE_ARCHIVE" ]; then set -- "$@" --package-archive "$PACKAGE_ARCHIVE"; fi
   "$VENV/bin/iot-ai" --home "$HOME_DIR" package clean "$@" --apply
 else
   [ -z "$PACKAGE_ARCHIVE" ] || { echo "--package-archive requires --package-store" >&2; exit 2; }
-  "$VENV/bin/iot-ai" --home "$HOME_DIR" package clean --current-version "6.7.0-beta.5" --apply
+  "$VENV/bin/iot-ai" --home "$HOME_DIR" package clean --current-version "$VERSION" --apply
 fi
 
 "$VENV/bin/iot-ai" --home "$HOME_DIR" status --logs
@@ -88,7 +95,7 @@ cat > "$TX_ROOT/SHELL_INSTALL_RECEIPT.json" <<JSON
 {
   "schema": "iot-ai.shell-install-receipt.v1",
   "transaction_id": "$TX_ID",
-  "version": "6.7.0-beta.5",
+  "version": "$VERSION",
   "home": "$HOME_DIR",
   "runtime": "$RUNTIME_ROOT",
   "previous_runtime_archive": "$PREVIOUS",

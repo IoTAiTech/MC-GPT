@@ -166,5 +166,7 @@ def toggle_group(value: dict[str, Any], group: str, enabled: bool) -> dict[str, 
     if group == "all-cloud": value["cloud"]["enabled"] = enabled
     elif group == "all-models": value["models"]["all_enabled"] = enabled
     elif group in value.get("providers", {}): value["providers"][group]["enabled"] = enabled
-    else: raise ValueError(f"unknown settings group: {group}")
+    else:
+        known = ["all-cloud", "all-models", *sorted(value.get("providers", {}))]
+        raise ValueError(f"unknown settings group: {group}; known: {', '.join(known)}")
     return value

@@ -31,6 +31,22 @@ class InstallerUpdateTests(IsolatedHomeTestCase):
         self.assertEqual(result["decision"], "plan")
         self.assertFalse((self.home / ".config").exists())
 
+    def test_install_sh_dry_run_pins_current_suite_version(self) -> None:
+        import subprocess
+
+        script = Path(__file__).resolve().parents[1] / "installers" / "install.sh"
+        completed = subprocess.run(
+            ["sh", str(script), "--home", str(self.home)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(payload["version"], "6.7.0-beta.6")
+        self.assertFalse(payload["apply"])
+        self.assertIn("6.7.0-beta.6", payload["runtime"])
+
     def test_install_verify_status(self) -> None:
         result = install(self.home, ["claude", "codex", "gemini", "grok"])
         self.assertEqual(result["decision"], "pass")

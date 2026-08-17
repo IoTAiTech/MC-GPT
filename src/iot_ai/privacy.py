@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.7.0-beta.6 | Date: 2026-08-15
 
 from __future__ import annotations
 import re
@@ -15,7 +15,10 @@ SECRET_PATTERNS = [
     re.compile(r"(?i)\b(?:oauth|access|refresh)[_-]?token\s*[:=]\s*['\"]?[A-Za-z0-9._~+/=-]{8,}"),
     re.compile(r"(?i)\boauth-[A-Za-z0-9._~-]{12,}\b"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----"),
-    re.compile(r"\b(?:sk|xai|AIza)[-_A-Za-z0-9]{16,}\b"),
+    # Provider prefixes need a delimiter. Bare "sk" + 16 letters matches
+    # English labels such as skipped-non-execution-state.
+    re.compile(r"\b(?:sk|xai)[-_][A-Za-z0-9_-]{16,}\b"),
+    re.compile(r"\bAIza[A-Za-z0-9_-]{20,}\b"),
 ]
 PRIVATE_IP = re.compile(r"\b(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})\b")
 UNIX_PATH = re.compile(r"(?<![A-Za-z0-9])/(?:home|root|srv|opt|etc|var|mnt)/[^\s'\"<>]+")

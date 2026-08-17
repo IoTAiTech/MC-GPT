@@ -56,6 +56,25 @@ class CliEmitRedactionTests(unittest.TestCase):
     def test_public_status_text_is_unchanged(self) -> None:
         self.assertEqual(_cli_public_text("Edition: community"), "Edition: community")
 
+    def test_execution_skip_label_is_not_treated_as_provider_key(self) -> None:
+        label = "skipped-non-execution-state"
+        self.assertEqual(_cli_public_text(label), label)
+        view = _public_cli_view({"decision": label, "ok": True})
+        self.assertEqual(view["decision"], label)
+        self.assertTrue(view["ok"])
+
+    def test_delimited_provider_keys_are_still_masked(self) -> None:
+        samples = (
+            "sk-" + ("A" * 32),
+            "sk_live_" + ("B" * 24),
+            "xai-" + ("C" * 24),
+            "AIza" + ("D" * 24),
+        )
+        for sample in samples:
+            text = _cli_public_text(sample)
+            self.assertNotIn(sample, text)
+            self.assertIn("[REDACTED]", text)
+
 
 if __name__ == "__main__":
     unittest.main()

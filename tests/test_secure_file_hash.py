@@ -5,7 +5,7 @@
 from __future__ import annotations
 import os,tempfile,unittest
 from pathlib import Path
-from iot_ai.util import PathSecurityError,_platform_root_aliases,confined_text_write,open_secure,resolve_within_allowed_roots,sha256_file
+from iot_ai.util import PathSecurityError,_platform_root_aliases,confined_text_write,resolve_within_allowed_roots,sha256_file
 class SecureFileHashTests(unittest.TestCase):
  def setUp(self): self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);(self.root/'ok.txt').write_text('ok')
  def tearDown(self): self.tmp.cleanup()

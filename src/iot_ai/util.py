@@ -364,6 +364,7 @@ def open_secure(path: Path | str, allowed_roots: Sequence[Path | str] | Path | s
         try:
             os.close(fd)
         except OSError:
+            # Close is best-effort; re-raise the original open/stat failure.
             pass
         raise
 

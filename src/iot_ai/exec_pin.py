@@ -11,7 +11,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Iterable, Mapping
 
 _SECRET_NAME = re.compile(
     r"(TOKEN|SECRET|PASSWORD|PASSWD|API[_-]?KEY|PRIVATE[_-]?KEY|CREDENTIAL|AUTHORIZATION|BEARER|FOUNDER)",

@@ -20,7 +20,7 @@ from typing import Any
 
 from .paths import config_root
 from .util import utc_now
-from .workspace import connect_read, connect_write, one
+from .workspace import connect_write, one
 
 KEY_ENV = "IOT_AI_FOUNDER_AUTHORITY_KEY"
 KEY_NAME = "founder_authority.key"
@@ -61,6 +61,7 @@ def persist_founder_key(user_home: Path, material: bytes) -> Path:
     try:
         path.chmod(0o600)
     except OSError:
+        # Some filesystems reject chmod; the write already succeeded.
         pass
     return path
 

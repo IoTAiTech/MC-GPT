@@ -30,8 +30,12 @@ def sha256_bytes(value: bytes) -> str:
 def _normcase_text(path: str) -> str:
     return os.path.normcase(path) if os.name == "nt" else path
 
-def _trusted_directory(root: Path | str) -> str:
-    """Normalize an allow-list directory. The operator supplies the trust root."""
+def _trusted_entry(root: Path | str) -> tuple[str, tuple[str, ...]]:
+    """Normalize an allow-list directory. The operator supplies the trust root.
+
+    Returns the realpath root plus the original spelling so OS aliases
+    (macOS /var, Windows 8.3) can be mapped without realpath() on user paths.
+    """
     text = os.path.expanduser(os.fspath(root))
     if os.name == "nt" and (text.startswith("\\\\?\\") or text.startswith("\\\\.\\")):
         raise PathSecurityError("Windows device paths are not allowed")
@@ -42,17 +46,25 @@ def _trusted_directory(root: Path | str) -> str:
         raise PathSecurityError(f"allowed root is not a directory: {root}")
     if os.path.dirname(real) == real:
         raise PathSecurityError("filesystem root is not an allowed trust boundary")
-    return _normcase_text(real)
+    real_n = _normcase_text(real)
+    presented = _normcase_text(os.path.normpath(text))
+    aliases = (real_n,) if presented == real_n else (real_n, presented)
+    return real_n, aliases
 
-def _as_path_list(roots: Sequence[Path | str] | Path | str) -> list[str]:
+def _trusted_directory(root: Path | str) -> str:
+    return _trusted_entry(root)[0]
+
+def _as_path_list(roots: Sequence[Path | str] | Path | str) -> list[tuple[str, tuple[str, ...]]]:
     items = [roots] if isinstance(roots, (str, Path)) else roots
     if not items:
         raise PathSecurityError("allowed_roots must not be empty")
-    result: list[str] = []
+    result: list[tuple[str, tuple[str, ...]]] = []
+    seen: set[str] = set()
     for root in items:
-        normalized = _trusted_directory(root)
-        if normalized not in result:
-            result.append(normalized)
+        real, aliases = _trusted_entry(root)
+        if real not in seen:
+            seen.add(real)
+            result.append((real, aliases))
     return result
 
 def _confined_to_root(candidate: str, root: str) -> bool:
@@ -62,27 +74,6 @@ def _confined_to_root(candidate: str, root: str) -> bool:
     except ValueError:
         return False
     return candidate == root or candidate.startswith(root + os.sep)
-
-def _physical_join_preserving_final(path: str) -> str:
-    """Resolve existing ancestor directories without following the final name.
-
-    This maps OS prefix aliases (/var -> /private/var, Windows 8.3 names)
-    while leaving a final symlink visible for later rejection.
-    """
-    norm = os.path.normpath(os.path.expanduser(path))
-    if not os.path.isabs(norm):
-        return norm
-    parent, base = os.path.split(norm)
-    suffix = [base] if base else []
-    ancestor = parent
-    while ancestor and not os.path.isdir(ancestor):
-        ancestor, name = os.path.split(ancestor)
-        if not name:
-            break
-        suffix.insert(0, name)
-    if ancestor and os.path.isdir(ancestor):
-        ancestor = os.path.realpath(ancestor)
-    return os.path.join(ancestor, *suffix) if suffix else ancestor
 
 def _reject_device_or_empty(path: Path | str) -> str:
     filename = os.fspath(path)
@@ -98,20 +89,19 @@ def _is_reparse(st: os.stat_result) -> bool:
     attrs = getattr(st, "st_file_attributes", 0)
     return bool(attrs & 0x400)  # FILE_ATTRIBUTE_REPARSE_POINT
 
-def _relative_parts(path: Path | str, root: str) -> list[str]:
+def _relative_parts(path: Path | str, root: str, aliases: Sequence[str] | None = None) -> list[str]:
     filename = _reject_device_or_empty(path)
     if os.path.isabs(filename):
         norm = os.path.normpath(os.path.expanduser(filename))
-        # Prefer the lexical path so in-root directory symlinks stay
-        # visible to O_NOFOLLOW. Remap only OS aliases such as macOS
-        # /var -> /private/var or Windows 8.3 short names.
-        if _confined_to_root(_normcase_text(norm), root):
-            rel = os.path.relpath(norm, root)
-        else:
-            remapped = _physical_join_preserving_final(filename)
-            if not _confined_to_root(_normcase_text(remapped), root):
-                raise PathSecurityError(f"path escapes allowed_roots: {path}")
-            rel = os.path.relpath(remapped, root)
+        nrm = _normcase_text(norm)
+        prefixes = [root, *(aliases or ())]
+        rel = None
+        for prefix in prefixes:
+            if _confined_to_root(nrm, prefix):
+                rel = os.path.relpath(norm, prefix)
+                break
+        if rel is None:
+            raise PathSecurityError(f"path escapes allowed_roots: {path}")
     else:
         rel = os.path.normpath(filename)
     if rel in {"", "."}:
@@ -180,9 +170,9 @@ def resolve_within_allowed_roots(path: Path | str, allowed_roots: Sequence[Path 
     """Resolve a user path under a trusted root with component-level symlink rejection."""
     roots = _as_path_list(allowed_roots)
     last_error = "path escapes allowed_roots"
-    for root in roots:
+    for root, aliases in roots:
         try:
-            parts = _relative_parts(path, root)
+            parts = _relative_parts(path, root, aliases)
         except PathSecurityError as exc:
             last_error = str(exc)
             continue
@@ -234,9 +224,9 @@ def _open_last_component(parent_fd: int, name: str, *, write: bool) -> int:
 
 def _confined_fd(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, write: bool) -> tuple[int, Path]:
     last_error = "path escapes allowed_roots"
-    for root in _as_path_list(allowed_roots):
+    for root, aliases in _as_path_list(allowed_roots):
         try:
-            parts = _relative_parts(path, root)
+            parts = _relative_parts(path, root, aliases)
             if os.name == "nt":
                 fd, resolved = _windows_confined_fd(root, parts, write=write)
             else:
@@ -280,9 +270,9 @@ def confined_bytes_write(path: Path | str, data: bytes, allowed_roots: Sequence[
 
 def confined_makedirs(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str) -> Path:
     last_error = "path escapes allowed_roots"
-    for root in _as_path_list(allowed_roots):
+    for root, aliases in _as_path_list(allowed_roots):
         try:
-            parts = _relative_parts(path, root)
+            parts = _relative_parts(path, root, aliases)
         except PathSecurityError as exc:
             last_error = str(exc)
             continue

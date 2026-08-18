@@ -38,7 +38,7 @@ All notable changes are documented here. The project follows semantic versioning
 - Provider-key masks now require a delimiter after `sk` / `xai` (`sk-…`, `sk_live_…`, `xai-…`). The previous `sk` + 16-character class treated `skipped-non-execution-state` as a secret and broke sandbox `authorize-execution` JSON.
 
 ### Fixed
-- Confined file helpers remap OS path aliases (macOS `/var` → `/private/var`, Windows 8.3 names) only when the lexical path is not already under the realpath root, so in-root directory symlinks stay rejected. Windows never `os.open()`s a directory. Owned-delegate node IDs strip `:` (illegal in Windows filenames). Mesh pin tests use `sys.executable` so CI does not require a live `ollama` binary.
+- Confined file helpers keep the caller’s allowed-root spelling as an alias of the realpath root (macOS `/var`, Windows 8.3) and never `realpath()` a user path. In-root directory symlinks stay rejected. Windows never `os.open()`s a directory. Owned-delegate node IDs strip `:` (illegal in Windows filenames). Mesh pin tests use `sys.executable` so CI does not require a live `ollama` binary.
 - Dedicated `iot-ai-*` wrappers and `iot-ai <cmd> --home PATH` now hoist `--home` (and `--version`) to the root parser. Independent-system tests no longer need a special argument order.
 - `iot-ai multi-coder run --plan` no longer fails closed when no provider is live-ready. Execute without `--plan` still requires a live provider.
 - `install.sh` / `uninstall.sh` / `bootstrap.sh` now pin Suite `6.7.0-beta.6`. From a git checkout with no Suite wheel, `install.sh --apply` installs this tree instead of a missing `6.7.0b5` wheel.

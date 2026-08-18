@@ -28,6 +28,7 @@ class ReleaseBuilderTests(unittest.TestCase):
                 self.assertEqual(len(manifests), 1)
                 self.assertFalse(any(name.endswith("/.coverage") for name in names))
                 self.assertFalse(any("/.pytest_cache/" in name for name in names))
+                self.assertFalse(any(name.endswith("/.env") or name.endswith("/docs/.env") for name in names))
 
 
 if __name__ == "__main__":

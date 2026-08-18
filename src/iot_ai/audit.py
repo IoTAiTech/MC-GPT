@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-08-18
 """Independent, discrete hard-gate task audit."""
 from __future__ import annotations
 
@@ -15,6 +15,33 @@ from .util import sha256_file, utc_now
 from .workspace import connect_read, connect_write, excel_manifest_path, excel_path, new_id, one, rows, verify_event_chain
 
 MANDATORY_TIERS=("unit","integration","smoke","ab","stress","security","e2e","quality")
+
+
+def _change_binding_gate(records:list[dict[str,Any]])->tuple[bool,list[str]]:
+    rows=[row for row in records if row.get("kind")=="change-binding"]
+    if not rows:
+        return False,["change-binding-missing"]
+    latest=rows[-1]
+    path=Path(str(latest.get("artifact_path") or ""))
+    if not path.is_file() or path.is_symlink():
+        return False,["change-binding-artifact-missing"]
+    try:
+        payload=json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeError):
+        return False,["change-binding-artifact-unreadable"]
+    if not isinstance(payload, dict):
+        return False,["change-binding-artifact-invalid"]
+    if payload.get("schema")!="iot-ai.change-binding.v1":
+        return False,["change-binding-schema-invalid"]
+    if payload.get("decision")!="pass":
+        return False,[f"change-binding-{payload.get('reason') or 'blocked'}"]
+    if not payload.get("in_scope"):
+        return False,["change-binding-empty-scope"]
+    if not payload.get("base_tree_sha256") or not payload.get("post_tree_sha256"):
+        return False,["change-binding-missing-tree-hash"]
+    if not payload.get("changed_files"):
+        return False,["change-binding-no-changed-files"]
+    return True,[]
 
 
 def _evidence_integrity(user_home:Path,records:list[dict[str,Any]])->tuple[bool,list[str]]:
@@ -53,6 +80,7 @@ def audit_task(user_home:Path,task_id:str,*,record:bool=True)->dict[str,Any]:
         excel_sha=sha256_file(excel_path(user_home), allowed_roots=[user_home], max_bytes=None); excel_ok=manifest.get("sha256")==excel_sha
     chain=verify_event_chain(user_home)
     governed=task["risk_class"] in {"R2","R3","R4"} or bool(meetings)
+    binding_ok,binding_findings=_change_binding_gate(evidence) if governed else (True,[])
     gates={
         "event_chain":chain["decision"]=="pass",
         "meeting_approved":(meeting is not None) if governed else True,
@@ -69,8 +97,10 @@ def audit_task(user_home:Path,task_id:str,*,record:bool=True)->dict[str,Any]:
         "no_active_lease":not active_leases,
         "progress_complete":task["engineering_progress"]==100 and task["task_progress"]==100,
         "excel_projection_sealed":excel_ok,
+        "change_binding_bound":binding_ok,
     }
     findings=list(evidence_findings)
+    findings.extend(binding_findings)
     findings.extend(f"gate-failed:{name}" for name,passed in gates.items() if not passed)
     passed=sum(1 for x in gates.values() if x); score=round(100*passed/len(gates),4)
     decision="approve_technical" if all(gates.values()) else "needs-work"

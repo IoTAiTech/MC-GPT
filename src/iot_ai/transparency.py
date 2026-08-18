@@ -169,7 +169,12 @@ def _sidecar_path(path: Path) -> Path:
     return path.with_name(path.name + ".ai-provenance.json")
 
 
+def _lf(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _strip_markdown_mark(text: str) -> str:
+    text = _lf(text)
     if not text.startswith("---\n"):
         return text
     end = text.find("\n---\n", 4)
@@ -212,7 +217,7 @@ def _strip_png_mark(data: bytes) -> bytes:
 
 
 def _mark_markdown(text: str, payload: dict[str, Any]) -> str:
-    text = _strip_markdown_mark(text)
+    text = _strip_markdown_mark(_lf(text))
     marker = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     line = f"iot_ai_provenance: {marker}\n"
     if text.startswith("---\n"):

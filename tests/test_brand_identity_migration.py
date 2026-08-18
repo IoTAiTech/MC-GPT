@@ -4,6 +4,7 @@
 # Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
+import os
 import unittest
 from pathlib import Path
 
@@ -13,7 +14,14 @@ from tests.common import IsolatedHomeTestCase
 
 
 class BrandIdentityMigrationTests(IsolatedHomeTestCase):
-    def _legacy(self) -> tuple[Path, Path, Path]:
+    def _legacy(self) -> tuple[Path, ...]:
+        if os.name == "nt":
+            config = self.home / "AppData" / "Roaming" / "AI-IoT.Tech" / "IOT-AI-Suite" / "v1"
+            data = self.home / "AppData" / "Local" / "AI-IoT.Tech" / "IOT-AI-Suite" / "v1"
+            for root, name in ((config, "settings.json"), (data, "database.bin"), (data, "old.log")):
+                root.mkdir(parents=True, exist_ok=True)
+                (root / name).write_text(f"{name}\n", encoding="utf-8")
+            return config, data
         config = self.home / ".config" / "ai-iot-tech" / "iot-ai-suite" / "v1"
         data = self.home / ".local" / "share" / "ai-iot-tech" / "iot-ai-suite" / "v1"
         state = self.home / ".local" / "state" / "ai-iot-tech" / "iot-ai-suite" / "v1"
@@ -36,7 +44,10 @@ class BrandIdentityMigrationTests(IsolatedHomeTestCase):
         self.assertEqual(result["decision"], "pass")
         self.assertTrue((config_root(self.home) / "settings.json").is_file())
         self.assertTrue((data_root(self.home) / "database.bin").is_file())
-        self.assertTrue((log_root(self.home).parent / "old.log").is_file())
+        if os.name == "nt":
+            self.assertTrue((data_root(self.home) / "old.log").is_file())
+        else:
+            self.assertTrue((log_root(self.home).parent / "old.log").is_file())
         self.assertTrue(all(not path.exists() for path in legacy))
         restored = rollback(self.home)
         self.assertEqual(restored["decision"], "pass")

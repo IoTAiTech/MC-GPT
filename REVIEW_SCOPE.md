@@ -1,6 +1,6 @@
 # Community Developer Preview Review Scope
 
-IOT-AI Coder Suite `6.7.0-beta.6` is a public Community Developer Preview for personal and noncommercial evaluation.
+IOT-AI Coder Suite `6.8.0-beta.1` is a public Community Developer Preview for personal and noncommercial evaluation.
 
 Included in this review:
 

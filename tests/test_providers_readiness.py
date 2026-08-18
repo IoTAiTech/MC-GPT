@@ -21,15 +21,21 @@ class ProviderReadinessTests(IsolatedHomeTestCase):
         routes = load(self.home)["routes"]
         self.assertTrue(any(r["provider"] == "ollama" and r.get("cloud") for r in routes))
 
-    @patch("iot_ai.providers.shutil.which", return_value="/usr/bin/provider")
-    def test_static_presence_is_not_live_ready(self, which) -> None:
+    @patch(
+        "iot_ai.providers.pin_executable",
+        return_value={"path": "/usr/bin/true", "sha256": "0" * 64, "name": "true"},
+    )
+    def test_static_presence_is_not_live_ready(self, pin) -> None:
         status = static_status(DEFAULT_ROUTES[0])
         self.assertTrue(status["installed"])
         self.assertFalse(status["live_ready"])
         self.assertEqual(status["status_basis"], "static-only")
 
-    @patch("iot_ai.providers.shutil.which", return_value="/usr/bin/provider")
-    def test_eligible_route_filters_disabled(self, which) -> None:
+    @patch(
+        "iot_ai.providers.pin_executable",
+        return_value={"path": "/usr/bin/true", "sha256": "0" * 64, "name": "true"},
+    )
+    def test_eligible_route_filters_disabled(self, pin) -> None:
         mutate_route(self.home, "claude-subscription", "disable", apply=True)
         providers = {r["provider"] for r in eligible_routes(self.home)}
         self.assertNotIn("claude", providers)
@@ -68,7 +74,10 @@ class ProviderReadinessTests(IsolatedHomeTestCase):
             "observed_at": datetime.now(timezone.utc).isoformat(),
             "expires_at": future,
         })
-        with patch("iot_ai.providers.shutil.which", return_value="/usr/bin/provider"):
+        with patch(
+            "iot_ai.providers.pin_executable",
+            return_value={"path": "/usr/bin/true", "sha256": "0" * 64, "name": "true"},
+        ):
             candidates = provider_candidates(self.home, require_live=True)
         item = next(c for c in candidates if c["provider"] == "ollama")
         self.assertTrue(item["live_ready"])

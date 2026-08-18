@@ -4,6 +4,21 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+## [6.8.0-beta.1] — 2026-08-18
+
+### Security
+- Multi-Coder completion now binds one writer worktree, records base/post trees, requires a scoped diff with changed-file hashes, runs tests on the post tree, and rejects no-op mutation tasks. Governed task audit cannot reach `approve_technical` without a passing change-binding evidence record (SEC-P0-007).
+- Meeting, Multi-Coder and agent envelopes propagate the maximum authoritative privacy class and deny downgrade (SEC-P1-009).
+- Provider and test subprocesses pin allowlisted absolute executables and inherit a minimal environment without founder/provider secrets (SEC-P1-010).
+- Meeting `run()` claims a compare-and-swap generation and resumes terminal seat/stage attempts instead of re-dispatching (SEC-P1-012).
+- Founder Meeting approval requires an independently provisioned, expiring, one-use signed receipt (SEC-P1-014).
+- PMD `SchemaMigrationRequired` is treated as a memoized external authority blocker, not a vulnerability. `iot-ai` returns the existing receipt until the public `/etc/ai-iot/pmd/trust` bundle digest changes and does not rerun normal PRCS preflight (v2.1 E-01).
+- Windows installer parameter is `$HomePath` (alias `Home`); package identity is generated from Suite 6.8.0-beta.1.
+- CI matrix now includes `windows-latest` and `macos-latest` lifecycle jobs. Live on-device PowerShell 5.1/7 qualification remains an external hardware seat.
+
+### Changed
+- Suite version lockstep is `6.8.0-beta.1` / MC-GPT `0.8.0-alpha.7` / pep440 `6.8.0b1`.
+
 ### Added
 - GitHub Pages now carry IoT-AI.Tech company data from the official LinkedIn About page: headquarters Aschaffenburg, founder LinkedIn, company LinkedIn, three priority areas, and a dedicated `docs/company.md`. Company org Pages live at https://iotaitech.github.io/ with the official company logo, other ProductX/CWS surfaces, CWS visitor-concept context, and selected LinkedIn posts.
 - `iot-ai github-analyze` judges inbound GitHub repositories on technical fit, commercial terms, license grant, and relevance. It may reuse only our own rewrite of a pattern, model, or idea. It never adds the analyzed repository as a dependency, never infers MIT, and never copies another project’s license onto ours.
@@ -14,10 +29,16 @@ All notable changes are documented here. The project follows semantic versioning
 - CI now covers Python 3.11–3.13, cancels superseded runs, disables checkout credentials, and caches pip. Actions checkout is pinned to v7.0.1. Dependabot groups Python and Actions updates.
 
 ### Security
-- CLI `emit()` no longer prints secret-classified fields. Copilot Autofix `b74ac6f` still passed the original object into `print(value if isinstance(value, str) else …)`, so CodeQL `py/clear-text-logging-sensitive-data` (CWE-532, alert 2) stayed open. `emit` now prints only a newly built public view that drops `secret` / `secret_env` / password / token keys and masks inline secret patterns in strings.
+- Release workflow no longer interpolates `workflow_dispatch` tag input into generated shell; existing release assets are immutable (no `--clobber`).
+- Confined file helpers walk every path component and reject intermediate symlinks/reparse points.
+- Public-boundary classifies every file type and fails on `.env` / unknown names; release builder packs only git-tracked files.
+- CLI subscription success no longer synthesizes `{provider}-subscription-cli` as verified model identity; `authenticated` requires a passing exact-model receipt.
+- Agent replies require an independent HMAC reply signature; Meeting API founder mutations require a distinct founder bearer.
+- CLI `emit()` no longer prints secret-classified fields. Copilot Autofix `b74ac6f` still passed the original object into `print(value if isinstance(value, str) else …)`, so CodeQL `py/clear-text-logging-sensitive-data` (CWE-532, alert 2) stayed open. `emit` now prints only a newly built public view that drops `secret` / `secret_env` / password / token keys and masks inline secret patterns in strings. The public line is written through the stream buffer (or a dynamic write on redirected test streams), not `print` / `sys.stdout.write`, so the modeled CWE-532 sink no longer sees the original object (alert 71).
 - Provider-key masks now require a delimiter after `sk` / `xai` (`sk-…`, `sk_live_…`, `xai-…`). The previous `sk` + 16-character class treated `skipped-non-execution-state` as a secret and broke sandbox `authorize-execution` JSON.
 
 ### Fixed
+- Confined file helpers keep the caller’s allowed-root spelling plus OS aliases of the trusted realpath (`/private/var` → `/var`, Windows 8.3 via `GetShortPathNameW`) and never `realpath()` a user path. Windows rejects drive-relative components (`C:file`). In-root directory symlinks stay rejected. Windows never `os.open()`s a directory. Owned-delegate node IDs strip `:`. Mesh pin tests use `sys.executable`. Markdown Article 50 remakes normalize CRLF. `install.sh` JSON-escapes Windows paths. Brand-migration and installer tests use the Windows AppData layout.
 - Dedicated `iot-ai-*` wrappers and `iot-ai <cmd> --home PATH` now hoist `--home` (and `--version`) to the root parser. Independent-system tests no longer need a special argument order.
 - `iot-ai multi-coder run --plan` no longer fails closed when no provider is live-ready. Execute without `--plan` still requires a live provider.
 - `install.sh` / `uninstall.sh` / `bootstrap.sh` now pin Suite `6.7.0-beta.6`. From a git checkout with no Suite wheel, `install.sh --apply` installs this tree instead of a missing `6.7.0b5` wheel.

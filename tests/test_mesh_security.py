@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from unittest.mock import Mock, patch
 
 from iot_ai.mesh import _prepare_cli_invocation, _validate_endpoint, delegate
@@ -20,7 +21,7 @@ class MeshSecurityTests(IsolatedHomeTestCase):
             "provider": "test",
             "kind": "cli",
             "auth_mode": "subscription",
-            "command": ["provider-cli", "--model", "{model}", "--prompt", "{prompt}"],
+            "command": [sys.executable, "--model", "{model}", "--prompt", "{prompt}"],
             "enabled": True,
             "priority": 10,
             "model": model,
@@ -135,7 +136,7 @@ class MeshSecurityTests(IsolatedHomeTestCase):
         route = self._route(model="demo:cloud")
         route["provider"] = "ollama"
         route["route_id"] = "ollama-cloud-subscription"
-        route["command"] = ["ollama", "run", "{model}", "{prompt}"]
+        route["command"] = [sys.executable, "run", "{model}", "{prompt}"]
         eligible_mock.return_value = [route]
         run_mock.return_value = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="Substantive Ollama Cloud review output.", stderr=""

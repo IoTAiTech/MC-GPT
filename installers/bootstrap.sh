@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.6 | Date: 2026-08-17
+# Version: 6.8.0-beta.1 | Date: 2026-08-18
 set -eu
-VERSION="6.7.0-beta.6"
+VERSION="6.8.0-beta.1"
 URL="${IOT_AI_RELEASE_URL:-https://github.com/IoTAiTech/MC-GPT/releases/download/v$VERSION/IoT-AI-Tech-iot-ai-Coder-Suite-v$VERSION-ALL-IN-ONE.zip}"
 EXPECTED="${IOT_AI_RELEASE_SHA256:-}"
 HOME_DIR="$HOME"

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+from .external_blocker import evaluate_pmd_schema_recovery
 from .licensing import current
 from . import tasks as suite_tasks
 
@@ -148,6 +149,10 @@ class PmdApiTaskBackend:
         entitlement = current()
         if not entitlement.pmd_adapter:
             raise ExternalBackendUnavailable("PMD task authority requires an Enterprise authenticated API adapter")
+        self._blocker = evaluate_pmd_schema_recovery(user_home)
+        if self._blocker.get("status") == "open":
+            self._backend = None
+            return
         try:
             from iot_ai_enterprise.pmd_adapter import current_task_backend  # type: ignore
         except ImportError as exc:
@@ -159,6 +164,8 @@ class PmdApiTaskBackend:
         self._backend = backend
 
     def discover(self, intent: dict[str, Any]) -> list[TaskRecord]:
+        if self._backend is None:
+            return []
         values = self._backend.discover(intent)
         result: list[TaskRecord] = []
         for value in values:
@@ -185,9 +192,20 @@ class PmdApiTaskBackend:
         return values[0]
 
     def validation_gate(self, task_id: str, trigger_action: str = "run") -> dict[str, Any]:
+        if self._backend is None:
+            return dict(self._blocker)
         return dict(self._backend.validation_gate(task_id, trigger_action))
 
     def adapter_receipt(self) -> dict[str, Any]:
+        if self._backend is None:
+            return {
+                "schema": "iot-ai.task-backend-receipt.v1",
+                "backend": self.name,
+                "authority_basis": self.authority_basis,
+                "authenticated": False,
+                "direct_product_db_access": False,
+                "blocker": dict(self._blocker),
+            }
         receipt = dict(self._backend.adapter_receipt())
         return {
             "schema": "iot-ai.task-backend-receipt.v1",
@@ -204,6 +222,8 @@ class PmdApiTaskBackend:
         The public Suite passes only a versioned intent contract. It never opens
         PMD SQLite/PostgreSQL files and never synthesizes a second task state.
         """
+        if self._backend is None:
+            return dict(self._blocker)
         handler = getattr(self._backend, "run_task", None)
         if not callable(handler):
             raise ExternalBackendUnavailable("Enterprise PMD adapter lacks governed run_task support")

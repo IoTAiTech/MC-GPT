@@ -25,6 +25,7 @@ from .suite_version import MC_GPT_VERSION, SUITE_VERSION
 from .workspace import connect_read, one, rows
 from .worktrees import list_runs as worktree_runs
 from .identity_migration import status as identity_migration_status
+from .external_blocker import evaluate_pmd_schema_recovery
 
 
 def _status_from_score(score: float | None, *, pass_at: float = 90.0) -> str:
@@ -276,6 +277,7 @@ def unified_status(user_home: Path, *, live: bool = False, window: str = "24h") 
         "activity": report_data(user_home, normalized_window),
         "worktrees": worktree_runs(user_home),
         "brand_identity_migration": identity_migration_status(user_home),
+        "pmd_recovery_blocker": evaluate_pmd_schema_recovery(user_home),
         "live_probe_performed": live,
         "live_probe_results": live_results,
         "window": normalized_window,

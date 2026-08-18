@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.6 | Date: 2026-08-17
+# Version: 6.8.0-beta.1 | Date: 2026-08-18
 set -eu
-VERSION="6.7.0-beta.6"
-PY_VERSION="6.7.0b6"
+VERSION="6.8.0-beta.1"
+PY_VERSION="6.8.0b1"
 
 APPLY=false
 HOME_DIR="${HOME}"
@@ -38,7 +38,10 @@ VENV="$RUNTIME_ROOT/venv"
 WHEEL_ROOT="$ROOT/wheels"
 [ -d "$WHEEL_ROOT" ] || WHEEL_ROOT="$ROOT/installers/wheels"
 
-printf '%s\n' '{"schema":"iot-ai.install-plan.v3","version":"'"$VERSION"'","home":"'"$HOME_DIR"'","runtime":"'"$RUNTIME_ROOT"'","apply":'"$APPLY"',"clean_install":true,"pep668_safe":true,"logs_root":"'"$LOG_ROOT"'"}'
+_json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+printf '%s\n' '{"schema":"iot-ai.install-plan.v3","version":"'"$VERSION"'","home":"'"$(_json_escape "$HOME_DIR")"'","runtime":"'"$(_json_escape "$RUNTIME_ROOT")"'","apply":'"$APPLY"',"clean_install":true,"pep668_safe":true,"logs_root":"'"$(_json_escape "$LOG_ROOT")"'"}'
 [ "$APPLY" = true ] || exit 0
 
 mkdir -p "$SUITE_BASE" "$TX_ROOT"

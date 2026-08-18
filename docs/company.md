@@ -1,4 +1,4 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.6 | Date: 2026-08-18 -->
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.8.0-beta.1 | Date: 2026-08-18 -->
 # IoT-AI.Tech — company data
 
 Public company facts used on [GitHub Pages](index.html) and [iotaitech.github.io](https://iotaitech.github.io/). Source of the About text: the official company LinkedIn page. This is not a production, certification or live-dashboard claim. `production_claim: false`.

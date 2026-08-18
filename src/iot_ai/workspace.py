@@ -15,7 +15,7 @@ from typing import Any, Iterable
 from .paths import data_root, db_path
 from .util import utc_now
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 CLOSED_STATUSES = {"completed", "closed", "cancelled", "rejected"}
 OPEN_STATUSES = {"backlog", "queued", "ready", "claimed", "active", "needs-work", "blocked", "meeting", "awaiting_founder"}
 
@@ -399,6 +399,35 @@ CREATE TABLE IF NOT EXISTS meeting_api_idempotency(
  resource_id TEXT NOT NULL,
  response_json TEXT NOT NULL,
  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS meeting_run_generations(
+ meeting_id TEXT NOT NULL,
+ generation INTEGER NOT NULL,
+ status TEXT NOT NULL,
+ claimed_at TEXT NOT NULL,
+ sealed_at TEXT,
+ PRIMARY KEY(meeting_id, generation),
+ FOREIGN KEY(meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS one_running_meeting_generation
+ ON meeting_run_generations(meeting_id) WHERE status='running';
+CREATE TABLE IF NOT EXISTS meeting_seat_stages(
+ meeting_id TEXT NOT NULL,
+ generation INTEGER NOT NULL,
+ seat TEXT NOT NULL,
+ stage TEXT NOT NULL,
+ status TEXT NOT NULL,
+ result_json TEXT,
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL,
+ PRIMARY KEY(meeting_id, generation, seat, stage)
+);
+CREATE TABLE IF NOT EXISTS founder_receipt_nonces(
+ nonce TEXT PRIMARY KEY,
+ audience TEXT NOT NULL,
+ subject_id TEXT NOT NULL,
+ digest TEXT NOT NULL,
+ consumed_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS projection_jobs(

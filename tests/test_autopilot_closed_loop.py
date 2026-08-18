@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 import pytest
@@ -160,6 +161,9 @@ class LifecycleTruthTests(IsolatedHomeTestCase):
             "agent:pmd/reviewer", "Review", "meeting-final-review", "meeting-1", "reviewer", 30
         )
         text = "Evidence-backed review with an explicit decision."
+        os.environ["IOT_AI_AGENT_REPLY_KEY"] = "K" * 32
+        from iot_ai.agent_seats import agent_reply_signature
+        signature = agent_reply_signature(envelope, text)
         base = {
             "status": "pass",
             "text": text,
@@ -168,6 +172,7 @@ class LifecycleTruthTests(IsolatedHomeTestCase):
             "envelope_id": envelope["envelope_id"],
             "envelope_sha256": envelope["envelope_sha256"],
             "writes_performed": 0,
+            "independent_signature": signature,
         }
         missing = validate_agent_reply(envelope, dict(base))
         assert missing["failure_class"] == "semantic_capability_unattested"

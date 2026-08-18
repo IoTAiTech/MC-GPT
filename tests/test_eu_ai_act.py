@@ -123,7 +123,7 @@ class EuAiActTests(IsolatedHomeTestCase):
 
     def test_repeated_marking_replaces_stale_mark_instead_of_accumulating(self) -> None:
         path = self.home / "repeat.md"
-        path.write_text("# Repeated\n", encoding="utf-8")
+        path.write_bytes(b"# Repeated\r\n")
         mark_file(path, model_providers=["openai"], model_ids=["model-a"])
         mark_file(path, model_providers=["anthropic"], model_ids=["model-b"])
         text = path.read_text(encoding="utf-8")

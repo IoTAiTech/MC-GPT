@@ -14,16 +14,34 @@ import zipfile
 from pathlib import Path
 
 EXCLUDED = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".coverage", "build", "dist"}
+FORBIDDEN_BASENAMES = {".env", ".netrc", "id_rsa", "id_ed25519", "credentials"}
 FIXED_TIME = (2026, 8, 8, 0, 0, 0)
 
 
+def _git_tracked(root: Path) -> set[str]:
+    import subprocess
+    completed = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z"],
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode:
+        raise RuntimeError("release builder requires a git checkout")
+    return {item.decode() for item in completed.stdout.split(b"\0") if item}
+
+
 def members(root: Path):
-    for path in sorted(root.rglob("*")):
-        rel = path.relative_to(root)
-        if any(part in EXCLUDED or part.endswith(".egg-info") for part in rel.parts):
+    tracked = _git_tracked(root)
+    if not tracked:
+        raise RuntimeError("release builder found no tracked files")
+    for rel in sorted(tracked):
+        path = root / rel
+        if any(part in EXCLUDED or part.endswith(".egg-info") for part in Path(rel).parts):
             continue
-        if path.is_file() and not path.is_symlink() and path.suffix not in {".pyc", ".pyo"} and rel.as_posix() != "SOURCE_MANIFEST.json":
-            yield path, rel.as_posix()
+        if path.name in FORBIDDEN_BASENAMES or path.name.startswith(".env.") or path.suffix.lower() in {".env", ".pem", ".key"}:
+            raise RuntimeError(f"forbidden secret-shaped path is tracked: {rel}")
+        if path.is_file() and not path.is_symlink() and path.suffix not in {".pyc", ".pyo"} and rel != "SOURCE_MANIFEST.json":
+            yield path, rel
 
 
 def build(root: Path, output_dir: Path) -> dict:

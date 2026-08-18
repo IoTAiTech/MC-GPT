@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.6 | Date: 2026-08-17
+# Version: 6.8.0-beta.1 | Date: 2026-08-18
 set -eu
 HOME_DIR="${HOME}"
 while [ "$#" -gt 0 ]; do
@@ -11,7 +11,7 @@ while [ "$#" -gt 0 ]; do
 done
 DATA_HOME="${XDG_DATA_HOME:-$HOME_DIR/.local/share}"
 RUNTIME_ROOT=""
-for candidate in 6.7.0-beta.6 6.7.0-beta.5; do
+for candidate in 6.8.0-beta.1 6.7.0-beta.6 6.7.0-beta.5; do
   if [ -x "$DATA_HOME/iot-ai-tech/iot-ai-suite/v1/suite/$candidate/venv/bin/iot-ai" ]; then
     RUNTIME_ROOT="$DATA_HOME/iot-ai-tech/iot-ai-suite/v1/suite/$candidate"
     break

@@ -43,9 +43,9 @@ class InstallerUpdateTests(IsolatedHomeTestCase):
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
         payload = json.loads(completed.stdout)
-        self.assertEqual(payload["version"], "6.7.0-beta.6")
+        self.assertEqual(payload["version"], "6.8.0-beta.1")
         self.assertFalse(payload["apply"])
-        self.assertIn("6.7.0-beta.6", payload["runtime"])
+        self.assertIn("6.8.0-beta.1", payload["runtime"])
 
     def test_install_verify_status(self) -> None:
         result = install(self.home, ["claude", "codex", "gemini", "grok"])

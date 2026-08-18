@@ -10,6 +10,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from .exec_pin import pin_executable
 from .paths import routes_path
 from .settings import load as load_settings
 from .util import atomic_json, load_json, utc_now
@@ -116,7 +117,10 @@ def static_status(route: dict[str, Any]) -> dict[str, Any]:
     else:
         command = item.get("command") or []
         executable = command[0] if isinstance(command, list) and command else ""
-        item["installed"] = bool(executable and shutil.which(executable))
+        try:
+            item["installed"] = bool(executable and pin_executable(str(executable)))
+        except (RuntimeError, PermissionError, OSError):
+            item["installed"] = False
         item["credential_reference_present"] = None
     item["authenticated"] = None
     item["live_ready"] = False

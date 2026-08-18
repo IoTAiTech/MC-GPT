@@ -40,6 +40,7 @@ def build_agent_envelope(
     *,
     issued_by: str = "iot-ai-meeting",
     required_capability: str | None = None,
+    privacy_class: str = "D1",
 ) -> dict[str, Any]:
     surface, agent_id = parse_agent_seat(seat)
     body = {
@@ -60,7 +61,7 @@ def build_agent_envelope(
         "assignment": None,
         "execution_lease": None,
         "child_delegation": False,
-        "privacy_class": "D1",
+        "privacy_class": str(privacy_class or "D1"),
         "timeout_seconds": max(1, min(int(timeout), 3600)),
         "reply_mode": "sync",
         "issued_at": utc_now(),
@@ -158,6 +159,7 @@ def delegate_agent_seat(
     role: str,
     timeout: int,
     effort: str = "high",
+    privacy_class: str = "D1",
 ) -> dict[str, Any]:
     del effort
     record = get_agent_seat(user_home, seat)
@@ -178,7 +180,10 @@ def delegate_agent_seat(
     endpoint = str(record.get("endpoint_ref") or "")
     if not _private_endpoint(endpoint):
         return {"status": "failed", "output": "", "provider": "agent", "model_requested": record.get("model_binding"), "model_served": None, "failure_class": "endpoint_policy"}
-    envelope = build_agent_envelope(seat, prompt, stage, run_id, role, timeout, required_capability=required_capability)
+    envelope = build_agent_envelope(
+        seat, prompt, stage, run_id, role, timeout,
+        required_capability=required_capability, privacy_class=privacy_class,
+    )
     surface, _ = parse_agent_seat(seat)
     token = os.environ.get(f"IOT_AI_AGENT_{surface.upper()}_TOKEN", "")
     if len(token) < 24:

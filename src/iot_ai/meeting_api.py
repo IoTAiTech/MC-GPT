@@ -87,7 +87,8 @@ def _handler(user_home: Path, token: str, founder_token: str = ""):
                     if method == "GET" and not operation:
                         _json(self, 200, {"ok": True, **project_meeting_view(show(user_home, meeting_id), query.get("view", ["full"])[0])}); return
                     if method == "POST" and operation == "approve":
-                        _json(self, 200, {"ok": True, **approve(user_home, meeting_id)}); return
+                        body = self._body()
+                        _json(self, 200, {"ok": True, **approve(user_home, meeting_id, founder_receipt=body.get("founder_receipt"))}); return
                     if method == "POST" and operation == "tasks":
                         body = self._body(); _json(self, 201, {"ok": True, **create_task_from_meeting(user_home, meeting_id, body.get("title"))}); return
                 if method == "GET" and path == "/api/meeting/v1/calendar/events":

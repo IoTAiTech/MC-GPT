@@ -1,7 +1,7 @@
 # Public Repository Agent Rules
 
 Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-Version: 6.7.0-beta.6
+Version: 6.8.0-beta.1
 
 1. Read `LICENSE_POLICY.json`, `EDITION_BOUNDARY.json`, `SECURITY.md`, the nearest task scope and the current intent contract before writing.
 2. Accept normal English or German goals; do not force the operator to learn internal flags when intent can be resolved safely.

@@ -18,9 +18,9 @@ from tests.common import IsolatedHomeTestCase
 
 class VersionHelpSettingsTests(IsolatedHomeTestCase):
     def test_versions_are_aligned(self) -> None:
-        self.assertEqual(__version__, "6.7.0-beta.6")
+        self.assertEqual(__version__, "6.8.0-beta.1")
         self.assertEqual(SUITE_VERSION, __version__)
-        self.assertEqual(MC_GPT_VERSION, "0.8.0-alpha.6")
+        self.assertEqual(MC_GPT_VERSION, "0.8.0-alpha.7")
         self.assertEqual(COMPONENT_ID, "iot-ai-mc-gpt")
 
     def test_natural_language_normalization(self) -> None:
@@ -52,7 +52,7 @@ class VersionHelpSettingsTests(IsolatedHomeTestCase):
             code = main(["status", "--home", str(self.home), "--json"])
         self.assertEqual(code, 0)
         payload = json.loads(stream.getvalue())
-        self.assertEqual(payload["suite"]["version"], "6.7.0-beta.6")
+        self.assertEqual(payload["suite"]["version"], "6.8.0-beta.1")
 
     def test_meeting_wrapper_keeps_home_and_list(self) -> None:
         from iot_ai.cli import normalize_meeting_argv

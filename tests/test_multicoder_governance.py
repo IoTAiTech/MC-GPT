@@ -7,6 +7,8 @@ from __future__ import annotations
 import json
 import sys
 import re
+import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 from iot_ai.multicoder import claim_refusal_copy, run
@@ -31,7 +33,10 @@ def successful_delegate(user_home, provider, prompt, stage="consultation", model
             "Complete evidence-bound implementation plan with architecture, Article 5 and Article 50 controls, "
             "privacy boundaries, deterministic unit integration smoke security stress and rollback tests."
         )
-    elif stage == "implementation":
+    elif stage in {"implementation", "repair"}:
+        if "WORKTREE_PATH:" in prompt:
+            path = Path(prompt.split("WORKTREE_PATH:", 1)[1].split()[0])
+            (path / "implemented.txt").write_text("implemented\n", encoding="utf-8")
         output = "Implemented only the frozen plan and preserved all public/private boundaries with rollback evidence."
     else:
         output = (
@@ -57,6 +62,17 @@ def successful_delegate(user_home, provider, prompt, stage="consultation", model
 
 
 class MultiCoderGovernanceTests(IsolatedHomeTestCase):
+    def _workspace(self) -> Path:
+        root = self.home / "workspace"
+        root.mkdir()
+        subprocess.run(["git", "init", "-b", "main", str(root)], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(root), "config", "user.name", "Test"], check=True)
+        subprocess.run(["git", "-C", str(root), "config", "user.email", "test@example.invalid"], check=True)
+        (root / "README.md").write_text("base\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(root), "add", "README.md"], check=True)
+        subprocess.run(["git", "-C", str(root), "commit", "-m", "base"], check=True, capture_output=True)
+        return root
+
     @patch("iot_ai.multicoder.delegate", side_effect=successful_delegate)
     def test_happy_path_requires_digest_reviews_tests_and_marks_output(self, delegate_mock) -> None:
         result = run(
@@ -65,7 +81,7 @@ class MultiCoderGovernanceTests(IsolatedHomeTestCase):
             providers=["codex", "ollama@model-x:cloud"],
             quorum=2,
             test_argv=[sys.executable, "-c", "print('1 passed')"],
-            cwd=self.home,
+            cwd=self._workspace(),
         )
         self.assertEqual(result["decision"], "approve")
         self.assertTrue(result["execution_authorized"])

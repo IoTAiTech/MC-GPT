@@ -4,6 +4,20 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+## [6.8.0-beta.1] — 2026-08-18
+
+### Security
+- Multi-Coder completion now binds one writer worktree, records base/post trees, requires a scoped diff with changed-file hashes, runs tests on the post tree, and rejects no-op mutation tasks. Governed task audit cannot reach `approve_technical` without a passing change-binding evidence record (SEC-P0-007).
+- Meeting, Multi-Coder and agent envelopes propagate the maximum authoritative privacy class and deny downgrade (SEC-P1-009).
+- Provider and test subprocesses pin allowlisted absolute executables and inherit a minimal environment without founder/provider secrets (SEC-P1-010).
+- Meeting `run()` claims a compare-and-swap generation and resumes terminal seat/stage attempts instead of re-dispatching (SEC-P1-012).
+- Founder Meeting approval requires an independently provisioned, expiring, one-use signed receipt (SEC-P1-014).
+- Windows installer parameter is `$HomePath` (alias `Home`); package identity is generated from Suite 6.8.0-beta.1.
+- CI matrix now includes `windows-latest` and `macos-latest` lifecycle jobs. Live on-device PowerShell 5.1/7 qualification remains an external hardware seat.
+
+### Changed
+- Suite version lockstep is `6.8.0-beta.1` / MC-GPT `0.8.0-alpha.7` / pep440 `6.8.0b1`.
+
 ### Added
 - GitHub Pages now carry IoT-AI.Tech company data from the official LinkedIn About page: headquarters Aschaffenburg, founder LinkedIn, company LinkedIn, three priority areas, and a dedicated `docs/company.md`. Company org Pages live at https://iotaitech.github.io/ with the official company logo, other ProductX/CWS surfaces, CWS visitor-concept context, and selected LinkedIn posts.
 - `iot-ai github-analyze` judges inbound GitHub repositories on technical fit, commercial terms, license grant, and relevance. It may reuse only our own rewrite of a pattern, model, or idea. It never adds the analyzed repository as a dependency, never infers MIT, and never copies another project’s license onto ours.

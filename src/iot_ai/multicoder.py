@@ -16,13 +16,17 @@ import re
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from pathlib import Path
 from typing import Any
 
+from .change_binding import bind_post_change, prepare_writer_worktree, snapshot_tree
 from .eu_ai_act import classify_risk, record_prohibited_practice_screen, screen_prohibited_practices
+from .exec_pin import pin_command, test_env
 from .licensing import current
 from .mesh import delegate
 from .owned_delegate import owned_delegate
+from .privacy_class import authoritative_privacy_class
 from .projection import export_workspace
 from .quality import score_response
 from .tasks import (
@@ -103,6 +107,7 @@ def _safe_delegate(
     role: str,
     timeout: int,
     effort: str,
+    privacy_class: str = "D1",
 ) -> dict[str, Any]:
     return owned_delegate(
         user_home,
@@ -113,7 +118,7 @@ def _safe_delegate(
         role=role,
         timeout=timeout,
         effort=effort,
-        privacy_class="D1",
+        privacy_class=authoritative_privacy_class(privacy_class),
         delegate_fn=delegate,
     )
 
@@ -264,7 +269,7 @@ def _run_tests(
     root = evidence_root(user_home) / (task_id or run_id) / run_id
     root.mkdir(parents=True, exist_ok=True)
     for tier in tiers:
-        argv = tier["argv"]
+        argv = pin_command(list(tier["argv"]))
         started = time.monotonic()
         try:
             process = subprocess.run(
@@ -274,7 +279,7 @@ def _run_tests(
                 text=True,
                 timeout=tier["timeout"],
                 check=False,
-                env=None,
+                env=test_env(extra_path_dirs=[Path(argv[0]).parent]),
             )
             exit_code = process.returncode
             output = (process.stdout or "") + ("\n" + process.stderr if process.stderr else "")
@@ -366,7 +371,11 @@ def _write_evidence(
             sha256_file(path, allowed_roots=[user_home]),
             name,
             work_unit_id,
-            metadata={"run_id": run_id},
+            metadata={
+                "run_id": run_id,
+                "decision": value.get("decision") if isinstance(value, dict) else None,
+                "reason": value.get("reason") if isinstance(value, dict) else None,
+            },
         )
     return {"artifact": str(path), "artifact_sha256": sha256_file(path, allowed_roots=[user_home])}
 
@@ -418,6 +427,8 @@ def run(
     risk_class: str = "R2",
     effort: str = "high",
     max_repair_rounds: int | None = None,
+    privacy_class: str = "D1",
+    mutation_required: bool = True,
 ) -> dict[str, Any]:
     seats = list(dict.fromkeys(providers or ["claude", "codex", "gemini", "ollama@auto:cloud"]))
     entitlement = current()
@@ -426,6 +437,8 @@ def run(
     if quorum < 1 or quorum > len(seats):
         raise ValueError("invalid quorum")
     cwd = (cwd or Path.cwd()).resolve()
+    privacy_class = authoritative_privacy_class(privacy_class)
+    delegate_turn = partial(_safe_delegate, privacy_class=privacy_class)
     tiers = _load_profile(test_profile, test_argv)
     run_id = new_id("run")
     work_unit_id = lease_id = lease_token = None
@@ -562,7 +575,7 @@ def run(
     with ThreadPoolExecutor(max_workers=min(8, len(seats))) as pool:
         futures = {
             pool.submit(
-                _safe_delegate,
+                delegate_turn,
                 user_home,
                 seat,
                 plan_prompt,
@@ -616,7 +629,7 @@ def run(
     with ThreadPoolExecutor(max_workers=min(8, len(good))) as pool:
         futures = {
             pool.submit(
-                _safe_delegate,
+                delegate_turn,
                 user_home,
                 entry["seat_id"],
                 "Blind-critique the plans. Find conflicts, unsupported assumptions, missing tests, security/privacy/legal risks, and duplicated work.\n" + bundle,
@@ -652,7 +665,7 @@ def run(
         f"PLANS\n{bundle}\nCRITIQUES\n"
         + "\n".join(entry["text"] for entry in critiques if entry["substantive"])
     )
-    synthesis = _safe_delegate(
+    synthesis = delegate_turn(
         user_home,
         synthesis_seat,
         synthesis_prompt,
@@ -678,7 +691,7 @@ def run(
         with ThreadPoolExecutor(max_workers=min(8, len(good))) as pool:
             futures = {
                 pool.submit(
-                    _safe_delegate,
+                    delegate_turn,
                     user_home,
                     entry["seat_id"],
                     review_prompt,
@@ -734,11 +747,35 @@ def run(
 
     if task_id:
         record_progress(user_home, task_id, "implementation", 35, "Digest-bound plan accepted; implementation started", work_unit_id, basis="manual-estimate", confidence="medium")
-    implementation = _safe_delegate(
+    writer = prepare_writer_worktree(
+        user_home,
+        cwd,
+        _seat_parts(implementer)[0],
+        f"{run_id}:{plan_digest}",
+        apply=True,
+    )
+    if writer.get("decision") != "pass":
+        if lease_id and lease_token:
+            release_lease(user_home, lease_id, lease_token, str(writer.get("reason") or "worktree-binding-unavailable"))
+        return {
+            "schema": "iot-ai.multi-coder-result.v4",
+            "run_id": run_id,
+            "task_id": task_id,
+            "decision": "blocked",
+            "reason": writer.get("reason") or "worktree-binding-unavailable",
+            "change_binding": writer,
+            "plan_digest": plan_digest,
+            "provider_calls": len(plans),
+            "execution_authorized": False,
+            "global_compliance_claim_allowed": False,
+        }
+    worktree_path = Path(str(writer["path"]))
+    write_scope = [str(worktree_path)]
+    implementation = delegate_turn(
         user_home,
         implementer,
-        "Implement only the frozen plan in the exact workspace. Do not modify unrelated files. Preserve public/private boundaries.\n"
-        f"TASK:{task_text}\nPLAN_DIGEST:{plan_digest}\nPLAN:{synthesis_text}",
+        "Implement only the frozen plan in the exact writer worktree. Do not modify unrelated files. Preserve public/private boundaries.\n"
+        f"TASK:{task_text}\nPLAN_DIGEST:{plan_digest}\nWORKTREE_PATH:{worktree_path}\nWRITE_SCOPE:{worktree_path}\nPLAN:{synthesis_text}",
         "implementation",
         run_id=run_id,
         role="implementation-engineer",
@@ -749,7 +786,7 @@ def run(
         _record_attempt(user_home, task_id, work_unit_id, run_id, implementer, "implementation-engineer", "implementation", implementation)
     _write_evidence(user_home, task_id, work_unit_id, run_id, "implementation", implementation)
 
-    results = _run_tests(user_home, task_id, work_unit_id, run_id, tiers, cwd) if tiers else []
+    results = _run_tests(user_home, task_id, work_unit_id, run_id, tiers, worktree_path) if tiers else []
     repair_round = 0
     seen_failures: set[tuple[Any, ...]] = set()
     while results and any(result["decision"] != "pass" for result in results) and repair_round < max_repairs:
@@ -766,7 +803,7 @@ def run(
         failure_reviews = []
         for entry in good:
             seat = entry["seat_id"]
-            result = _safe_delegate(
+            result = delegate_turn(
                 user_home,
                 seat,
                 f"Diagnose deterministic failures and propose the smallest coherent repair.\nTASK:{task_text}\nFAILURES:{failure_text}",
@@ -779,7 +816,7 @@ def run(
             failure_reviews.append(_provider_entry(seat, result, _quality(user_home, failure_text, result, [])))
             if task_id:
                 _record_attempt(user_home, task_id, work_unit_id, run_id, seat, "failure-reviewer", "failure-review", result)
-        repair = _safe_delegate(
+        repair = delegate_turn(
             user_home,
             implementer,
             "Apply one bounded repair. Do not expand scope.\n"
@@ -792,10 +829,20 @@ def run(
         )
         if task_id:
             _record_attempt(user_home, task_id, work_unit_id, run_id, implementer, "implementation-engineer", "repair", repair)
-        results = _run_tests(user_home, task_id, work_unit_id, run_id, tiers, cwd)
+        results = _run_tests(user_home, task_id, work_unit_id, run_id, tiers, worktree_path)
 
+    post_tree = snapshot_tree(worktree_path)
+    change_binding = bind_post_change(
+        base=writer["base"],
+        post=post_tree,
+        write_scope=write_scope,
+        mutation_required=mutation_required,
+    )
+    _write_evidence(user_home, task_id, work_unit_id, run_id, "change-binding", change_binding)
     tests_pass = bool(results) and all(result["decision"] == "pass" for result in results)
     if not tiers:
+        tests_pass = False
+    if change_binding.get("decision") != "pass":
         tests_pass = False
     if task_id:
         record_progress(
@@ -814,11 +861,12 @@ def run(
     if tests_pass and _substantive(implementation):
         packet = (
             f"TASK:{task_text}\nPLAN_DIGEST:{plan_digest}\nPLAN:{synthesis_text}\n"
-            f"IMPLEMENTATION:{implementation.get('output', '')}\nTESTS:{json.dumps(results, ensure_ascii=False)}"
+            f"IMPLEMENTATION:{implementation.get('output', '')}\nTESTS:{json.dumps(results, ensure_ascii=False)}\n"
+            f"CHANGE_BINDING:{json.dumps(change_binding, ensure_ascii=False)}"
         )
         reviewer_seats = [entry["seat_id"] for entry in good if entry["seat_id"] != implementer]
         for seat in reviewer_seats:
-            result = _safe_delegate(
+            result = delegate_turn(
                 user_home,
                 seat,
                 "Independently review the final result. Return JSON only with decision, plan_digest, findings, dissent. "
@@ -881,6 +929,7 @@ def run(
         "plan_digest": plan_digest,
         "plan_reviews": plan_reviews,
         "implementation": implementation,
+        "change_binding": change_binding,
         "tests": results,
         "repair_rounds": repair_round,
         "final_reviews": final_reviews,

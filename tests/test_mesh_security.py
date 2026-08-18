@@ -20,7 +20,7 @@ class MeshSecurityTests(IsolatedHomeTestCase):
             "provider": "test",
             "kind": "cli",
             "auth_mode": "subscription",
-            "command": ["provider-cli", "--model", "{model}", "--prompt", "{prompt}"],
+            "command": ["/usr/bin/true", "--model", "{model}", "--prompt", "{prompt}"],
             "enabled": True,
             "priority": 10,
             "model": model,

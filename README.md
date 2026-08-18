@@ -11,7 +11,7 @@
   <img src="assets/brand/MC-GPT-Logo-Master-1024.png" alt="MC-GPT official product logo" width="220" />
 </p>
 
-> **IOT-AI Suite 6.7.0-beta.6 · MC-GPT 0.8.0-alpha.6**  
+> **IOT-AI Suite 6.8.0-beta.1 · MC-GPT 0.8.0-alpha.7**  
 > Community Developer Preview · `production_claim: false` · English and German  
 > Docs site: [iotaitech.github.io/MC-GPT](https://iotaitech.github.io/MC-GPT/) · AI index: [`llms.txt`](llms.txt)
 

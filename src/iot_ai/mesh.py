@@ -17,6 +17,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from .exec_pin import pin_command, provider_env
 from .privacy import sanitize
 from .providers import eligible_routes
 from .telemetry import record
@@ -277,6 +278,8 @@ def delegate(
                 command, _stdin_payload, _stdin_used = _prepare_cli_invocation(
                     template, safe_prompt, selected_model, str(route.get("provider") or provider)
                 )
+                command = pin_command(command)
+                child_env = provider_env(route.get("secret_env"), executable=command[0])
                 try:
                     completed = subprocess.run(
                         command,
@@ -284,7 +287,7 @@ def delegate(
                         capture_output=True,
                         text=True,
                         timeout=timeout,
-                        env=os.environ.copy(),
+                        env=child_env,
                         check=False,
                     )
                 except OSError as _exc:
@@ -305,6 +308,7 @@ def delegate(
                             str(route.get("provider") or provider),
                             force_stdin=True,
                         )
+                        command = pin_command(command)
                         try:
                             completed = subprocess.run(
                                 command,
@@ -312,7 +316,7 @@ def delegate(
                                 capture_output=True,
                                 text=True,
                                 timeout=timeout,
-                                env=os.environ.copy(),
+                                env=child_env,
                                 check=False,
                             )
                             failure_class = None

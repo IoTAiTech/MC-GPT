@@ -414,12 +414,12 @@ def parser() -> argparse.ArgumentParser:
 
     meeting = commands.add_parser("meeting", help=argparse.SUPPRESS)
     mops = meeting.add_subparsers(dest="op", required=True)
-    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto", help="auto | all-coders | all-coders+ollama-clouds | comma-separated seats"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--max-parallel", type=int, help="Thread pool concurrency; never a seat cap"); ms.add_argument("--max-seats", type=int, help="Explicit hard seat cap"); ms.add_argument("--exclude-ollama", action="store_true", help="Explicitly omit Ollama and record the exception"); ms.add_argument("--allow-missing-ollama", action="store_true", help="Allow an all-coders+ollama-clouds plan to continue when no Ollama cloud seat is configured"); ms.add_argument("--execute", action="store_true"); ms.add_argument("--task-id"); ms.add_argument("--correlation-id")
+    ms = mops.add_parser("start"); ms.add_argument("--topic", required=True); ms.add_argument("--seats", default="auto", help="auto | all-coders | all-coders+ollama-clouds | comma-separated seats"); ms.add_argument("--quorum", type=int, default=2); ms.add_argument("--rounds", type=int, default=1); ms.add_argument("--depth", choices=("normal", "deep", "ultra"), default="deep"); ms.add_argument("--effort", default="high"); ms.add_argument("--owner"); ms.add_argument("--priority", choices=("low", "normal", "high", "critical"), default="normal"); ms.add_argument("--risk-class", default="R2"); ms.add_argument("--max-parallel", type=int, help="Thread pool concurrency; never a seat cap"); ms.add_argument("--max-seats", type=int, help="Explicit hard seat cap"); ms.add_argument("--exclude-ollama", action="store_true", help="Explicitly omit Ollama and record the exception"); ms.add_argument("--allow-missing-ollama", action="store_true", help="Allow an all-coders+ollama-clouds plan to continue when no Ollama cloud seat is configured"); ms.add_argument("--execute", action="store_true"); ms.add_argument("--task-id"); ms.add_argument("--correlation-id"); ms.add_argument("--privacy-class", default="D1")
     mplan = mops.add_parser("seat-plan"); mplan.add_argument("--seats", default="auto"); mplan.add_argument("--max-parallel", type=int); mplan.add_argument("--max-seats", type=int); mplan.add_argument("--exclude-ollama", action="store_true"); mplan.add_argument("--allow-missing-ollama", action="store_true")
     mops.add_parser("list")
     mshow = mops.add_parser("show"); mshow.add_argument("meeting_id"); mshow.add_argument("--view", choices=("brief", "simple", "full", "complete"), default="full")
     mrun = mops.add_parser("run"); mrun.add_argument("meeting_id")
-    mapprove = mops.add_parser("approve"); mapprove.add_argument("meeting_id"); mapprove.add_argument("--subject", default="user"); mapprove.add_argument("--intent-digest")
+    mapprove = mops.add_parser("approve"); mapprove.add_argument("meeting_id"); mapprove.add_argument("--subject", default="user"); mapprove.add_argument("--intent-digest"); mapprove.add_argument("--founder-receipt")
     mcreate = mops.add_parser("create-task"); mcreate.add_argument("meeting_id"); mcreate.add_argument("--title")
     mexport = mops.add_parser("export"); mexport.add_argument("meeting_id"); mexport.add_argument("--output", required=True); mexport.add_argument("--public", action="store_true")
     mreport = mops.add_parser("report")
@@ -679,13 +679,18 @@ def main(argv: list[str] | None = None) -> int:
                     max_parallel=a.max_parallel,
                     existing_task_id=a.task_id,
                     correlation_id=a.correlation_id,
+                    privacy_class=getattr(a, "privacy_class", "D1"),
                 ))
             elif a.op == "list": emit({"meetings": list_meetings(h)})
             elif a.op == "show":
                 payload = meeting_show(h, a.meeting_id)
                 emit(project_meeting_view(payload, getattr(a, "view", "full") or "full"))
             elif a.op == "run": emit(meeting_run(h, a.meeting_id))
-            elif a.op == "approve": emit(meeting_approve(h, a.meeting_id, subject=a.subject, intent_digest=a.intent_digest))
+            elif a.op == "approve":
+                receipt = None
+                if getattr(a, "founder_receipt", None):
+                    receipt = json.loads(Path(a.founder_receipt).read_text(encoding="utf-8"))
+                emit(meeting_approve(h, a.meeting_id, subject=a.subject, intent_digest=a.intent_digest, founder_receipt=receipt))
             elif a.op == "create-task": emit(create_task_from_meeting(h, a.meeting_id, a.title))
             elif a.op == "export":
                 exported = export_workspace(h, Path(a.output), meeting_show(h, a.meeting_id)["task_id"])

@@ -1,4 +1,4 @@
-# IOT-AI Suite 6.7.0-beta.6 / MC-GPT 0.8.0-alpha.6 — Developer Preview
+# IOT-AI Suite 6.8.0-beta.1 / MC-GPT 0.8.0-alpha.7 — Developer Preview
 
 Public GitHub release of the English/German Community preview, plus a searchable documentation site.
 

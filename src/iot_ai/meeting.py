@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import Any
 
 from .eu_ai_act import classify_risk, record_prohibited_practice_screen, screen_prohibited_practices
+from .founder_authority import verify_founder_receipt
 from .licensing import current
+from .privacy_class import authoritative_privacy_class
 # NAME COLLISION (fixed 2026-08-13): `from .workspace import append_event` on the later
 # import line shadowed this one, so every `append_event(user_home, ...)` call actually hit
 # workspace.append_event(conn, event_type, payload, ...) -- a different signature with no
@@ -225,6 +227,7 @@ def start(
     max_parallel: int | None = None,
     existing_task_id: str | None = None,
     correlation_id: str | None = None,
+    privacy_class: str = "D1",
 ) -> dict[str, Any]:
     clean = list(dict.fromkeys(seat.strip().lower() for seat in seats if seat.strip()))
     if not topic.strip() or not clean:
@@ -244,6 +247,7 @@ def start(
     if depth not in DEPTHS:
         raise ValueError("invalid meeting depth")
     meeting_id = new_id("meeting")
+    privacy_class = authoritative_privacy_class(privacy_class)
     configured_rounds = max(rounds, DEPTHS[depth]["rounds"])
     from .tasks import create, show as show_task
 
@@ -299,6 +303,7 @@ def start(
                 "max_parallel": max_parallel or min(8, len(clean)),
                 "linked_existing_task": linked_existing_task,
                 "correlation_id": correlation_id or meeting_id,
+                "privacy_class": privacy_class,
             },
             task_id=task_id,
         )
@@ -490,6 +495,95 @@ def show(user_home: Path, meeting_id: str) -> dict[str, Any]:
     }
 
 
+def _claim_run_generation(user_home: Path, meeting_id: str, status: str) -> dict[str, Any]:
+    conn = connect_write(user_home)
+    try:
+        latest = one(
+            conn,
+            "SELECT * FROM meeting_run_generations WHERE meeting_id=? ORDER BY generation DESC LIMIT 1",
+            (meeting_id,),
+        )
+        if latest and latest["status"] == "running":
+            return {"decision": "resume", "generation": int(latest["generation"]), "status": "running"}
+        if latest and latest["status"] == "terminal" and status in {
+            "approved", "awaiting-user-decision", "needs-review"
+        }:
+            return {"decision": "sealed", "generation": int(latest["generation"]), "status": "terminal"}
+        next_generation = int(latest["generation"]) + 1 if latest else 1
+        now = utc_now()
+        try:
+            conn.execute(
+                "INSERT INTO meeting_run_generations(meeting_id,generation,status,claimed_at) VALUES(?,?,?,?)",
+                (meeting_id, next_generation, "running", now),
+            )
+            conn.execute("UPDATE meetings SET status='running',updated_at=? WHERE id=?", (now, meeting_id))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            current = one(
+                conn,
+                "SELECT * FROM meeting_run_generations WHERE meeting_id=? AND status='running' ORDER BY generation DESC LIMIT 1",
+                (meeting_id,),
+            )
+            if current:
+                return {"decision": "already-running", "generation": int(current["generation"]), "status": "running"}
+            raise
+        return {"decision": "claimed", "generation": next_generation, "status": "running"}
+    finally:
+        conn.close()
+
+
+def _seal_run_generation(user_home: Path, meeting_id: str, generation: int) -> None:
+    conn = connect_write(user_home)
+    try:
+        conn.execute(
+            "UPDATE meeting_run_generations SET status='terminal',sealed_at=? WHERE meeting_id=? AND generation=?",
+            (utc_now(), meeting_id, generation),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _load_seat_stage(user_home: Path, meeting_id: str, generation: int, seat: str, stage: str) -> dict[str, Any] | None:
+    conn = connect_read(user_home)
+    if conn is None:
+        return None
+    try:
+        row = one(
+            conn,
+            "SELECT * FROM meeting_seat_stages WHERE meeting_id=? AND generation=? AND seat=? AND stage=?",
+            (meeting_id, generation, seat, stage),
+        )
+    finally:
+        conn.close()
+    if not row or row.get("status") != "terminal" or not row.get("result_json"):
+        return None
+    try:
+        payload = json.loads(row["result_json"])
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _store_seat_stage(
+    user_home: Path, meeting_id: str, generation: int, seat: str, stage: str, result: dict[str, Any]
+) -> None:
+    conn = connect_write(user_home)
+    try:
+        now = utc_now()
+        conn.execute(
+            """INSERT INTO meeting_seat_stages(meeting_id,generation,seat,stage,status,result_json,created_at,updated_at)
+            VALUES(?,?,?,?,?,?,?,?)
+            ON CONFLICT(meeting_id,generation,seat,stage) DO UPDATE SET
+            status=excluded.status,result_json=excluded.result_json,updated_at=excluded.updated_at""",
+            (meeting_id, generation, seat, stage, "terminal", json.dumps(result, ensure_ascii=False, default=str), now, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _delegate_safe(
     user_home: Path,
     seat: str,
@@ -499,22 +593,36 @@ def _delegate_safe(
     role: str,
     timeout: int,
     effort: str = "high",
+    privacy_class: str = "D1",
+    generation: int | None = None,
 ) -> dict[str, Any]:
+    resolved = authoritative_privacy_class(privacy_class)
+    if generation is not None:
+        cached = _load_seat_stage(user_home, run_id, generation, seat, stage)
+        if cached:
+            return {**cached, "idempotent_replay": True}
     if seat.startswith("agent:"):
         from .agent_seats import delegate_agent_seat
-        return delegate_agent_seat(user_home, seat, prompt, stage, run_id, role, timeout, effort)
+        result = delegate_agent_seat(
+            user_home, seat, prompt, stage, run_id, role, timeout, effort, privacy_class=resolved
+        )
+        if generation is not None:
+            _store_seat_stage(user_home, run_id, generation, seat, stage, result)
+        return result
     last: dict[str, Any] | None = None
     for attempt in range(2):
         try:
             result = owned_delegate(
                 user_home, seat, prompt, stage,
                 run_id=run_id, role=role, timeout=timeout, effort=effort,
-                privacy_class="D1", meeting_id=run_id, delegate_fn=delegate,
+                privacy_class=resolved, meeting_id=run_id, delegate_fn=delegate,
             )
             result.setdefault("provider", seat.split("@", 1)[0])
             if result.get("failure_class") == "OSError" and attempt == 0:
                 last = result
                 continue
+            if generation is not None:
+                _store_seat_stage(user_home, run_id, generation, seat, stage, result)
             return result
         except OSError as exc:
             last = {
@@ -524,13 +632,18 @@ def _delegate_safe(
             }
             if attempt == 0:
                 continue
+            if generation is not None:
+                _store_seat_stage(user_home, run_id, generation, seat, stage, last)
             return last
-    return last or {"status": "failed", "output": "", "failure_class": "OSError", "model_served": None}
+    fallback = last or {"status": "failed", "output": "", "failure_class": "OSError", "model_served": None}
+    if generation is not None:
+        _store_seat_stage(user_home, run_id, generation, seat, stage, fallback)
+    return fallback
 
 
 def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
     current_record = show(user_home, meeting_id)["meeting"]
-    if current_record["status"] == "approved":
+    if current_record["status"] in {"approved", "awaiting-user-decision", "needs-review"}:
         return show(user_home, meeting_id)
     topic = current_record["topic"]
     task_id = current_record["task_id"]
@@ -539,6 +652,16 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
     created_payload = _meeting_event_payload(conn_meta, meeting_id, "meeting.created", newest=False) if conn_meta else {}
     if conn_meta:
         conn_meta.close()
+    claim = _claim_run_generation(user_home, meeting_id, current_record["status"])
+    if claim["decision"] == "sealed":
+        return show(user_home, meeting_id)
+    if claim["decision"] == "already-running":
+        payload = show(user_home, meeting_id)
+        payload["decision"] = "already-running"
+        payload["run_generation"] = claim["generation"]
+        return payload
+    generation = int(claim["generation"])
+    privacy_class = authoritative_privacy_class(created_payload.get("privacy_class"), "D1")
     max_parallel = max(1, min(int(created_payload.get("max_parallel") or 8), len(seats)))
     run_id = meeting_id
     opinions: list[dict[str, Any]] = []
@@ -558,6 +681,9 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
                 run_id,
                 "independent-opinion",
                 900,
+                "high",
+                privacy_class,
+                generation,
             ): seat
             for seat in seats
         }
@@ -591,6 +717,7 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
             conn.commit()
         finally:
             conn.close()
+        _seal_run_generation(user_home, meeting_id, generation)
         export_workspace(user_home, task_id=task_id)
         return show(user_home, meeting_id)
 
@@ -616,6 +743,9 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
                     run_id,
                     "critic",
                     900,
+                    "high",
+                    privacy_class,
+                    generation,
                 ): item["seat"]
                 for item in good
             }
@@ -645,7 +775,10 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
         "10 test cases, 10 failure cases, security risks and residual blockers. Do not claim consensus.\n"
         f"TOPIC:\n{topic}\nMATERIAL:\n{previous}"
     )
-    synthesis_result = _delegate_safe(user_home, synthesis_provider, synthesis_prompt, "meeting-synthesis", run_id, "plan-synthesizer", 1200)
+    synthesis_result = _delegate_safe(
+        user_home, synthesis_provider, synthesis_prompt, "meeting-synthesis", run_id,
+        "plan-synthesizer", 1200, "high", privacy_class, generation,
+    )
     synthesis_quality = score_response(topic, synthesis_result.get("output", ""), peer_texts) if synthesis_result.get("status") == "pass" else None
     if synthesis_quality and synthesis_result.get("contribution_id"):
         update_quality(user_home, synthesis_result["contribution_id"], synthesis_quality)
@@ -683,7 +816,10 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
         buffered_reviews: list[tuple[str, dict[str, Any]]] = []
         with ThreadPoolExecutor(max_workers=min(max_parallel, len(good))) as pool:
             futures = {
-                pool.submit(_delegate_safe, user_home, item["seat"], prompt, "meeting-final-review", run_id, "independent-judge", 900): item["seat"]
+                pool.submit(
+                    _delegate_safe, user_home, item["seat"], prompt, "meeting-final-review",
+                    run_id, "independent-judge", 900, "high", privacy_class, generation,
+                ): item["seat"]
                 for item in good
             }
             for future in as_completed(futures):
@@ -771,6 +907,7 @@ def run(user_home: Path, meeting_id: str) -> dict[str, Any]:
             )
         except Exception:  # logging must never destroy the run it is reporting on
             pass
+    _seal_run_generation(user_home, meeting_id, generation)
     export_workspace(user_home, task_id=task_id)
     return show(user_home, meeting_id)
 
@@ -790,6 +927,7 @@ def approve(
     *,
     subject: str = "user",
     intent_digest: str | None = None,
+    founder_receipt: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     conn = connect_write(user_home)
     try:
@@ -798,6 +936,14 @@ def approve(
             raise FileNotFoundError(meeting_id)
         if meeting["status"] != "awaiting-user-decision" or meeting.get("final_decision") != "accepted_by_required_seats":
             raise ValueError("meeting plan was not accepted by all required substantive seats")
+        digest = str(meeting.get("consultation_sha256") or intent_digest or "")
+        verify_founder_receipt(
+            user_home,
+            founder_receipt,
+            audience="meeting.approve",
+            subject_id=meeting_id,
+            digest=digest,
+        )
         created_payload = _meeting_event_payload(conn, meeting_id, "meeting.created", newest=False)
         linked_existing_task = bool(created_payload.get("linked_existing_task"))
         now = utc_now()

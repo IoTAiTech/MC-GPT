@@ -3,8 +3,8 @@
 | Field | Declared value |
 |---|---|
 | System | IOT-AI Suite |
-| Version | 6.7.0-beta.6 |
-| MC-GPT | 0.8.0-alpha.6 |
+| Version | 6.8.0-beta.1 |
+| MC-GPT | 0.8.0-alpha.7 |
 | Provider | IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour |
 | Likely roles | AI-system provider, deployer, downstream provider |
 | Intended purpose | Human-controlled software-engineering planning, review, implementation support, verification and diagnostics |

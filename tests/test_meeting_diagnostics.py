@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from iot_ai.diagnostics import collect, compare, explain, record_event, validate
+from iot_ai.founder_authority import issue_founder_receipt, persist_founder_key
 from iot_ai.meeting import approve, create_task_from_meeting, run, show, start
 
 from tests.common import IsolatedHomeTestCase
@@ -72,9 +73,16 @@ class MeetingDiagnosticsTests(IsolatedHomeTestCase):
 
     @patch("iot_ai.meeting.delegate", side_effect=substantive_delegate)
     def test_meeting_approval_is_separate_from_task_creation(self, delegate_mock) -> None:
+        persist_founder_key(self.home, b"m" * 32)
         created = start(self.home, "Review release", ["codex", "ollama"], quorum=2)
-        run(self.home, created["meeting_id"])
-        approved = approve(self.home, created["meeting_id"])
+        shown = run(self.home, created["meeting_id"])
+        receipt = issue_founder_receipt(
+            self.home,
+            audience="meeting.approve",
+            subject_id=created["meeting_id"],
+            digest=shown["meeting"]["consultation_sha256"],
+        )
+        approved = approve(self.home, created["meeting_id"], founder_receipt=receipt)
         self.assertTrue(approved["founder_approval"])
         self.assertEqual(approved["plan_acceptance"], "accepted")
         task = create_task_from_meeting(self.home, created["meeting_id"], "Implement approved result", self.home / "workspace")

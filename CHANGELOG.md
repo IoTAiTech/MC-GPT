@@ -14,6 +14,11 @@ All notable changes are documented here. The project follows semantic versioning
 - CI now covers Python 3.11–3.13, cancels superseded runs, disables checkout credentials, and caches pip. Actions checkout is pinned to v7.0.1. Dependabot groups Python and Actions updates.
 
 ### Security
+- Release workflow no longer interpolates `workflow_dispatch` tag input into generated shell; existing release assets are immutable (no `--clobber`).
+- Confined file helpers walk every path component and reject intermediate symlinks/reparse points.
+- Public-boundary classifies every file type and fails on `.env` / unknown names; release builder packs only git-tracked files.
+- CLI subscription success no longer synthesizes `{provider}-subscription-cli` as verified model identity; `authenticated` requires a passing exact-model receipt.
+- Agent replies require an independent HMAC reply signature; Meeting API founder mutations require a distinct founder bearer.
 - CLI `emit()` no longer prints secret-classified fields. Copilot Autofix `b74ac6f` still passed the original object into `print(value if isinstance(value, str) else …)`, so CodeQL `py/clear-text-logging-sensitive-data` (CWE-532, alert 2) stayed open. `emit` now prints only a newly built public view that drops `secret` / `secret_env` / password / token keys and masks inline secret patterns in strings.
 - Provider-key masks now require a delimiter after `sk` / `xai` (`sk-…`, `sk_live_…`, `xai-…`). The previous `sk` + 16-character class treated `skipped-non-execution-state` as a secret and broke sandbox `authorize-execution` JSON.
 

@@ -29,7 +29,12 @@ class MeetingIntegrationReportingTests(IsolatedHomeTestCase):
     def test_agent_envelope_is_read_only_and_rejects_writes(self):
         envelope=build_agent_envelope("agent:pmd/security","Review","opinion","meeting-1","reviewer",30)
         text="Evidence-backed read-only assessment."
-        reply={"status":"pass","text":text,"text_sha256":hashlib.sha256(text.encode()).hexdigest(),"model_served":"local-model","envelope_id":envelope["envelope_id"],"envelope_sha256":envelope["envelope_sha256"],"writes_performed":1}
+        unsigned={"status":"pass","text":text,"text_sha256":hashlib.sha256(text.encode()).hexdigest(),"model_served":"local-model","envelope_id":envelope["envelope_id"],"envelope_sha256":envelope["envelope_sha256"],"writes_performed":0,"independent_signature":envelope["envelope_sha256"]}
+        self.assertEqual(validate_agent_reply(envelope,unsigned)["failure_class"],"unsigned_reply")
+        os.environ["IOT_AI_AGENT_REPLY_KEY"]="K"*32
+        from iot_ai.agent_seats import agent_reply_signature
+        sig=agent_reply_signature(envelope,text)
+        reply={"status":"pass","text":text,"text_sha256":hashlib.sha256(text.encode()).hexdigest(),"model_served":"local-model","envelope_id":envelope["envelope_id"],"envelope_sha256":envelope["envelope_sha256"],"writes_performed":1,"independent_signature":sig}
         result=validate_agent_reply(envelope,reply)
         self.assertEqual(result["status"],"failed"); self.assertEqual(result["failure_class"],"policy_violation")
 
@@ -97,6 +102,7 @@ class MeetingIntegrationReportingTests(IsolatedHomeTestCase):
             conn=http.client.HTTPConnection("127.0.0.1",server.server_port,timeout=5); conn.request("GET","/health"); self.assertEqual(conn.getresponse().status,200); conn.close()
             conn=http.client.HTTPConnection("127.0.0.1",server.server_port,timeout=5); conn.request("GET","/api/meeting/v1/meetings"); self.assertEqual(conn.getresponse().status,401); conn.close()
             conn=http.client.HTTPConnection("127.0.0.1",server.server_port,timeout=5); conn.request("GET","/api/meeting/v1/meetings",headers={"Authorization":f"Bearer {token}"}); response=conn.getresponse(); self.assertEqual(response.status,200); self.assertIn("meetings",json.loads(response.read())); conn.close()
+            conn=http.client.HTTPConnection("127.0.0.1",server.server_port,timeout=5); conn.request("POST","/api/meeting/v1/meetings/meeting-1/approve",body=b"{}",headers={"Authorization":f"Bearer {token}","Content-Type":"application/json"}); self.assertEqual(conn.getresponse().status,403); conn.close()
         finally:
             server.shutdown(); server.server_close(); thread.join(timeout=5)
 

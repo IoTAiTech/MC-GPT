@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.7.0-beta.6 | Date: 2026-08-18
 """Shared utilities including fail-closed secure file open/hash helpers."""
 from __future__ import annotations
 import hashlib
@@ -71,21 +71,113 @@ def _reject_device_or_empty(path: Path | str) -> str:
         raise PathSecurityError(f"path rejects empty or parent name: {path}")
     return filename
 
-def resolve_within_allowed_roots(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, must_exist: bool=True) -> Path:
-    """Join the user path onto each trusted root, then accept only startswith(root)."""
-    roots = _as_path_list(allowed_roots)
+def _is_reparse(st: os.stat_result) -> bool:
+    if stat.S_ISLNK(st.st_mode):
+        return True
+    attrs = getattr(st, "st_file_attributes", 0)
+    return bool(attrs & 0x400)  # FILE_ATTRIBUTE_REPARSE_POINT
+
+def _relative_parts(path: Path | str, root: str) -> list[str]:
     filename = _reject_device_or_empty(path)
+    if os.path.isabs(filename):
+        norm = os.path.normpath(filename)
+        if not _confined_to_root(_normcase_text(norm), root):
+            raise PathSecurityError(f"path escapes allowed_roots: {path}")
+        rel = os.path.relpath(norm, root)
+    else:
+        rel = os.path.normpath(filename)
+    if rel in {"", "."}:
+        raise PathSecurityError(f"path rejects empty or parent name: {path}")
+    if rel.startswith("..") or os.path.isabs(rel):
+        raise PathSecurityError(f"path escapes allowed_roots: {path}")
+    parts = [part for part in Path(rel).parts if part not in {"", "."}]
+    if not parts or any(part == ".." for part in parts):
+        raise PathSecurityError(f"path escapes allowed_roots: {path}")
+    return parts
+
+def _open_root_dir(root: str) -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    return os.open(root, flags)
+
+def _component_dir_flags() -> int:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
+
+def _walk_parent_fd(root: str, parts: list[str]) -> int:
+    """Open every intermediate component with O_NOFOLLOW / reparse rejection."""
+    parent_fd = _open_root_dir(root)
+    intermediates = parts[:-1]
+    if os.name != "nt" and hasattr(os, "O_NOFOLLOW"):
+        try:
+            for part in intermediates:
+                nxt = os.open(part, _component_dir_flags(), dir_fd=parent_fd)
+                os.close(parent_fd)
+                parent_fd = nxt
+            return parent_fd
+        except OSError:
+            os.close(parent_fd)
+            raise
+    # Windows / no dir_fd: lstat every prefix, reject reparse points, then open last parent.
+    try:
+        current = root
+        for part in intermediates:
+            current = os.path.join(current, part)
+            st = os.lstat(current)
+            if _is_reparse(st):
+                raise PathSecurityError(f"symlink rejected: {current}")
+            if not stat.S_ISDIR(st.st_mode):
+                raise PathSecurityError(f"not a directory: {current}")
+        os.close(parent_fd)
+        return _open_root_dir(current if intermediates else root)
+    except Exception:
+        try:
+            os.close(parent_fd)
+        except OSError:
+            pass
+        raise
+
+def resolve_within_allowed_roots(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, must_exist: bool=True) -> Path:
+    """Resolve a user path under a trusted root with component-level symlink rejection."""
+    roots = _as_path_list(allowed_roots)
     last_error = "path escapes allowed_roots"
     for root in roots:
-        fullpath = os.path.normpath(os.path.join(root, filename))
-        if not fullpath.startswith(root):
+        try:
+            parts = _relative_parts(path, root)
+        except PathSecurityError as exc:
+            last_error = str(exc)
             continue
-        if fullpath != root and not fullpath.startswith(root + os.sep):
-            continue
-        if must_exist and not os.path.exists(fullpath):
+        current = root
+        try:
+            for index, part in enumerate(parts):
+                current = os.path.join(current, part)
+                last = index == len(parts) - 1
+                if last and not must_exist and not os.path.lexists(current):
+                    return Path(current)
+                st = os.lstat(current)
+                if _is_reparse(st):
+                    raise PathSecurityError(f"symlink rejected: {current}")
+                if last:
+                    if must_exist and not stat.S_ISREG(st.st_mode) and not stat.S_ISDIR(st.st_mode):
+                        raise PathSecurityError(f"not a regular file: {current}")
+                elif not stat.S_ISDIR(st.st_mode):
+                    raise PathSecurityError(f"not a directory: {current}")
+            return Path(current)
+        except FileNotFoundError:
             last_error = "path does not exist"
             continue
-        return Path(fullpath)
+        except PathSecurityError as exc:
+            last_error = str(exc)
+            continue
     raise PathSecurityError(f"{last_error}: {path}")
 
 def _write_flags() -> int:
@@ -104,157 +196,107 @@ def _read_flags() -> int:
         flags |= os.O_NOFOLLOW
     return flags
 
-def confined_text_write(path: Path | str, text: str, allowed_roots: Sequence[Path | str] | Path | str, *, encoding: str="utf-8", newline: str|None=None) -> Path:
-    roots = _as_path_list(allowed_roots)
-    filename = _reject_device_or_empty(path)
-    for root in roots:
-        fullpath = os.path.normpath(os.path.join(root, filename))
-        if not fullpath.startswith(root):
-            continue
-        if fullpath == root or not fullpath.startswith(root + os.sep):
-            continue
-        kwargs: dict[str, Any] = {"encoding": encoding}
-        if newline is not None:
-            kwargs["newline"] = newline
+def _open_last_component(parent_fd: int, name: str, *, write: bool) -> int:
+    flags = _write_flags() if write else _read_flags()
+    if os.name != "nt":
+        return os.open(name, flags, 0o600, dir_fd=parent_fd)
+    raise PathSecurityError("secure component open requires POSIX dir_fd")
+
+def _confined_fd(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, write: bool) -> tuple[int, Path]:
+    last_error = "path escapes allowed_roots"
+    for root in _as_path_list(allowed_roots):
         try:
-            fd = os.open(fullpath, _write_flags(), 0o600)
+            parts = _relative_parts(path, root)
+            parent_fd = _walk_parent_fd(root, parts)
+        except (OSError, PathSecurityError) as exc:
+            last_error = str(exc)
+            continue
+        try:
+            fd = _open_last_component(parent_fd, parts[-1], write=write)
         except OSError as exc:
-            raise PathSecurityError(f"secure write failed: {path}") from exc
-        with os.fdopen(fd, "w", **kwargs) as handle:
-            handle.write(text)
-        return Path(fullpath)
-    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+            os.close(parent_fd)
+            raise PathSecurityError(f"secure {'write' if write else 'read'} failed: {path}") from exc
+        os.close(parent_fd)
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode):
+            os.close(fd)
+            raise PathSecurityError(f"not a regular file: {path}")
+        return fd, Path(root, *parts)
+    raise PathSecurityError(f"{last_error}: {path}")
+
+def confined_text_write(path: Path | str, text: str, allowed_roots: Sequence[Path | str] | Path | str, *, encoding: str="utf-8", newline: str|None=None) -> Path:
+    fd, resolved = _confined_fd(path, allowed_roots, write=True)
+    kwargs: dict[str, Any] = {"encoding": encoding}
+    if newline is not None:
+        kwargs["newline"] = newline
+    with os.fdopen(fd, "w", **kwargs) as handle:
+        handle.write(text)
+    return resolved
 
 def confined_text_read(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, encoding: str="utf-8") -> str:
-    roots = _as_path_list(allowed_roots)
-    filename = _reject_device_or_empty(path)
-    for root in roots:
-        fullpath = os.path.normpath(os.path.join(root, filename))
-        if not fullpath.startswith(root):
-            continue
-        if fullpath == root or not fullpath.startswith(root + os.sep):
-            continue
-        try:
-            fd = os.open(fullpath, _read_flags())
-        except OSError as exc:
-            raise PathSecurityError(f"secure read failed: {path}") from exc
-        with os.fdopen(fd, "r", encoding=encoding) as handle:
-            return handle.read()
-    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+    fd, _resolved = _confined_fd(path, allowed_roots, write=False)
+    with os.fdopen(fd, "r", encoding=encoding) as handle:
+        return handle.read()
 
 def confined_bytes_write(path: Path | str, data: bytes, allowed_roots: Sequence[Path | str] | Path | str) -> Path:
-    roots = _as_path_list(allowed_roots)
-    filename = _reject_device_or_empty(path)
-    for root in roots:
-        fullpath = os.path.normpath(os.path.join(root, filename))
-        if not fullpath.startswith(root):
-            continue
-        if fullpath == root or not fullpath.startswith(root + os.sep):
-            continue
-        try:
-            fd = os.open(fullpath, _write_flags(), 0o600)
-        except OSError as exc:
-            raise PathSecurityError(f"secure write failed: {path}") from exc
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(data)
-        return Path(fullpath)
-    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+    fd, resolved = _confined_fd(path, allowed_roots, write=True)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(data)
+    return resolved
 
 def confined_makedirs(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str) -> Path:
-    roots = _as_path_list(allowed_roots)
-    filename = _reject_device_or_empty(path)
-    for root in roots:
-        fullpath = os.path.normpath(os.path.join(root, filename))
-        if not fullpath.startswith(root):
+    last_error = "path escapes allowed_roots"
+    for root in _as_path_list(allowed_roots):
+        try:
+            parts = _relative_parts(path, root)
+        except PathSecurityError as exc:
+            last_error = str(exc)
             continue
-        if fullpath != root and not fullpath.startswith(root + os.sep):
-            continue
-        if os.path.lexists(fullpath) and os.path.islink(fullpath):
-            raise PathSecurityError(f"symlink rejected: {path}")
-        os.makedirs(fullpath, exist_ok=True)
-        real = os.path.realpath(fullpath)
-        if real != root and not real.startswith(root + os.sep):
-            raise PathSecurityError(f"path escapes allowed_roots: {path}")
-        return Path(fullpath)
-    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+        current = root
+        for part in parts:
+            current = os.path.join(current, part)
+            if os.path.lexists(current):
+                st = os.lstat(current)
+                if _is_reparse(st):
+                    raise PathSecurityError(f"symlink rejected: {path}")
+                if not stat.S_ISDIR(st.st_mode):
+                    raise PathSecurityError(f"not a directory: {path}")
+                continue
+            os.mkdir(current, 0o700)
+        return Path(current)
+    raise PathSecurityError(f"{last_error}: {path}")
 
 def confined_unlink(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str) -> None:
-    roots = _as_path_list(allowed_roots)
-    filename = _reject_device_or_empty(path)
-    for root in roots:
-        fullpath = os.path.normpath(os.path.join(root, filename))
-        if not fullpath.startswith(root):
-            continue
-        if fullpath == root or not fullpath.startswith(root + os.sep):
-            continue
-        os.unlink(fullpath)
-        return
-    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+    fd, resolved = _confined_fd(path, allowed_roots, write=False)
+    os.close(fd)
+    os.unlink(resolved)
 
 def assert_secure_regular_file(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, max_bytes: int | None=DEFAULT_MAX_HASH_BYTES) -> Path:
-    roots = _as_path_list(allowed_roots)
-    filename = _reject_device_or_empty(path)
-    for root in roots:
-        fullpath = os.path.normpath(os.path.join(root, filename))
-        if not fullpath.startswith(root):
-            continue
-        if fullpath == root or not fullpath.startswith(root + os.sep):
-            continue
-        try:
-            st = os.lstat(fullpath)
-        except OSError as exc:
-            raise PathSecurityError(f"cannot stat path: {fullpath}") from exc
-        if stat.S_ISLNK(st.st_mode):
-            raise PathSecurityError(f"symlink rejected: {fullpath}")
-        if not stat.S_ISREG(st.st_mode):
-            raise PathSecurityError(f"not a regular file: {fullpath}")
-        if max_bytes is not None and st.st_size > max_bytes:
-            raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {fullpath}")
-        return Path(fullpath)
-    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+    resolved = resolve_within_allowed_roots(path, allowed_roots, must_exist=True)
+    st = os.lstat(resolved)
+    if _is_reparse(st):
+        raise PathSecurityError(f"symlink rejected: {resolved}")
+    if not stat.S_ISREG(st.st_mode):
+        raise PathSecurityError(f"not a regular file: {resolved}")
+    if max_bytes is not None and st.st_size > max_bytes:
+        raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {resolved}")
+    return resolved
 
 def open_secure(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, max_bytes: int | None=DEFAULT_MAX_HASH_BYTES) -> BinaryIO:
-    roots = _as_path_list(allowed_roots)
-    filename = _reject_device_or_empty(path)
-    flags = os.O_RDONLY
-    if hasattr(os, "O_CLOEXEC"):
-        flags |= os.O_CLOEXEC
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    for root in roots:
-        fullpath = os.path.normpath(os.path.join(root, filename))
-        if not fullpath.startswith(root):
-            continue
-        if fullpath == root or not fullpath.startswith(root + os.sep):
-            continue
+    fd, resolved = _confined_fd(path, allowed_roots, write=False)
+    try:
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode):
+            raise PathSecurityError(f"opened handle is not a regular file: {resolved}")
+        if max_bytes is not None and opened.st_size > max_bytes:
+            raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {resolved}")
+        return os.fdopen(fd, "rb")
+    except Exception:
         try:
-            st = os.lstat(fullpath)
-        except OSError as exc:
-            raise PathSecurityError(f"cannot stat path: {fullpath}") from exc
-        if stat.S_ISLNK(st.st_mode):
-            raise PathSecurityError(f"symlink rejected: {fullpath}")
-        if not stat.S_ISREG(st.st_mode):
-            raise PathSecurityError(f"not a regular file: {fullpath}")
-        if max_bytes is not None and st.st_size > max_bytes:
-            raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {fullpath}")
-        try:
-            fd = os.open(fullpath, flags)
-        except OSError as exc:
-            raise PathSecurityError(f"secure open failed: {fullpath}") from exc
-        try:
-            opened = os.fstat(fd)
-            if not stat.S_ISREG(opened.st_mode):
-                raise PathSecurityError(f"opened handle is not a regular file: {fullpath}")
-            if max_bytes is not None and opened.st_size > max_bytes:
-                raise PathSecurityError(f"file exceeds max_bytes ({max_bytes}): {fullpath}")
-            return os.fdopen(fd, "rb")
-        except Exception:
-            try:
-                os.close(fd)
-            except OSError:
-                pass
-            raise
-    raise PathSecurityError(f"path escapes allowed_roots: {path}")
+            os.close(fd)
+        except OSError:
+            pass
+        raise
 
 def sha256_file(path: Path | str, *, allowed_roots: Sequence[Path | str] | Path | str, max_bytes: int | None=DEFAULT_MAX_HASH_BYTES) -> str:
     handle=open_secure(path,allowed_roots,max_bytes=max_bytes)

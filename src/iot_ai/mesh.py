@@ -354,8 +354,8 @@ def delegate(
                         usage["model_served"] = route_model
                         usage["model_identity_source"] = "cli-route-configured-model"
                     else:
-                        usage["model_served"] = f"{provider}-subscription-cli"
-                        usage["model_identity_source"] = "cli-success-subscription-receipt"
+                        usage["model_served"] = None
+                        usage["model_identity_source"] = "unverified-cli-success"
                 status = "pass" if completed.returncode == 0 and output.strip() else "failed"
                 if completed.returncode != 0:
                     low = raw_output.lower()
@@ -446,7 +446,7 @@ def delegate(
             "route_id": route["route_id"],
             "provider": provider,
             "status": readiness_status,
-            "authenticated": status == "pass" or failure_class not in {"auth"},
+            "authenticated": status == "pass" and exact_model,
             "model_requested": selected_model,
             "model_served": result.get("model_served"),
             "model_identity_verified": exact_model,

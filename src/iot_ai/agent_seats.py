@@ -69,12 +69,32 @@ def build_agent_envelope(
     body["envelope_sha256"] = hashlib.sha256(_canonical(body)).hexdigest()
     return body
 
+def agent_reply_signature(envelope: dict[str, Any], text: str, *, key: str | None = None) -> str:
+    material = f"{envelope['envelope_sha256']}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}".encode("utf-8")
+    secret = (key or os.environ.get("IOT_AI_AGENT_REPLY_KEY") or "").encode("utf-8")
+    if len(secret) < 24:
+        raise PermissionError("IOT_AI_AGENT_REPLY_KEY must contain an independent reply key")
+    return hmac.new(secret, material, hashlib.sha256).hexdigest()
+
 def validate_agent_reply(envelope: dict[str, Any], reply: dict[str, Any]) -> dict[str, Any]:
     text = str(reply.get("text") or "")
     writes = int(reply.get("writes_performed") or 0)
     failure = reply.get("failure_class")
     status = str(reply.get("status") or "failed")
-    if reply.get("envelope_id") != envelope["envelope_id"] or not hmac.compare_digest(str(reply.get("envelope_sha256") or ""), envelope["envelope_sha256"]):
+    signature = str(reply.get("independent_signature") or "")
+    if not signature or signature in {envelope.get("envelope_sha256"), reply.get("envelope_sha256")}:
+        status, failure = "failed", "unsigned_reply"
+    else:
+        try:
+            expected = agent_reply_signature(envelope, text)
+        except PermissionError:
+            status, failure = "failed", "unsigned_reply"
+        else:
+            if not hmac.compare_digest(signature, expected):
+                status, failure = "failed", "unsigned_reply"
+    if failure == "unsigned_reply":
+        pass
+    elif reply.get("envelope_id") != envelope["envelope_id"] or not hmac.compare_digest(str(reply.get("envelope_sha256") or ""), envelope["envelope_sha256"]):
         status, failure = "failed", "envelope_mismatch"
     elif writes != 0:
         status, failure = "failed", "policy_violation"

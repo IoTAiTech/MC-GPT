@@ -5,7 +5,7 @@
   },
   "classification": "private-release-candidate-awaiting-founder-publication-decision",
   "enterprise_addon_version": "1.2.0-alpha.2",
-  "mc_gpt_version": "0.8.0-alpha.5",
+  "mc_gpt_version": "0.8.0-alpha.6",
   "pending": [
     "Founder approval before public Git push, tag, GitHub Release, metadata edit or branch cleanup",
     "live hosted GitHub Actions CI/Security conclusion and provenance attestation",
@@ -36,7 +36,7 @@
     "verified_private_baseline_sha256": "00d5961ba5fb33dc71ae81eecd7a0f06449293636d2bc050e2fe661fd125d3e9",
     "verified_private_baseline_version": "6.7.0-beta.4"
   },
-  "suite_version": "6.7.0-beta.5",
+  "suite_version": "6.7.0-beta.6",
   "tests": {
     "artifact_and_install_qualification": "emitted outside source tree in FINAL_INDEPENDENT_VERIFICATION.json",
     "branch_aware_coverage_percent": 71,

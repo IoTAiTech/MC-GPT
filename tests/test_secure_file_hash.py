@@ -45,4 +45,16 @@ class SecureFileHashTests(unittest.TestCase):
    self.assertEqual(outside.read_text(),'secret')
   finally:
    link.unlink(missing_ok=True);outside.unlink();outside.parent.rmdir()
+ def test_intermediate_symlink_cannot_escape(self):
+  outside=Path(tempfile.mkdtemp()); (outside/'escaped.txt').write_text('keep')
+  link=self.root/'link'
+  try: link.symlink_to(outside, target_is_directory=True)
+  except (OSError,NotImplementedError):
+   (outside/'escaped.txt').unlink(); outside.rmdir(); self.skipTest('symlink unavailable')
+  try:
+   with self.assertRaises(PathSecurityError):
+    confined_text_write('link/escaped.txt','audit',[self.root])
+   self.assertEqual((outside/'escaped.txt').read_text(),'keep')
+  finally:
+   link.unlink(missing_ok=True); (outside/'escaped.txt').unlink(); outside.rmdir()
 if __name__=='__main__': unittest.main()

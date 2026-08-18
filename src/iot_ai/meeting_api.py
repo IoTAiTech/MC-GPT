@@ -27,15 +27,28 @@ def _json(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any])
     handler.send_header("Cache-Control", "no-store")
     handler.end_headers(); handler.wfile.write(body)
 
-def _handler(user_home: Path, token: str):
+FOUNDER_POST_PATHS = {
+    "/api/meeting/v1/meetings",
+    "/api/meeting/v1/calendar/events",
+    "/api/meeting/v1/seats/agents",
+    "/api/meeting/v1/reports",
+}
+FOUNDER_POST_SUFFIXES = {"approve", "tasks", "start"}
+
+def _handler(user_home: Path, token: str, founder_token: str = ""):
     class Handler(BaseHTTPRequestHandler):
         server_version = "IOT-AI-Meeting/1"
         def log_message(self, fmt: str, *args: Any) -> None:
             return
-        def _authorized(self) -> bool:
+        def _bearer(self) -> str:
             header = self.headers.get("Authorization", "")
-            supplied = header[7:] if header.startswith("Bearer ") else ""
+            return header[7:] if header.startswith("Bearer ") else ""
+        def _authorized(self) -> bool:
+            supplied = self._bearer()
             return bool(token) and hmac.compare_digest(supplied, token)
+        def _founder(self) -> bool:
+            supplied = self._bearer()
+            return bool(founder_token) and hmac.compare_digest(supplied, founder_token)
         def _body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0") or 0)
             if length < 0 or length > MAX_BODY: raise ValueError("request body too large")
@@ -45,9 +58,15 @@ def _handler(user_home: Path, token: str):
         def _route(self, method: str) -> None:
             if self.path == "/health":
                 _json(self, 200, {"ok": True, "service": "iot-ai-meeting", "version": "v1"}); return
-            if not self._authorized():
+            if not self._authorized() and not self._founder():
                 _json(self, 401, {"ok": False, "error": "unauthorized", "code": 401}); return
             parsed = urlparse(self.path); path = parsed.path; query = parse_qs(parsed.query)
+            founder_required = method == "POST" and (
+                path in FOUNDER_POST_PATHS
+                or path.split("/")[-1] in FOUNDER_POST_SUFFIXES
+            )
+            if founder_required and not self._founder():
+                _json(self, 403, {"ok": False, "error": "founder-authority-required", "code": 403}); return
             try:
                 if method == "GET" and path == "/api/meeting/v1/meetings":
                     _json(self, 200, {"ok": True, "meetings": list_meetings(user_home)}); return
@@ -98,6 +117,9 @@ def serve(user_home: Path, *, host: str = "127.0.0.1", port: int = 8790, token_e
     if host not in {"127.0.0.1", "::1", "localhost"}:
         raise PermissionError("Meeting API is loopback-bound by default")
     token = os.environ.get(token_env, "")
+    founder_token = os.environ.get("IOT_AI_MEETING_FOUNDER_TOKEN", "")
     if len(token) < 24:
         raise PermissionError(f"{token_env} must contain a strong bearer token")
-    ThreadingHTTPServer((host, int(port)), _handler(user_home, token)).serve_forever()
+    if founder_token and hmac.compare_digest(founder_token, token):
+        raise PermissionError("IOT_AI_MEETING_FOUNDER_TOKEN must be distinct from the Meeting API token")
+    ThreadingHTTPServer((host, int(port)), _handler(user_home, token, founder_token)).serve_forever()

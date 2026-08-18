@@ -19,8 +19,15 @@ SKIP_PARTS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_ca
 SKIP_FILE_NAMES = {"pytest-output.txt", "junit-release.xml"}
 SKIP_FILE_PREFIXES = ("junit-",)
 SKIP_FILE_SUFFIXES = (".coverage",)
-TEXT_SUFFIXES = {".py", ".md", ".txt", ".json", ".toml", ".yml", ".yaml", ".ini", ".cfg", ".sh", ".ps1", ".cmd", ".cff", ".xml", ".csv", ".srt"}
+TEXT_SUFFIXES = {".py", ".md", ".txt", ".json", ".toml", ".yml", ".yaml", ".ini", ".cfg", ".sh", ".ps1", ".cmd", ".cff", ".xml", ".csv", ".srt", ".html", ".mjs", ".js", ".css", ".svg", ".in"}
 ARCHIVE_SUFFIXES = {".zip", ".whl"}
+CLASSIFIED_BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".xlsx"}
+KNOWN_EMPTY_SUFFIX_NAMES = {
+    "LICENSE", "NOTICE", "MANIFEST.in", ".gitignore", ".gitattributes",
+    ".editorconfig", ".nojekyll", "CODEOWNERS",
+}
+FORBIDDEN_BASENAMES = {".env", ".netrc", "id_rsa", "id_ed25519", "credentials"}
+FORBIDDEN_SUFFIXES = {".env", ".pem", ".key"}
 
 # Keep patterns split so this scanner does not self-trigger.
 PRIVATE_IP = re.compile(rb"\b(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})\b")
@@ -98,6 +105,19 @@ def iter_payloads(root: Path) -> Iterable[tuple[str, bytes]]:
             continue
         if should_skip_file(rel, path.name):
             continue
+        name = path.name
+        if name in FORBIDDEN_BASENAMES or name.startswith(".env.") or path.suffix.lower() in FORBIDDEN_SUFFIXES:
+            yield rel, b"FORBIDDEN_ENV_OR_KEY"
+            continue
+        classified = (
+            path.suffix.lower() in TEXT_SUFFIXES
+            or path.suffix.lower() in ARCHIVE_SUFFIXES
+            or path.suffix.lower() in CLASSIFIED_BINARY_SUFFIXES
+            or name in KNOWN_EMPTY_SUFFIX_NAMES
+        )
+        if not classified:
+            yield rel, b"UNCLASSIFIED_FILE"
+            continue
         if path.suffix in ARCHIVE_SUFFIXES:
             try:
                 with zipfile.ZipFile(path) as archive:
@@ -114,7 +134,9 @@ def iter_payloads(root: Path) -> Iterable[tuple[str, bytes]]:
             except zipfile.BadZipFile:
                 yield rel, b"INVALID_ARCHIVE"
             continue
-        if path.suffix.lower() in TEXT_SUFFIXES or path.name in {"LICENSE", "NOTICE", "MANIFEST.in", ".gitignore", ".gitattributes"}:
+        if path.suffix.lower() in CLASSIFIED_BINARY_SUFFIXES:
+            continue
+        if path.suffix.lower() in TEXT_SUFFIXES or path.name in KNOWN_EMPTY_SUFFIX_NAMES:
             yield rel, path.read_bytes()
 
 
@@ -135,6 +157,12 @@ def scan_tree(root: Path) -> list[dict[str, str]]:
             continue
         if data == b"INVALID_ARCHIVE":
             findings.append({"file": name, "rule": "invalid-archive"})
+            continue
+        if data == b"FORBIDDEN_ENV_OR_KEY":
+            findings.append({"file": name, "rule": "forbidden-env-or-key"})
+            continue
+        if data == b"UNCLASSIFIED_FILE":
+            findings.append({"file": name, "rule": "unclassified-file"})
             continue
         for rule, pattern in RULES.items():
             if pattern.search(data):

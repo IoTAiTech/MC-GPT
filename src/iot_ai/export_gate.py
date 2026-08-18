@@ -52,6 +52,11 @@ def _read_confined_bytes(path: Path, roots: list[Path]) -> bytes:
     finally:
         handle.close()
 
+MAX_ARCHIVE_MEMBERS = 256
+MAX_ARCHIVE_UNCOMPRESSED = 8 * 1024 * 1024
+MAX_ARCHIVE_RATIO = 100
+MAX_XLSX_CELLS = 10_000
+
 def _inspect_xlsx_bytes(data: bytes) -> dict:
     from openpyxl import load_workbook
     workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
@@ -62,6 +67,8 @@ def _inspect_xlsx_bytes(data: bytes) -> dict:
                 for value in row:
                     if value is not None:
                         cells.append(str(value))
+                    if len(cells) > MAX_XLSX_CELLS:
+                        return {"decision": "block", "kind": "xlsx", "findings": ["archive_quota"], "redacted_text": "", "redacted_sha256": hashlib.sha256(b"").hexdigest()}
     finally:
         workbook.close()
     return {**_findings_for_text("\n".join(cells)), "kind": "xlsx"}
@@ -70,9 +77,16 @@ def _inspect_zip_bytes(data: bytes) -> dict:
     findings: list[str] = []
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            for info in archive.infolist():
-                if info.is_dir():
-                    continue
+            infos = [info for info in archive.infolist() if not info.is_dir()]
+            if len(infos) > MAX_ARCHIVE_MEMBERS:
+                return {"decision": "block", "kind": "zip", "findings": ["archive_quota"], "redacted_text": "", "redacted_sha256": hashlib.sha256(b"").hexdigest()}
+            uncompressed = sum(max(0, int(info.file_size)) for info in infos)
+            if uncompressed > MAX_ARCHIVE_UNCOMPRESSED:
+                return {"decision": "block", "kind": "zip", "findings": ["archive_quota"], "redacted_text": "", "redacted_sha256": hashlib.sha256(b"").hexdigest()}
+            for info in infos:
+                if info.compress_size and info.file_size / max(1, info.compress_size) > MAX_ARCHIVE_RATIO:
+                    return {"decision": "block", "kind": "zip", "findings": ["archive_quota"], "redacted_text": "", "redacted_sha256": hashlib.sha256(b"").hexdigest()}
+            for info in infos:
                 name = info.filename.lower()
                 payload = archive.read(info)
                 if name.endswith(".xlsx"):

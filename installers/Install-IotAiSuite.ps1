@@ -1,23 +1,25 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.7.0-beta.6 | Date: 2026-08-18
 [CmdletBinding()]
 param(
   [switch]$Apply,
   [switch]$Uninstall,
   [switch]$Rollback,
   [switch]$DeepScan,
+  [Alias("HomePath")]
   [string]$Home = $env:USERPROFILE,
   [string]$Hosts = "all",
   [string]$PackageStore = "",
-  [string]$CurrentPackage = ""
+  [string]$CurrentPackage = "",
+  [string]$PackageArchive = ""
 )
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $DataRoot = Join-Path $env:LOCALAPPDATA "IoT-AI.Tech\IOT-AI-Suite\v1"
 $SuiteBase = Join-Path $DataRoot "suite"
-$RuntimeRoot = Join-Path $SuiteBase "6.7.0-beta.5"
+$RuntimeRoot = Join-Path $SuiteBase "6.7.0-beta.6"
 $TxId = "powershell-install-{0}-{1}" -f ([DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")), $PID
 $TxRoot = Join-Path $DataRoot "update-transactions\$TxId"
 $LogRoot = Join-Path $DataRoot "logs"
@@ -43,7 +45,7 @@ if ($DeepScan) {
 }
 
 $result = [ordered]@{
-  schema="iot-ai.windows-install-plan.v3"; version="6.7.0-beta.5"; home=$Home; runtime=$RuntimeRoot;
+  schema="iot-ai.windows-install-plan.v3"; version="6.7.0-beta.6"; home=$Home; runtime=$RuntimeRoot;
   apply=[bool]$Apply; uninstall=[bool]$Uninstall; rollback=[bool]$Rollback; clean_install=$true;
   deep_scan=[bool]$DeepScan; executables=$found; pep668_safe=$true; logs_root=$LogRoot
 }
@@ -83,16 +85,16 @@ try {
     throw "-PackageStore and -CurrentPackage must be supplied together"
   }
   if ($PackageStore) {
-    $CleanArgs = @("--home",$Home,"package","clean","--current-version","6.7.0-beta.5","--package-store",$PackageStore,"--current-package",$CurrentPackage)
+    $CleanArgs = @("--home",$Home,"package","clean","--current-version","6.7.0-beta.6","--package-store",$PackageStore,"--current-package",$CurrentPackage)
     if ($PackageArchive) { $CleanArgs += @("--package-archive",$PackageArchive) }
     $CleanArgs += "--apply"
     & $VenvCli @CleanArgs
   } else {
-    & $VenvCli --home $Home package clean --current-version "6.7.0-beta.5" --apply
+    & $VenvCli --home $Home package clean --current-version "6.7.0-beta.6" --apply
   }
   & $VenvCli --home $Home status --logs
   [ordered]@{
-    schema="iot-ai.powershell-install-receipt.v1"; transaction_id=$TxId; version="6.7.0-beta.5";
+    schema="iot-ai.powershell-install-receipt.v1"; transaction_id=$TxId; version="6.7.0-beta.6";
     home=$Home; runtime=$RuntimeRoot; previous_runtime_archive=$Previous; clean_install=$true;
     logs_root=$LogRoot; decision="pass"
   } | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $TxRoot "POWERSHELL_INSTALL_RECEIPT.json") -Encoding utf8

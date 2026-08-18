@@ -12,6 +12,7 @@ All notable changes are documented here. The project follows semantic versioning
 - Provider and test subprocesses pin allowlisted absolute executables and inherit a minimal environment without founder/provider secrets (SEC-P1-010).
 - Meeting `run()` claims a compare-and-swap generation and resumes terminal seat/stage attempts instead of re-dispatching (SEC-P1-012).
 - Founder Meeting approval requires an independently provisioned, expiring, one-use signed receipt (SEC-P1-014).
+- PMD `SchemaMigrationRequired` is treated as a memoized external authority blocker, not a vulnerability. `iot-ai` returns the existing receipt until the public `/etc/ai-iot/pmd/trust` bundle digest changes and does not rerun normal PRCS preflight (v2.1 E-01).
 - Windows installer parameter is `$HomePath` (alias `Home`); package identity is generated from Suite 6.8.0-beta.1.
 - CI matrix now includes `windows-latest` and `macos-latest` lifecycle jobs. Live on-device PowerShell 5.1/7 qualification remains an external hardware seat.
 

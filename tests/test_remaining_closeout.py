@@ -251,6 +251,50 @@ class AuditChangeBindingTests(IsolatedHomeTestCase):
         self.assertIn("change-binding-missing", result["findings"])
 
 
+class ReleaseWorkflowCriticalTests(unittest.TestCase):
+    def test_release_workflow_does_not_interpolate_or_clobber(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        text = (root / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        run_chunks = []
+        collecting = False
+        current: list[str] = []
+        for line in text.splitlines():
+            if line.strip() == "run: |":
+                collecting = True
+                current = []
+                continue
+            if collecting:
+                if line.startswith("      - ") or (line and not line.startswith(" ")):
+                    run_chunks.append("\n".join(current))
+                    collecting = False
+                else:
+                    current.append(line)
+        if collecting:
+            run_chunks.append("\n".join(current))
+        joined = "\n".join(run_chunks)
+        self.assertNotIn("${{ inputs.", joined)
+        self.assertNotIn("--clobber", text)
+        self.assertIn("git checkout --detach", text)
+        self.assertIn("RAW_TAG: ${{ inputs.tag }}", text)
+
+
+class ExternalBlockerTests(IsolatedHomeTestCase):
+    def test_missing_issuer_anchor_is_memoized_without_preflight(self) -> None:
+        from iot_ai.external_blocker import BLOCKER_ID, ISSUER_ANCHOR, evaluate_pmd_schema_recovery
+
+        first = evaluate_pmd_schema_recovery(self.home)
+        second = evaluate_pmd_schema_recovery(self.home)
+        self.assertEqual(first["blocker_id"], BLOCKER_ID)
+        self.assertEqual(first["result"], "PMD_RECOVERY_EXTERNAL_BLOCKER")
+        self.assertEqual(first["missing_artifact"], str(ISSUER_ANCHOR))
+        self.assertFalse(first["security_vulnerability"])
+        self.assertFalse(first["normal_preflight_retried"])
+        self.assertTrue(second["memoized"])
+        self.assertFalse(second["normal_preflight_retried"])
+        self.assertFalse(second["state_changed"])
+        self.assertEqual(first["authority_bundle_digest"], second["authority_bundle_digest"])
+
+
 class PlatformContractTests(unittest.TestCase):
     def test_windows_installer_parameter_and_version_lockstep(self) -> None:
         from iot_ai.suite_version import SUITE_VERSION

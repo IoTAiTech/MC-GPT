@@ -1,11 +1,15 @@
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-* @IoTAiTech
-/.github/ @IoTAiTech
-/src/iot_ai/privacy.py @IoTAiTech
-/src/iot_ai/export_gate.py @IoTAiTech
-/src/iot_ai/release_guard.py @IoTAiTech
-/src/iot_ai/meeting_reporting.py @IoTAiTech
-/src/iot_ai/util.py @IoTAiTech
-/tools/public_boundary_check.py @IoTAiTech
-/LICENSE* @IoTAiTech
-/SECURITY.md @IoTAiTech
+# Version: 6.8.0-beta.1 | Date: 2026-08-19
+# Default owner is the reviewable team, not the whole organization.
+# GitHub still forbids a pull-request author from approving their own PR.
+* @IoTAiTech/security-reviewers
+/.github/ @IoTAiTech/security-reviewers
+/src/iot_ai/util.py @IoTAiTech/security-reviewers
+/src/iot_ai/release_guard.py @IoTAiTech/security-reviewers
+/src/iot_ai/privacy.py @IoTAiTech/security-reviewers
+/src/iot_ai/export_gate.py @IoTAiTech/security-reviewers
+/src/iot_ai/meeting_reporting.py @IoTAiTech/security-reviewers
+/tools/public_boundary_check.py @IoTAiTech/security-reviewers
+/LICENSE* @IoTAiTech/security-reviewers
+/SECURITY.md @IoTAiTech/security-reviewers
+

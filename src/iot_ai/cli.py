@@ -93,6 +93,8 @@ SENSITIVE_KEYS = {
     "secret", "secret_env", "secret_value", "password", "passwd", "lease_token",
     "access_token", "refresh_token", "bearer_token", "api_key", "apikey",
     "authorization", "auth_header", "private_key", "client_secret",
+    "path", "paths", "root", "roots", "allowed_root", "allowed_roots",
+    "trusted_root", "trusted_roots", "fullpath", "realpath", "home",
 }
 SAFE_TELEMETRY_KEYS = {
     "token_budget", "input_tokens", "output_tokens", "cached_tokens",
@@ -105,7 +107,10 @@ def _sensitive_key(key_text: str) -> bool:
         return False
     if key_text in SENSITIVE_KEYS:
         return True
-    return key_text.endswith(("_password", "_secret", "_token", "_api_key", "_private_key"))
+    return key_text.endswith((
+        "_password", "_secret", "_token", "_api_key", "_private_key",
+        "_path", "_paths", "_root", "_roots",
+    ))
 
 
 def _mask_secret_text(text: str) -> str:

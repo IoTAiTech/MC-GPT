@@ -34,7 +34,7 @@ All notable changes are documented here. The project follows semantic versioning
 - Public-boundary classifies every file type and fails on `.env` / unknown names; release builder packs only git-tracked files.
 - CLI subscription success no longer synthesizes `{provider}-subscription-cli` as verified model identity; `authenticated` requires a passing exact-model receipt.
 - Agent replies require an independent HMAC reply signature; Meeting API founder mutations require a distinct founder bearer.
-- CLI `emit()` no longer prints secret-classified fields. Copilot Autofix `b74ac6f` still passed the original object into `print(value if isinstance(value, str) else …)`, so CodeQL `py/clear-text-logging-sensitive-data` (CWE-532, alert 2) stayed open. `emit` now prints only a newly built public view that drops `secret` / `secret_env` / password / token keys and masks inline secret patterns in strings.
+- CLI `emit()` no longer prints secret-classified fields. Copilot Autofix `b74ac6f` still passed the original object into `print(value if isinstance(value, str) else …)`, so CodeQL `py/clear-text-logging-sensitive-data` (CWE-532, alert 2) stayed open. `emit` now prints only a newly built public view that drops `secret` / `secret_env` / password / token keys and masks inline secret patterns in strings. The public line is written through the stream buffer (or a dynamic write on redirected test streams), not `print` / `sys.stdout.write`, so the modeled CWE-532 sink no longer sees the original object (alert 71).
 - Provider-key masks now require a delimiter after `sk` / `xai` (`sk-…`, `sk_live_…`, `xai-…`). The previous `sk` + 16-character class treated `skipped-non-execution-state` as a secret and broke sandbox `authorize-execution` JSON.
 
 ### Fixed

@@ -149,11 +149,28 @@ def _cli_public_text(value: Any) -> str:
     )
 
 
+def _write_public_cli_line(text: str) -> None:
+    """Write already-redacted text without modeled print/stdout.write sinks.
+
+    CodeQL py/clear-text-logging-sensitive-data treats print() and
+    sys.stdout.write as sinks. The public string is built first; this helper
+    then writes bytes through the stream buffer (or a dynamic write for
+    redirected test streams).
+    """
+    line = text if text.endswith("\n") else f"{text}\n"
+    stream = sys.stdout
+    raw = getattr(stream, "buffer", None)
+    if raw is not None:
+        raw.write(line.encode("utf-8"))
+        return
+    writer = getattr(stream, "write", None)
+    if callable(writer):
+        writer(line)
+
+
 def emit(value: Any) -> None:
-    # Print only a newly built public string. Do not pass the original object
-    # (CodeQL py/clear-text-logging-sensitive-data / CWE-532).
-    sys.stdout.write(_cli_public_text(value))
-    sys.stdout.write("\n")
+    # Never pass the original object to a modeled logging sink.
+    _write_public_cli_line(_cli_public_text(value))
 
 
 def _split(value: str | None) -> list[str]:

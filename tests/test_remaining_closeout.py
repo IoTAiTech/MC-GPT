@@ -19,6 +19,7 @@ from iot_ai.exec_pin import test_env as build_test_env
 from iot_ai.founder_authority import issue_founder_receipt, persist_founder_key, verify_founder_receipt
 from iot_ai.meeting import approve, run as meeting_run, start
 from iot_ai.multicoder import run as multicoder_run
+from iot_ai.owned_delegate import _node_id
 from iot_ai.privacy_class import authoritative_privacy_class, deny_downgrade, max_privacy_class
 from tests.common import IsolatedHomeTestCase
 
@@ -118,6 +119,13 @@ def meeting_delegate(user_home, provider, prompt, stage="consultation", model="a
         "fallback_used": False,
         "failure_class": None,
     }
+
+
+class NodeIdTests(unittest.TestCase):
+    def test_windows_illegal_colon_is_stripped(self) -> None:
+        node = _node_id("implementation", "ollama@model-x:cloud", "run-1")
+        self.assertNotIn(":", node)
+        self.assertIn("ollama@model-x-cloud", node)
 
 
 class PrivacyClassTests(unittest.TestCase):

@@ -60,7 +60,7 @@ def _role_contract(role: str) -> dict[str, Any]:
 def _node_id(stage: str, seat: str, run_id: str) -> str:
     digest = hashlib.sha256(f"{run_id}:{stage}:{seat}".encode("utf-8")).hexdigest()[:12]
     safe_stage = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in stage).strip("-")
-    safe_seat = "".join(ch if ch.isalnum() or ch in "-_@:." else "-" for ch in seat).strip("-")
+    safe_seat = "".join(ch if ch.isalnum() or ch in "-_@." else "-" for ch in seat).strip("-")
     return f"{safe_stage}-{safe_seat}-{digest}"
 
 

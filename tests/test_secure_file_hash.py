@@ -33,7 +33,7 @@ class SecureFileHashTests(unittest.TestCase):
  def test_resolve_accepts_confined_new_file(self):
   target=self.root/'report.json'
   resolved=resolve_within_allowed_roots(target,self.root,must_exist=False)
-  self.assertEqual(resolved,self.root/'report.json')
+  self.assertEqual(resolved.resolve(), (self.root/'report.json').resolve())
  def test_confined_write_rejects_symlink(self):
   outside=Path(tempfile.mkdtemp())/'secret.txt';outside.write_text('secret')
   link=self.root/'out.txt'
@@ -57,4 +57,21 @@ class SecureFileHashTests(unittest.TestCase):
    self.assertEqual((outside/'escaped.txt').read_text(),'keep')
   finally:
    link.unlink(missing_ok=True); (outside/'escaped.txt').unlink(); outside.rmdir()
+ def test_os_alias_prefix_is_accepted(self):
+  """macOS /var and Windows 8.3: an alias that realpaths to the root is allowed."""
+  alias_parent=Path(tempfile.mkdtemp())
+  alias=alias_parent/'alias'
+  try:
+   alias.symlink_to(self.root, target_is_directory=True)
+  except (OSError,NotImplementedError):
+   alias_parent.rmdir(); self.skipTest('symlink unavailable')
+  try:
+   target=alias/'ok.txt'
+   resolved=resolve_within_allowed_roots(target,self.root,must_exist=True)
+   self.assertEqual(resolved.resolve(), (self.root/'ok.txt').resolve())
+   self.assertEqual(len(sha256_file(target,allowed_roots=[self.root])),64)
+   written=confined_text_write(alias/'alias-report.json','ok',[self.root])
+   self.assertEqual(written.resolve(), (self.root/'alias-report.json').resolve())
+  finally:
+   alias.unlink(missing_ok=True); alias_parent.rmdir()
 if __name__=='__main__': unittest.main()

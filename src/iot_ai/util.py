@@ -63,6 +63,27 @@ def _confined_to_root(candidate: str, root: str) -> bool:
         return False
     return candidate == root or candidate.startswith(root + os.sep)
 
+def _physical_join_preserving_final(path: str) -> str:
+    """Resolve existing ancestor directories without following the final name.
+
+    This maps OS prefix aliases (/var -> /private/var, Windows 8.3 names)
+    while leaving a final symlink visible for later rejection.
+    """
+    norm = os.path.normpath(os.path.expanduser(path))
+    if not os.path.isabs(norm):
+        return norm
+    parent, base = os.path.split(norm)
+    suffix = [base] if base else []
+    ancestor = parent
+    while ancestor and not os.path.isdir(ancestor):
+        ancestor, name = os.path.split(ancestor)
+        if not name:
+            break
+        suffix.insert(0, name)
+    if ancestor and os.path.isdir(ancestor):
+        ancestor = os.path.realpath(ancestor)
+    return os.path.join(ancestor, *suffix) if suffix else ancestor
+
 def _reject_device_or_empty(path: Path | str) -> str:
     filename = os.fspath(path)
     if os.name == "nt" and (filename.startswith("\\\\?\\") or filename.startswith("\\\\.\\")):
@@ -80,10 +101,17 @@ def _is_reparse(st: os.stat_result) -> bool:
 def _relative_parts(path: Path | str, root: str) -> list[str]:
     filename = _reject_device_or_empty(path)
     if os.path.isabs(filename):
-        norm = os.path.normpath(filename)
-        if not _confined_to_root(_normcase_text(norm), root):
-            raise PathSecurityError(f"path escapes allowed_roots: {path}")
-        rel = os.path.relpath(norm, root)
+        norm = os.path.normpath(os.path.expanduser(filename))
+        # Prefer the lexical path so in-root directory symlinks stay
+        # visible to O_NOFOLLOW. Remap only OS aliases such as macOS
+        # /var -> /private/var or Windows 8.3 short names.
+        if _confined_to_root(_normcase_text(norm), root):
+            rel = os.path.relpath(norm, root)
+        else:
+            remapped = _physical_join_preserving_final(filename)
+            if not _confined_to_root(_normcase_text(remapped), root):
+                raise PathSecurityError(f"path escapes allowed_roots: {path}")
+            rel = os.path.relpath(remapped, root)
     else:
         rel = os.path.normpath(filename)
     if rel in {"", "."}:
@@ -115,36 +143,38 @@ def _component_dir_flags() -> int:
 
 def _walk_parent_fd(root: str, parts: list[str]) -> int:
     """Open every intermediate component with O_NOFOLLOW / reparse rejection."""
-    parent_fd = _open_root_dir(root)
     intermediates = parts[:-1]
-    if os.name != "nt" and hasattr(os, "O_NOFOLLOW"):
-        try:
-            for part in intermediates:
-                nxt = os.open(part, _component_dir_flags(), dir_fd=parent_fd)
-                os.close(parent_fd)
-                parent_fd = nxt
-            return parent_fd
-        except OSError:
-            os.close(parent_fd)
-            raise
-    # Windows / no dir_fd: lstat every prefix, reject reparse points, then open last parent.
+    parent_fd = _open_root_dir(root)
     try:
-        current = root
         for part in intermediates:
-            current = os.path.join(current, part)
-            st = os.lstat(current)
-            if _is_reparse(st):
-                raise PathSecurityError(f"symlink rejected: {current}")
-            if not stat.S_ISDIR(st.st_mode):
-                raise PathSecurityError(f"not a directory: {current}")
-        os.close(parent_fd)
-        return _open_root_dir(current if intermediates else root)
-    except Exception:
-        try:
+            nxt = os.open(part, _component_dir_flags(), dir_fd=parent_fd)
             os.close(parent_fd)
-        except OSError:
-            pass
+            parent_fd = nxt
+        return parent_fd
+    except OSError:
+        os.close(parent_fd)
         raise
+
+def _windows_confined_fd(root: str, parts: list[str], *, write: bool) -> tuple[int, Path]:
+    """Windows cannot os.open() directories; lstat every component, then open the file."""
+    current = root
+    for index, part in enumerate(parts):
+        current = os.path.join(current, part)
+        last = index == len(parts) - 1
+        if last and write and not os.path.lexists(current):
+            fd = os.open(current, _write_flags(), 0o600)
+            return fd, Path(current)
+        st = os.lstat(current)
+        if _is_reparse(st):
+            raise PathSecurityError(f"symlink rejected: {current}")
+        if last:
+            if not stat.S_ISREG(st.st_mode):
+                raise PathSecurityError(f"not a regular file: {current}")
+            flags = _write_flags() if write else _read_flags()
+            return os.open(current, flags, 0o600), Path(current)
+        if not stat.S_ISDIR(st.st_mode):
+            raise PathSecurityError(f"not a directory: {current}")
+    raise PathSecurityError(f"path rejects empty or parent name: {current}")
 
 def resolve_within_allowed_roots(path: Path | str, allowed_roots: Sequence[Path | str] | Path | str, *, must_exist: bool=True) -> Path:
     """Resolve a user path under a trusted root with component-level symlink rejection."""
@@ -207,21 +237,25 @@ def _confined_fd(path: Path | str, allowed_roots: Sequence[Path | str] | Path | 
     for root in _as_path_list(allowed_roots):
         try:
             parts = _relative_parts(path, root)
-            parent_fd = _walk_parent_fd(root, parts)
+            if os.name == "nt":
+                fd, resolved = _windows_confined_fd(root, parts, write=write)
+            else:
+                parent_fd = _walk_parent_fd(root, parts)
+                try:
+                    fd = _open_last_component(parent_fd, parts[-1], write=write)
+                except OSError as exc:
+                    os.close(parent_fd)
+                    raise PathSecurityError(f"secure {'write' if write else 'read'} failed: {path}") from exc
+                os.close(parent_fd)
+                resolved = Path(root, *parts)
         except (OSError, PathSecurityError) as exc:
             last_error = str(exc)
             continue
-        try:
-            fd = _open_last_component(parent_fd, parts[-1], write=write)
-        except OSError as exc:
-            os.close(parent_fd)
-            raise PathSecurityError(f"secure {'write' if write else 'read'} failed: {path}") from exc
-        os.close(parent_fd)
         opened = os.fstat(fd)
         if not stat.S_ISREG(opened.st_mode):
             os.close(fd)
             raise PathSecurityError(f"not a regular file: {path}")
-        return fd, Path(root, *parts)
+        return fd, resolved
     raise PathSecurityError(f"{last_error}: {path}")
 
 def confined_text_write(path: Path | str, text: str, allowed_roots: Sequence[Path | str] | Path | str, *, encoding: str="utf-8", newline: str|None=None) -> Path:

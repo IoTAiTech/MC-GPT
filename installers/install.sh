@@ -38,7 +38,10 @@ VENV="$RUNTIME_ROOT/venv"
 WHEEL_ROOT="$ROOT/wheels"
 [ -d "$WHEEL_ROOT" ] || WHEEL_ROOT="$ROOT/installers/wheels"
 
-printf '%s\n' '{"schema":"iot-ai.install-plan.v3","version":"'"$VERSION"'","home":"'"$HOME_DIR"'","runtime":"'"$RUNTIME_ROOT"'","apply":'"$APPLY"',"clean_install":true,"pep668_safe":true,"logs_root":"'"$LOG_ROOT"'"}'
+_json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+printf '%s\n' '{"schema":"iot-ai.install-plan.v3","version":"'"$VERSION"'","home":"'"$(_json_escape "$HOME_DIR")"'","runtime":"'"$(_json_escape "$RUNTIME_ROOT")"'","apply":'"$APPLY"',"clean_install":true,"pep668_safe":true,"logs_root":"'"$(_json_escape "$LOG_ROOT")"'"}'
 [ "$APPLY" = true ] || exit 0
 
 mkdir -p "$SUITE_BASE" "$TX_ROOT"

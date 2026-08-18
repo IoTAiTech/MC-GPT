@@ -373,7 +373,7 @@ def atomic_json(path: Path,value: Any,mode: int=0o600)->None:
 def atomic_text(path: Path,value: str,mode: int=0o600)->None:
     path.parent.mkdir(parents=True,exist_ok=True);fd,tmp=tempfile.mkstemp(prefix=f".{path.name}.",dir=str(path.parent))
     try:
-        with os.fdopen(fd,"w",encoding="utf-8") as handle: handle.write(value);handle.flush();os.fsync(handle.fileno())
+        with os.fdopen(fd,"w",encoding="utf-8",newline="\n") as handle: handle.write(value);handle.flush();os.fsync(handle.fileno())
         os.chmod(tmp,mode);os.replace(tmp,path)
     finally:
         if os.path.exists(tmp): os.unlink(tmp)

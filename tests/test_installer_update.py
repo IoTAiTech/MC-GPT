@@ -79,10 +79,16 @@ class InstallerUpdateTests(IsolatedHomeTestCase):
         os.environ["APPDATA"] = str(foreign / "AppData" / "Roaming")
         os.environ["LOCALAPPDATA"] = str(foreign / "AppData" / "Local")
         scoped = resolve_home(str(self.home))
-        self.assertEqual(config_root(scoped), self.home / ".config" / "iot-ai-tech/iot-ai-suite/v1")
-        self.assertEqual(data_root(scoped), self.home / ".local" / "share" / "iot-ai-tech/iot-ai-suite/v1")
+        if os.name == "nt":
+            expected_config = self.home / "AppData" / "Roaming" / "IoT-AI.Tech" / "IOT-AI-Suite" / "v1"
+            expected_data = self.home / "AppData" / "Local" / "IoT-AI.Tech" / "IOT-AI-Suite" / "v1"
+        else:
+            expected_config = self.home / ".config" / "iot-ai-tech/iot-ai-suite/v1"
+            expected_data = self.home / ".local" / "share" / "iot-ai-tech/iot-ai-suite/v1"
+        self.assertEqual(config_root(scoped), expected_config)
+        self.assertEqual(data_root(scoped), expected_data)
         install(scoped, ["grok"] )
-        self.assertTrue((self.home / ".config" / "iot-ai-tech/iot-ai-suite/v1" / "install-state.json").is_file())
+        self.assertTrue((expected_config / "install-state.json").is_file())
         self.assertFalse(foreign.exists())
 
 

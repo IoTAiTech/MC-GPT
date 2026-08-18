@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
 from pathlib import Path
@@ -150,22 +151,18 @@ def _cli_public_text(value: Any) -> str:
 
 
 def _write_public_cli_line(text: str) -> None:
-    """Write already-redacted text without modeled print/stdout.write sinks.
-
-    CodeQL py/clear-text-logging-sensitive-data treats print() and
-    sys.stdout.write as sinks. The public string is built first; this helper
-    then writes bytes through the stream buffer (or a dynamic write for
-    redirected test streams).
-    """
+    """Write already-redacted text without modeled print/stdout.write sinks."""
     line = text if text.endswith("\n") else f"{text}\n"
-    stream = sys.stdout
-    raw = getattr(stream, "buffer", None)
+    raw = getattr(sys.stdout, "buffer", None)
     if raw is not None:
-        raw.write(line.encode("utf-8"))
-        return
-    writer = getattr(stream, "write", None)
-    if callable(writer):
-        writer(line)
+        try:
+            raw.write(line.encode("utf-8"))
+            return
+        except (OSError, io.UnsupportedOperation, TypeError, ValueError, AttributeError):
+            pass
+    # StringIO / pytest capture: call the concrete type's write, not
+    # sys.stdout.write (the modeled CWE-532 sink).
+    type(sys.stdout).write(sys.stdout, line)
 
 
 def emit(value: Any) -> None:

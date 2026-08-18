@@ -5,7 +5,7 @@
 from __future__ import annotations
 import os,tempfile,unittest
 from pathlib import Path
-from iot_ai.util import PathSecurityError,confined_text_write,open_secure,resolve_within_allowed_roots,sha256_file
+from iot_ai.util import PathSecurityError,_platform_root_aliases,confined_text_write,open_secure,resolve_within_allowed_roots,sha256_file
 class SecureFileHashTests(unittest.TestCase):
  def setUp(self): self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);(self.root/'ok.txt').write_text('ok')
  def tearDown(self): self.tmp.cleanup()
@@ -30,6 +30,16 @@ class SecureFileHashTests(unittest.TestCase):
   escaped=self.root/'..'/'escape.txt'
   with self.assertRaises(PathSecurityError):
    resolve_within_allowed_roots(escaped,self.root,must_exist=False)
+ def test_macos_private_var_alias_is_derived_from_trusted_root(self):
+  aliases=_platform_root_aliases("/private/var/folders/xx/T/tmpABC")
+  self.assertIn("/var/folders/xx/T/tmpABC", aliases)
+ def test_windows_drive_relative_component_is_rejected(self):
+  if os.name != 'nt':
+   self.skipTest('Windows drive-relative paths only')
+  with self.assertRaises(PathSecurityError):
+   resolve_within_allowed_roots('C:escape.txt',self.root,must_exist=False)
+  with self.assertRaises(PathSecurityError):
+   confined_text_write('D:out.txt','x',[self.root])
  def test_resolve_accepts_confined_new_file(self):
   target=self.root/'report.json'
   resolved=resolve_within_allowed_roots(target,self.root,must_exist=False)

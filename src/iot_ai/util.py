@@ -30,11 +30,43 @@ def sha256_bytes(value: bytes) -> str:
 def _normcase_text(path: str) -> str:
     return os.path.normcase(path) if os.name == "nt" else path
 
+def _windows_short_path(path: str) -> str | None:
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+        get_short = ctypes.windll.kernel32.GetShortPathNameW
+        buf = ctypes.create_unicode_buffer(32768)
+        written = get_short(ctypes.c_wchar_p(path), buf, 32768)
+        if not written:
+            return None
+        return buf.value or None
+    except (AttributeError, OSError, ValueError, TypeError):
+        return None
+
+def _platform_root_aliases(real: str) -> list[str]:
+    """Map OS prefix aliases of a trusted realpath. Never realpath a user path."""
+    aliases: list[str] = []
+    pairs = (
+        ("/private/var/", "/var/"),
+        ("/private/tmp/", "/tmp/"),
+        ("/private/etc/", "/etc/"),
+    )
+    for physical, public in pairs:
+        if real == physical.rstrip("/"):
+            aliases.append(public.rstrip("/"))
+        elif real.startswith(physical):
+            aliases.append(public + real[len(physical):])
+    short = _windows_short_path(real)
+    if short:
+        aliases.append(_normcase_text(os.path.normpath(short)))
+    return aliases
+
 def _trusted_entry(root: Path | str) -> tuple[str, tuple[str, ...]]:
     """Normalize an allow-list directory. The operator supplies the trust root.
 
-    Returns the realpath root plus the original spelling so OS aliases
-    (macOS /var, Windows 8.3) can be mapped without realpath() on user paths.
+    Returns the realpath root plus OS/presented aliases so macOS /var and
+    Windows 8.3 can be mapped without realpath() on user paths.
     """
     text = os.path.expanduser(os.fspath(root))
     if os.name == "nt" and (text.startswith("\\\\?\\") or text.startswith("\\\\.\\")):
@@ -48,8 +80,13 @@ def _trusted_entry(root: Path | str) -> tuple[str, tuple[str, ...]]:
         raise PathSecurityError("filesystem root is not an allowed trust boundary")
     real_n = _normcase_text(real)
     presented = _normcase_text(os.path.normpath(text))
-    aliases = (real_n,) if presented == real_n else (real_n, presented)
-    return real_n, aliases
+    aliases = [real_n]
+    if presented != real_n:
+        aliases.append(presented)
+    for extra in _platform_root_aliases(real_n):
+        if extra and extra not in aliases:
+            aliases.append(extra)
+    return real_n, tuple(aliases)
 
 def _trusted_directory(root: Path | str) -> str:
     return _trusted_entry(root)[0]
@@ -97,9 +134,13 @@ def _relative_parts(path: Path | str, root: str, aliases: Sequence[str] | None =
         prefixes = [root, *(aliases or ())]
         rel = None
         for prefix in prefixes:
-            if _confined_to_root(nrm, prefix):
-                rel = os.path.relpath(norm, prefix)
-                break
+            if not _confined_to_root(nrm, prefix):
+                continue
+            candidate = os.path.relpath(norm, prefix)
+            if candidate in {"", "."} or candidate.startswith("..") or os.path.isabs(candidate):
+                continue
+            rel = candidate
+            break
         if rel is None:
             raise PathSecurityError(f"path escapes allowed_roots: {path}")
     else:
@@ -111,6 +152,10 @@ def _relative_parts(path: Path | str, root: str, aliases: Sequence[str] | None =
     parts = [part for part in Path(rel).parts if part not in {"", "."}]
     if not parts or any(part == ".." for part in parts):
         raise PathSecurityError(f"path escapes allowed_roots: {path}")
+    if os.name == "nt":
+        for part in parts:
+            if ":" in part or "/" in part or "\\" in part:
+                raise PathSecurityError(f"path rejects drive or separator in component: {path}")
     return parts
 
 def _open_root_dir(root: str) -> int:

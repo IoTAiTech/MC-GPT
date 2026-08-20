@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -12,7 +14,8 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
+  packages: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,6 +25,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUTF8: "1"
@@ -43,11 +48,14 @@ jobs:
           RAW_TAG: ${{ inputs.tag }}
           EVENT_NAME: ${{ github.event_name }}
           REF_NAME: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
             TAG="${RAW_TAG}"
+          elif [[ "${EVENT_NAME}" == "release" ]]; then
+            TAG="${RELEASE_TAG}"
           else
             TAG="${REF_NAME}"
           fi
@@ -117,7 +125,173 @@ jobs:
           Not a production claim. Not a legal certification.
           MD
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "release already exists; refusing to replace assets" >&2
-            exit 1
+            echo "release already exists; leaving assets immutable"
+            exit 0
           fi
           gh release create "$TAG" dist/* --verify-tag --prerelease --title "$TITLE" --notes-file "$NOTES"
+
+  packages:
+    needs: [release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUTF8: "1"
+      IMAGE: ghcr.io/iotaitech/mc-gpt
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          fetch-tags: true
+      - name: Resolve and verify annotated tag
+        env:
+          RAW_TAG: ${{ inputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TAG="${RAW_TAG}"
+          elif [[ "${EVENT_NAME}" == "release" ]]; then
+            TAG="${RELEASE_TAG}"
+          else
+            TAG="${REF_NAME}"
+          fi
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$ ]]; then
+            echo "invalid release tag" >&2
+            exit 1
+          fi
+          git fetch --tags --force origin
+          git rev-parse --verify "refs/tags/${TAG}^{tag}"
+          COMMIT="$(git rev-list -n 1 "refs/tags/${TAG}")"
+          git checkout --detach "${COMMIT}"
+          test "$(git rev-parse HEAD)" = "${COMMIT}"
+          OVERLAY=false
+          if [[ ! -f Dockerfile ]]; then
+            git show "${WORKFLOW_SHA}:Dockerfile" > Dockerfile
+            git show "${WORKFLOW_SHA}:.dockerignore" > .dockerignore
+            OVERLAY=true
+          fi
+          test -f Dockerfile
+          NEWEST="$(git tag -l 'v*' --sort=-version:refname | head -n 1)"
+          if [[ "${TAG}" == "${NEWEST}" ]]; then
+            PUSH_LATEST=true
+          else
+            PUSH_LATEST=false
+          fi
+          printf 'TAG=%s\n' "${TAG}" >> "${GITHUB_ENV}"
+          printf 'RELEASE_COMMIT=%s\n' "${COMMIT}" >> "${GITHUB_ENV}"
+          printf 'DOCKERFILE_OVERLAY=%s\n' "${OVERLAY}" >> "${GITHUB_ENV}"
+          printf 'PUSH_LATEST=%s\n' "${PUSH_LATEST}" >> "${GITHUB_ENV}"
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/iotaitech/mc-gpt
+          tags: |
+            type=raw,value=${{ env.TAG }}
+            type=raw,value=latest,enable=${{ env.PUSH_LATEST }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/IoTAiTech/MC-GPT
+            org.opencontainers.image.url=https://github.com/IoTAiTech/MC-GPT
+            org.opencontainers.image.revision=${{ env.RELEASE_COMMIT }}
+            org.opencontainers.image.licenses=PolyForm-Noncommercial-1.0.0
+            org.opencontainers.image.title=MC-GPT / IOT-AI Coder Suite
+      - name: Build and push GHCR image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          registry-url: https://npm.pkg.github.com
+          scope: "@iotaitech"
+      - name: Publish GitHub Packages npm
+        if: hashFiles('npm/package.json') != ''
+        working-directory: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ env.TAG }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -f ../LICENSE LICENSE
+          cp -f ../NOTICE NOTICE
+          node --input-type=commonjs <<'JS'
+          const fs = require("fs");
+          const tag = process.env.TAG || "";
+          if (!/^v[0-9]/.test(tag)) {
+            throw new Error("missing TAG");
+          }
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          pkg.name = "@iotaitech/mc-gpt";
+          pkg.version = tag.slice(1);
+          pkg.repository = {
+            type: "git",
+            url: "git+https://github.com/IoTAiTech/MC-GPT.git"
+          };
+          pkg.publishConfig = {
+            registry: "https://npm.pkg.github.com",
+            access: "public"
+          };
+          fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+          JS
+          VER="${TAG#v}"
+          if npm publish --access public; then
+            echo "published @iotaitech/mc-gpt@${VER}"
+          else
+            npm view "@iotaitech/mc-gpt@${VER}" --registry https://npm.pkg.github.com
+          fi
+      - name: Report package linkage and public-visibility gap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          still_private=0
+          for spec in container/mc-gpt npm/mc-gpt; do
+            echo "::group::${spec}"
+            body="$(gh api "/orgs/${OWNER}/packages/${spec}" || true)"
+            vis=""
+            if printf '%s' "$body" | jq -e . >/dev/null 2>&1; then
+              printf '%s\n' "$body" | jq -r '"name \(.name // "")\ntype \(.package_type // "")\nvisibility \(.visibility // "")\nhtml_url \(.html_url // "")\nrepository \(.repository.full_name // "")"'
+              vis="$(printf '%s\n' "$body" | jq -r '.visibility // empty')"
+            else
+              echo "package metadata unavailable"
+            fi
+            if [[ "${vis}" != "public" ]]; then
+              still_private=1
+            fi
+            echo "::endgroup::"
+          done
+          if [[ "${still_private}" -eq 1 ]]; then
+            echo "::warning::GitHub Packages stay private until an org owner flips Package settings → Danger Zone → Change visibility → Public (one-way). REST and GraphQL cannot change GHCR/npm visibility. After that one-time flip, every later tag stays on the Packages tab."
+            echo "https://github.com/orgs/${OWNER}/packages/container/package/mc-gpt"
+            echo "https://github.com/orgs/${OWNER}/packages/npm/package/mc-gpt"
+          fi

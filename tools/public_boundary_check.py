@@ -25,6 +25,7 @@ CLASSIFIED_BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", 
 KNOWN_EMPTY_SUFFIX_NAMES = {
     "LICENSE", "NOTICE", "MANIFEST.in", ".gitignore", ".gitattributes",
     ".editorconfig", ".nojekyll", "CODEOWNERS",
+    "Dockerfile", ".dockerignore",
 }
 FORBIDDEN_BASENAMES = {".env", ".netrc", "id_rsa", "id_ed25519", "credentials"}
 FORBIDDEN_SUFFIXES = {".env", ".pem", ".key"}

@@ -30,6 +30,8 @@ class GitHubPackagesPublishTests(unittest.TestCase):
         self.assertIn("org.opencontainers.image.source", text)
         self.assertIn("npm.pkg.github.com", text)
         self.assertIn("@iotaitech/mc-gpt", text)
+        self.assertIn("visibility=public", text)
+        self.assertIn("git+https://github.com/IoTAiTech/MC-GPT.git", text)
         self.assertIn("types: [published]", text)
         self.assertIn("docker/login-action@", text)
         self.assertIn("docker/build-push-action@", text)

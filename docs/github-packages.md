@@ -20,6 +20,11 @@ every `workflow_dispatch` of `.github/workflows/release.yml` publishes:
 
 Python wheels stay on **Releases**. They are not GitHub Packages.
 
+GitHub's default for a first Container/npm publish is **private**. The
+release workflow then marks the package public so the repository
+Packages tab is not empty. If a first-time publish remains private,
+open Package settings → Change visibility → Public (one-way).
+
 ## Pull the container
 
 ```bash

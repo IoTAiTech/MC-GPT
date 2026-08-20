@@ -231,6 +231,10 @@ jobs:
           const fs = require("fs");
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           pkg.name = "@iotaitech/mc-gpt";
+          pkg.repository = {
+            type: "git",
+            url: "git+https://github.com/IoTAiTech/MC-GPT.git"
+          };
           pkg.publishConfig = {
             registry: "https://npm.pkg.github.com",
             access: "public"
@@ -242,3 +246,17 @@ jobs:
           else
             npm view "@iotaitech/mc-gpt@$(node -p 'require(\"./package.json\").version')" --registry https://npm.pkg.github.com
           fi
+      - name: Make GitHub Packages public and print linkage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          for spec in container/mc-gpt npm/mc-gpt; do
+            echo "::group::${spec}"
+            gh api "/orgs/${OWNER}/packages/${spec}" || true
+            gh api --method PATCH "/orgs/${OWNER}/packages/${spec}" -f visibility=public || true
+            gh api --method POST "/orgs/${OWNER}/packages/${spec}/visibility" -f visibility=public || true
+            echo "::endgroup::"
+          done

@@ -45,7 +45,7 @@ bash 06_CODER_AND_GIT_COMMANDS/PUBLISH_PUBLIC_GITHUB.sh \
 
 The script refuses non-GitHub remotes, dirty worktrees, lightweight/missing tags, identity failures, public-boundary failures or missing Founder confirmation. It pushes `main`, pushes the annotated tag and uses `gh release create --prerelease --verify-tag` for Community assets.
 
-GitHub **Releases** are not GitHub **Packages**. Wheels on a Release do not fill the Packages tab. Every tag, Release `published` event and `workflow_dispatch` of `.github/workflows/release.yml` also publishes `ghcr.io/iotaitech/mc-gpt` and `@iotaitech/mc-gpt` (see `docs/github-packages.md`).
+GitHub **Releases** are not GitHub **Packages**. Wheels on a Release do not fill the Packages tab. Every tag, Release `published` event and `workflow_dispatch` of `.github/workflows/release.yml` also publishes `ghcr.io/iotaitech/mc-gpt` and `@iotaitech/mc-gpt` (see `docs/github-packages.md`). First GHCR/npm publish stays private until an org owner flips Package settings → Change visibility → Public once; later versions of those packages stay public.
 
 ## Mandatory gate details
 

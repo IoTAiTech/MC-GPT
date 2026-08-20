@@ -20,10 +20,21 @@ every `workflow_dispatch` of `.github/workflows/release.yml` publishes:
 
 Python wheels stay on **Releases**. They are not GitHub Packages.
 
-GitHub's default for a first Container/npm publish is **private**. The
-release workflow then marks the package public so the repository
-Packages tab is not empty. If a first-time publish remains private,
-open Package settings → Change visibility → Public (one-way).
+GitHub's default for a first Container/npm publish is **private**.
+Private packages do **not** appear on the public repository Packages
+tab, even when they are linked to this repository. GitHub REST and
+GraphQL cannot change GHCR/npm visibility. An org owner must flip
+each package **once** (one-way):
+
+1. Open [container `mc-gpt` settings](https://github.com/orgs/IoTAiTech/packages/container/package/mc-gpt)
+   → Package settings → Danger Zone → Change visibility → **Public**.
+2. Open [npm `mc-gpt` settings](https://github.com/orgs/IoTAiTech/packages/npm/package/mc-gpt)
+   → Package settings → Danger Zone → Change visibility → **Public**.
+
+Org **Settings → Packages** must allow public package creation. After
+that one-time flip, every later `v*` tag, Release `published` event,
+and `workflow_dispatch` of `release.yml` keeps Packages in lockstep
+with Releases.
 
 ## Pull the container
 
@@ -50,5 +61,7 @@ GitHub requires the scope to match the GitHub owner. The npmjs.org name
 2. There was no Dockerfile and no `packages: write` permission.
 3. GitHub no longer accepts Python packages on GitHub Packages.
 
-Those three conditions are closed. Future version tags keep Packages in
-lockstep with Releases.
+Those three conditions are closed. Remaining empty-tab cause: first
+publish is still **private** until the org-owner visibility flip above.
+After that flip, future version tags keep Packages in lockstep with
+Releases.

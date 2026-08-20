@@ -14,7 +14,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 concurrency:
@@ -25,6 +25,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUTF8: "1"
@@ -129,6 +131,7 @@ jobs:
           gh release create "$TAG" dist/* --verify-tag --prerelease --title "$TITLE" --notes-file "$NOTES"
 
   packages:
+    needs: [release]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -246,17 +249,31 @@ jobs:
           else
             npm view "@iotaitech/mc-gpt@$(node -p 'require(\"./package.json\").version')" --registry https://npm.pkg.github.com
           fi
-      - name: Make GitHub Packages public and print linkage
+      - name: Report package linkage and public-visibility gap
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           OWNER="${GITHUB_REPOSITORY_OWNER}"
+          still_private=0
           for spec in container/mc-gpt npm/mc-gpt; do
             echo "::group::${spec}"
-            gh api "/orgs/${OWNER}/packages/${spec}" || true
-            gh api --method PATCH "/orgs/${OWNER}/packages/${spec}" -f visibility=public || true
-            gh api --method POST "/orgs/${OWNER}/packages/${spec}/visibility" -f visibility=public || true
+            body="$(gh api "/orgs/${OWNER}/packages/${spec}" || true)"
+            vis=""
+            if printf '%s' "$body" | jq -e . >/dev/null 2>&1; then
+              printf '%s\n' "$body" | jq -r '"name \(.name // "")\ntype \(.package_type // "")\nvisibility \(.visibility // "")\nhtml_url \(.html_url // "")\nrepository \(.repository.full_name // "")"'
+              vis="$(printf '%s\n' "$body" | jq -r '.visibility // empty')"
+            else
+              echo "package metadata unavailable"
+            fi
+            if [[ "${vis}" != "public" ]]; then
+              still_private=1
+            fi
             echo "::endgroup::"
           done
+          if [[ "${still_private}" -eq 1 ]]; then
+            echo "::warning::GitHub Packages stay private until an org owner flips Package settings → Danger Zone → Change visibility → Public (one-way). REST and GraphQL cannot change GHCR/npm visibility. After that one-time flip, every later tag stays on the Packages tab."
+            echo "https://github.com/orgs/${OWNER}/packages/container/package/mc-gpt"
+            echo "https://github.com/orgs/${OWNER}/packages/npm/package/mc-gpt"
+          fi

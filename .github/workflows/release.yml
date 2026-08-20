@@ -174,13 +174,23 @@ jobs:
           COMMIT="$(git rev-list -n 1 "refs/tags/${TAG}")"
           git checkout --detach "${COMMIT}"
           test "$(git rev-parse HEAD)" = "${COMMIT}"
+          OVERLAY=false
           if [[ ! -f Dockerfile ]]; then
             git show "${WORKFLOW_SHA}:Dockerfile" > Dockerfile
             git show "${WORKFLOW_SHA}:.dockerignore" > .dockerignore
+            OVERLAY=true
           fi
           test -f Dockerfile
+          NEWEST="$(git tag -l 'v*' --sort=-version:refname | head -n 1)"
+          if [[ "${TAG}" == "${NEWEST}" ]]; then
+            PUSH_LATEST=true
+          else
+            PUSH_LATEST=false
+          fi
           printf 'TAG=%s\n' "${TAG}" >> "${GITHUB_ENV}"
           printf 'RELEASE_COMMIT=%s\n' "${COMMIT}" >> "${GITHUB_ENV}"
+          printf 'DOCKERFILE_OVERLAY=%s\n' "${OVERLAY}" >> "${GITHUB_ENV}"
+          printf 'PUSH_LATEST=%s\n' "${PUSH_LATEST}" >> "${GITHUB_ENV}"
       - name: Set up QEMU
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
       - name: Set up Docker Buildx
@@ -198,10 +208,11 @@ jobs:
           images: ghcr.io/iotaitech/mc-gpt
           tags: |
             type=raw,value=${{ env.TAG }}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ env.PUSH_LATEST }}
           labels: |
             org.opencontainers.image.source=https://github.com/IoTAiTech/MC-GPT
             org.opencontainers.image.url=https://github.com/IoTAiTech/MC-GPT
+            org.opencontainers.image.revision=${{ env.RELEASE_COMMIT }}
             org.opencontainers.image.licenses=PolyForm-Noncommercial-1.0.0
             org.opencontainers.image.title=MC-GPT / IOT-AI Coder Suite
       - name: Build and push GHCR image
@@ -225,6 +236,7 @@ jobs:
         working-directory: npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ env.TAG }}
         shell: bash
         run: |
           set -euo pipefail
@@ -232,8 +244,13 @@ jobs:
           cp -f ../NOTICE NOTICE
           node --input-type=commonjs <<'JS'
           const fs = require("fs");
+          const tag = process.env.TAG || "";
+          if (!/^v[0-9]/.test(tag)) {
+            throw new Error("missing TAG");
+          }
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           pkg.name = "@iotaitech/mc-gpt";
+          pkg.version = tag.slice(1);
           pkg.repository = {
             type: "git",
             url: "git+https://github.com/IoTAiTech/MC-GPT.git"
@@ -244,10 +261,11 @@ jobs:
           };
           fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
           JS
+          VER="${TAG#v}"
           if npm publish --access public; then
-            echo "published @iotaitech/mc-gpt"
+            echo "published @iotaitech/mc-gpt@${VER}"
           else
-            npm view "@iotaitech/mc-gpt@$(node -p 'require(\"./package.json\").version')" --registry https://npm.pkg.github.com
+            npm view "@iotaitech/mc-gpt@${VER}" --registry https://npm.pkg.github.com
           fi
       - name: Report package linkage and public-visibility gap
         env:

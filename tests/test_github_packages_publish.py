@@ -44,6 +44,9 @@ class GitHubPackagesPublishTests(unittest.TestCase):
         self.assertNotIn("TAG=\"${{ inputs.tag }}\"", text)
         self.assertIn("leaving assets immutable", text)
         self.assertNotIn("refusing to replace assets", text)
+        self.assertIn("pkg.version = tag.slice(1)", text)
+        self.assertIn("type=raw,value=latest,enable=${{ env.PUSH_LATEST }}", text)
+        self.assertIn("org.opencontainers.image.revision=${{ env.RELEASE_COMMIT }}", text)
 
     def test_docs_and_contract_require_dockerfile(self) -> None:
         required = (ROOT / "tools" / "verify_repository.py").read_text(encoding="utf-8")

@@ -20,6 +20,13 @@ every `workflow_dispatch` of `.github/workflows/release.yml` publishes:
 
 Python wheels stay on **Releases**. They are not GitHub Packages.
 
+The GHCR tag and the npm version are the git tag with the leading `v`
+removed (`v6.7.0-beta.6` → `6.7.0-beta.6`). The `latest` GHCR tag is
+applied only when that git tag is the newest `v*` tag, so dispatching an
+old tag does not move `latest`. If a historic tag has no Dockerfile, the
+workflow copies Dockerfile from the workflow revision and still labels
+`org.opencontainers.image.revision` as the tagged commit.
+
 GitHub's default for a first Container/npm publish is **private**.
 Private packages do **not** appear on the public repository Packages
 tab, even when they are linked to this repository. GitHub REST and

@@ -1,439 +1,230 @@
-# MC-GPT — Natural-Language Multi-Agent AI Coding Control Plane
+# MC-GPT — Governed Multi-Agent Coding Orchestrator
+
+<p align="center">
+  <img src="assets/brand/MC-GPT-Logo-Master-1024.png" alt="MC-GPT by IoT-AI.Tech" width="170" />
+</p>
+
+<p align="center">
+  Coordinate Claude Code, OpenAI Codex, Gemini CLI, Grok CLI and Ollama from one engineering outcome.<br />
+  MC-GPT isolates work, runs tests and reviews, and returns one evidence-backed completion report.
+</p>
+
+<p align="center">
+  <a href="docs/quickstart.md"><strong>Start the 5-minute evaluation</strong></a> ·
+  <a href="examples/quickstart-demo/README.md">Open the demo fixture</a> ·
+  <a href="https://iotaitech.github.io/MC-GPT/">Product page</a> ·
+  <a href="https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6">Latest downloadable preview</a>
+</p>
 
 [![CI](https://github.com/IoTAiTech/MC-GPT/actions/workflows/ci.yml/badge.svg)](https://github.com/IoTAiTech/MC-GPT/actions/workflows/ci.yml)
 [![Security](https://github.com/IoTAiTech/MC-GPT/actions/workflows/security.yml/badge.svg)](https://github.com/IoTAiTech/MC-GPT/actions/workflows/security.yml)
 [![Code scanning](https://img.shields.io/badge/code%20scanning-CodeQL-blue)](https://github.com/IoTAiTech/MC-GPT/security/code-scanning)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-lightgrey.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/IoTAiTech/MC-GPT?include_prereleases)](https://github.com/IoTAiTech/MC-GPT/releases)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-lightgrey.svg)](LICENSE)
 
-<p align="center">
-  <img src="assets/brand/MC-GPT-Logo-Master-1024.png" alt="MC-GPT official product logo" width="220" />
-</p>
+> **Latest downloadable Community Preview:** IOT-AI Suite `6.7.0-beta.6` / MC-GPT `0.8.0-alpha.6`  
+> **Current `main` source snapshot:** IOT-AI Suite `6.8.0-beta.1` / MC-GPT `0.8.0-alpha.7` — not yet a tagged download  
+> **Claim boundary:** Community Developer Preview · `production_claim: false` · English and German
 
-> **IOT-AI Suite 6.8.0-beta.1 · MC-GPT 0.8.0-alpha.7**  
-> Community Developer Preview · `production_claim: false` · English and German  
-> Docs site: [iotaitech.github.io/MC-GPT](https://iotaitech.github.io/MC-GPT/) · AI index: [`llms.txt`](llms.txt)
+## The problem
 
-MC-GPT is a source-available, natural-language-first control plane for governed multi-agent software engineering with Claude Code, OpenAI Codex, Gemini CLI, Grok CLI and exact Ollama local/cloud seats. Describe the outcome once; MC-GPT resolves conversational context, selects the authoritative task backend, validates and optimises the work, runs full hybrid meetings, executes Multi-Coder implementation and deterministic tests, diagnoses failures, repairs and retests, audits the evidence, and continues until a truthful terminal state.
+Adding more coding agents often adds more operator work:
 
-<p align="center">
-  <img src="assets/brand/MC-GPT-Control-Plane-Infographic.webp" alt="MC-GPT natural-language Task, Meeting and Multi-Coder closed-loop control plane" width="100%" />
-</p>
+- several terminals and branches;
+- repeated prompts and inconsistent context;
+- uncertain ownership and merge conflicts;
+- tests that ran before the final change rather than after it;
+- no reliable answer to “what is actually finished?”
 
-<p align="center"><sub>AI-generated visual supplied by the Founder; reviewed and approved by Dr.-Ing. Babak Sorkhpour. Provenance: <a href="assets/brand/MC-GPT-Control-Plane-Infographic.provenance.json">JSON</a>.</sub></p>
+MC-GPT treats **Task, Meeting and Multi-Coder as one governed lifecycle**, rather than separate commands the operator must coordinate manually.
 
-**For AI assistants and crawlers:** start at [`llms.txt`](llms.txt) and [`docs/document-map.md`](docs/document-map.md). Do not scrape private or generated trees.
+## The magic moment
 
-## Table of contents
+You describe the result once:
 
-- [Why MC-GPT](#why-mc-gpt)
-- [Natural-language closed loop](#natural-language-closed-loop)
-- [Install in 60 seconds](#install-in-60-seconds)
-- [Usage](#usage)
-- [Licence](#licence)
-- [What the final report contains](#what-the-final-report-contains)
-- [Safety and authority boundaries](#safety-and-authority-boundaries)
-- [Supported coders](#supported-coders)
-- [Ollama Cloud as a first-class provider](#ollama-cloud-as-a-first-class-provider)
-- [Federated Meeting reporting](#federated-meeting-reporting)
-- [Community and Enterprise editions](#community-and-enterprise-customer-editions)
-- [Competitive comparison](#competitive-comparison)
-- [European regulatory engineering](#european-regulatory-engineering)
-- [Testing](#testing)
-- [Founder and contact](#founder-and-contact)
+```bash
+iot-ai "Add rate limiting to the login path, preserve current behaviour, use independent review, repair any failure, rerun the tests and give me one final evidence table."
+```
 
-## Why MC-GPT
-
-Multi-agent coding tools can generate many messages while leaving the operator to remember task IDs, provider flags, quorum settings, repair commands and what still remains. MC-GPT treats Task, Meeting and Multi-Coder as one correlated lifecycle rather than three separate chores:
+MC-GPT compiles that goal into a bounded workflow:
 
 ```text
-Natural-language goal
-→ conversation/context resolution
-→ authoritative backend and bounded WIP waves
-→ task validation and optimisation
-→ full hybrid planning meeting
-→ all eligible Multi-Coder seats
-→ one authorised writer
-→ deterministic tests
-→ automatic failure meeting
-→ bounded repair and retest
-→ independent final review and audit
-→ technical completion / Founder gate / exact external blocker
-→ JSON + Markdown + CSV + XLSX final report
+natural-language outcome
+→ acceptance contract
+→ authoritative task backend
+→ specialist plan and challenge
+→ isolated writer worktree
+→ independent review seats
+→ deterministic post-change tests
+→ failure meeting and bounded repair when required
+→ source/diff/evidence audit
+→ technical completion, exact blocker, or Founder decision gate
+→ brief or complete JSON/Markdown/CSV/XLSX report
 ```
 
-A zero-eligible run is `noop`, progress telemetry cannot reopen `awaiting_founder`, one successful model is never called Multi-Coder consensus, and PMD/PRCS tasks are never silently copied into the Suite database.
+A zero-eligible run is `noop`, one successful provider is never called consensus, progress telemetry cannot manufacture completion, and Founder Accept/Reject/Rework remains human-only.
 
-## Natural-language closed loop
+<p align="center">
+  <img src="assets/brand/MC-GPT-Control-Plane-Infographic.webp" alt="MC-GPT Task, Meeting and Multi-Coder control-plane flow" width="100%" />
+</p>
 
-The normal interface is one sentence—not a memorised parameter sequence:
+<p align="center"><sub>AI-generated visual supplied by the Founder and reviewed by Dr.-Ing. Babak Sorkhpour. <a href="assets/brand/MC-GPT-Control-Plane-Infographic.provenance.json">Provenance</a>.</sub></p>
+
+## Try it in five minutes
+
+### 1. Install the latest tagged preview
+
+Preferred isolated installation:
 
 ```bash
-iot-ai "Finish all critical PMD tasks, use every eligible coder, hold a meeting on each failure, repair and retest until technical completion, then give me one complete table."
-
-iot-ai "Continue the remaining tasks from the last checkpoint and finish everything that can be completed safely."
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+pipx install \
+  https://github.com/IoTAiTech/MC-GPT/releases/download/v6.7.0-beta.6/iot_ai_coder_suite-6.7.0b6-py3-none-any.whl
 ```
 
-Execution verbs such as *finish*, *fix*, *repair*, or *complete* request a bounded run to terminal state. Review/report language remains read-only. Public release, production deployment, destructive mutation and Founder final acceptance remain explicit human gates.
-
-The loop automatically performs:
-
-1. intent compilation and reference resolution;
-2. Suite or authenticated PMD API authority selection;
-3. priority/WIP scheduling in waves;
-4. task validation and optimisation;
-5. full Meeting with all eligible coder/model seats;
-6. Multi-Coder plan, critique, frozen digest and one-writer implementation;
-7. deterministic tests and evidence collection;
-8. failure meeting, repair and retest when needed;
-9. independent final review, audit and technical submit;
-10. a complete terminal report and resumable checkpoint.
-
-Expert commands remain available for diagnostics, but they are not required for the standard workflow. The `run` verb executes by default; add `--plan` for a non-mutating preview:
+Or use the repository's SHA-256-verifying installer in plan mode first:
 
 ```bash
-iot-ai tasks run --all --mode hybrid
-iot-ai tasks run --all --mode hybrid --plan
-
-iot-ai multi-coder run --task-id <task-id>
-iot-ai multi-coder run --task-id <task-id> --plan
+curl -fsSLo /tmp/install-mc-gpt.sh \
+  https://raw.githubusercontent.com/IoTAiTech/MC-GPT/main/installers/install-community-preview.sh
+sh /tmp/install-mc-gpt.sh
+sh /tmp/install-mc-gpt.sh --apply
 ```
 
-See [Autonomous closed-loop orchestration](docs/autonomous-closed-loop.md).
+The published wheel digest is:
 
-## Install in 60 seconds
-
-Every route verifies the exact SHA-256 and calls the same transactional clean installer. Omit `--apply` for a plan-only preview.
-
-### curl
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/IoTAiTech/MC-GPT/main/installers/bootstrap.sh -o bootstrap.sh
-sh bootstrap.sh --sha256 <ALL-IN-ONE-SHA256> --apply
+```text
+18a752eddcfa9336152cfe72e8ab320372e021121f89e68dbe086474f8ab2807
 ```
 
-### npx
+### 2. Verify the CLI
 
 ```bash
-npx --yes @iot-ai-tech/iot-ai@6.7.0-beta.6 install --sha256 <ALL-IN-ONE-SHA256> --apply
-```
-
-### npm exec
-
-```bash
-npm exec --yes --package=@iot-ai-tech/iot-ai@6.7.0-beta.6 -- \
-  iot-ai-bootstrap install --sha256 <ALL-IN-ONE-SHA256> --apply
-```
-
-### Downloaded package
-
-```bash
-sha256sum -c IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.6-ALL-IN-ONE.zip.sha256
-unzip IoT-AI-Tech-iot-ai-Coder-Suite-v6.7.0-beta.6-ALL-IN-ONE.zip -d iot-ai-suite
-cd iot-ai-suite
-./installers/install.sh --home "$HOME" --hosts all --apply
-```
-
-A live GitHub Release download and hosted attestation must be verified after the actual tag/assets exist; local clean-room curl/npx/npm qualification never substitutes for that live gate. See [Bootstrap installation](docs/bootstrap-installation.md).
-
-## Usage
-
-After a successful install, the default interface is one sentence. See [`USAGE.md`](USAGE.md).
-
-```bash
+iot-ai --version
+iot-ai help
 iot-ai status
-iot-ai "Finish the selected work, use every eligible coder, meet on failures, repair, retest and report."
-iot-ai "Review the remaining work and show one brief report; do not execute."
 ```
 
-`--plan` is a no-write preview. Expert commands stay available; they are not required:
+### 3. Run the disposable fixture
 
 ```bash
-iot-ai meeting seat-plan --seats all-coders+ollama-clouds
-iot-ai tasks run --all --mode hybrid --plan
-iot-ai multi-coder run --task-id <task-id> --plan
-iot-ai github-analyze https://github.com/example/tool
+git clone --depth 1 https://github.com/IoTAiTech/MC-GPT.git
+cd MC-GPT/examples/quickstart-demo
+python3 -m unittest discover -s tests -v
+
+iot-ai \
+  "Read TASK.md, plan the change in this disposable fixture, show the exact acceptance criteria and provider seats, but do not execute." \
+  --plan
 ```
 
-`github-analyze` is technical, commercial, license, and relevance only. Relevant ideas may be rewritten in our tree. The analyzed repository is never added as a dependency.
+When at least one supported provider route is configured, remove `--plan` to run the governed implementation loop. The fixture contains no customer data and uses only Python's standard library.
 
-## Licence
-
-**SPDX:** `PolyForm-Noncommercial-1.0.0` · **File:** [`LICENSE`](LICENSE) (official PolyForm text) · **Notices:** [`NOTICE`](NOTICE)
-
-This is source-available, not OSI “open source”. GitHub’s Fork button does not grant commercial rights.
-
-| You may (Community) | You need a written commercial licence |
-|---|---|
-| Personal use, study, hobby and testing | Company-internal operational or production use |
-| Noncommercial research | Paid consulting, integration or support |
-| Modify and keep a private fork | Managed hosting or SaaS |
-| Share noncommercial copies with the licence and notices | Resale, bundling or commercial redistribution |
-| Publish research with attribution | Commercial forks, customer deployments, Enterprise / PMD |
-
-Commercial enquiries: [info@iot-ai.tech](mailto:info@iot-ai.tech) · [`COMMERCIAL.md`](COMMERCIAL.md) · [`docs/licensing-and-forks.md`](docs/licensing-and-forks.md).
+See the complete [Quickstart](docs/quickstart.md), [Installation guide](docs/installation.md) and [demo acceptance contract](examples/quickstart-demo/TASK.md).
 
 ## What the final report contains
 
-Every terminal run emits JSON, Markdown, CSV and XLSX with these tables:
+Every terminal run can emit brief or complete reports in JSON, Markdown, CSV and XLSX:
 
-| Task ID | Title | Backend / Authority | Priority | Initial | Acceptance Evidence | Meeting | Multi-Coder | Tests | Repairs / Iterations | Final State | Remaining Work | Next Actor / Action | Evidence |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Task | Authority | Acceptance evidence | Meeting | Models requested/served | Diff | Tests | Repairs | Final state | Remaining work | Next actor | Evidence |
+|---|---|---|---|---|---|---|---|---|---|---|---|
 
-The bundle also contains provider participation (`model_requested`, `model_served`, outage/fallback status and substantive contribution), every planning/repair iteration, human decisions, exact evidence pointers and a hash manifest.
+Provider participation is explicit: requested model, served model, authentication/readiness result, outage or fallback status, substantive contribution and latency. Missing identity is reported as **unverified**, never silently upgraded to a successful seat.
+
+## Evidence available in the current source snapshot
+
+The checked-in [`FINAL_TEST_SUMMARY.json`](FINAL_TEST_SUMMARY.json) records the current `6.8.0-beta.1` source-candidate evidence:
+
+- `220` pytest cases passed with warnings treated as errors;
+- `220` unittest cases passed;
+- `44` focused Task/Meeting/Multi-Coder/update cases passed;
+- public-boundary scan: `0` findings in the current tree;
+- deterministic static-security scan: `0` findings across `113` files;
+- runtime intent/compiler benchmark: `p95 1.1738 ms` against a `10 ms` target.
+
+These figures describe that exact source candidate. They are not a blanket production, provider-account, Windows, customer PMD or legal-compliance claim. Hosted workflow status is represented by the live badges above.
+
+## Supported execution seats
+
+| Family | Typical role | Access path |
+|---|---|---|
+| Claude Code | architecture, synthesis, critique | provider-native subscription or configured API |
+| OpenAI Codex CLI | implementation, debugging, review | ChatGPT subscription or configured API |
+| Gemini CLI | large-context and cross-module review | Google subscription or configured API |
+| Grok CLI | implementation and adversarial review | Grok subscription or configured API |
+| Ollama local/cloud | exact model-specific specialist seats | configured Ollama route and privacy policy |
+
+MC-GPT assigns authority to a **specialist contract**, not to a provider name. The contract binds mission, read/write scope, forbidden actions, expected evidence and output schema before a live provider/model is selected.
 
 ## Safety and authority boundaries
 
-- One task ID has one authoritative backend.
-- `PMD-REQ-*` and `PRCS-*` use an authenticated, versioned PMD API adapter; direct PMD SQLite/PostgreSQL access is forbidden.
-- All eligible configured coder families, every exact configured cloud-model seat, and exact Ollama local/cloud seats are attempted at material gates; unavailable seats receive honest outage receipts.
-- At least two independent substantive seats are required for governed R2+ Multi-Coder decisions.
-- One designated implementer writes; reviewers remain read-only.
-- Founder Accept/Reject/Rework is never automated.
-- Public GitHub publication, history replacement, production deployment and destructive operations require explicit authority.
-- Loops are bounded by failure fingerprints, no-new-evidence limits, wall-clock/token budgets and truthful terminal states.
+- One task has one authoritative backend.
+- ProductX/PMD work uses an authenticated, versioned API adapter; direct product-database access is forbidden.
+- Parallel writers use isolated Git worktrees or exclusive path leases.
+- One designated implementer writes; review seats remain read-only.
+- Tests run against the post-change tree and are bound to the recorded diff.
+- Public export is allowlist-built and scanned for secrets, private infrastructure, personal paths and customer material.
+- Public release, history replacement, destructive mutation, production deployment and Founder final acceptance remain explicit gates.
+- Repair loops are bounded by failure fingerprints, time/token budgets and no-new-evidence limits.
 
-## Supported coders
+Read [Security](SECURITY.md), [worktree orchestration](docs/worktree-orchestration.md), [Meeting](docs/meeting.md), [Multi-Coder](docs/multi-coder.md) and [autonomous closed loop](docs/autonomous-closed-loop.md).
 
-
-| Coder family | Main strengths in IOT-AI | Supported access |
-|---|---|---|
-| Claude Code | architecture, synthesis and review | provider-native subscription or configured API |
-| OpenAI Codex CLI | implementation, debugging and code review | ChatGPT subscription or configured API |
-| Gemini CLI | large-context and cross-module review | Google subscription or configured API |
-| Grok CLI | implementation and adversarial review | Grok subscription or configured API |
-
-IOT-AI does not assign authority by provider name. It first binds an immutable specialist role, mission, read/write scope, tools, evidence contract and expected output; the model selector then chooses a live-ready provider/model and clamps effort to its verified capability and edition limit.
-
-See [`docs/supported-coders-and-ollama.md`](docs/supported-coders-and-ollama.md).
-
-## Ollama Cloud as a first-class provider
-
-Ollama is not a generic last-resort fallback. Each eligible cloud model is treated as a distinct seat and selected by role fit, live readiness, privacy class, exact served-model evidence, supported effort, historical quality, latency and budget. Local Ollama models are disabled by default for governed deep reasoning.
-
-```text
-ollama:<exact-model-id>:domain-architect
-ollama:<exact-model-id>:security-challenger
-ollama:<exact-model-id>:implementation-reviewer
-ollama:<exact-model-id>:independent-judge
-```
-
-A successful Ollama call can qualify only the Ollama seat or an explicitly generic fallback lane. It can never qualify Grok/xAI, Claude, Codex or Gemini.
-
-### Meeting seat policy
-
-The observed failure mode `--seats claude,codex,gemini,grok` silently omitted Ollama. This release blocks that omission when Ollama Cloud is configured as first-class.
-
-```bash
-# inspect the exact seats before spending provider quota
-iot-ai meeting seat-plan --seats all-coders+ollama-clouds
-
-# invite every configured coder family and every discovered Ollama Cloud model
-iot-ai meeting start \
-  --topic "Deeply review this task" \
-  --seats all-coders+ollama-clouds \
-  --depth ultra --effort xhigh --execute
-
-# equivalent natural-language compatibility command
-iot-ai-meeting --max-parallel ask all coder and ollama clouds only deeply review this task
-```
-
-`meeting show` reports requested, attempted, substantive and unsatisfied seats, including separate Ollama coverage. Intentional omission requires `--exclude-ollama` and remains visible in the meeting receipt.
-
-## Federated Meeting reporting
-
-Historical Meeting data may exist in separate `root` and `iot` user stores. Reporting federates only explicitly supplied legacy SQLite stores in read-only mode; it never merges them into the canonical control database and never opens PMD or another product database directly.
-
-```bash
-# Private/restricted evidence bundle: JSON + CSV + Markdown + XLSX + manifest
-IOT_AI_ALLOWED_READ_ROOTS=/path/to/approved/store/root \
-  iot-ai meeting report \
-  --legacy-db /path/to/approved/store/root/root-meetings.sqlite3 \
-  --legacy-db /path/to/approved/store/root/iot-meetings.sqlite3 \
-  --classification restricted --view brief --format bundle \
-  --stale-after-hours 24 --output IOT-AI-MEETING-REPORT.zip
-
-# Public export is D0 + explicit-meeting allowlist only
-iot-ai meeting report --classification public --view brief \
-  --public-meeting-id <approved-meeting-id> --format bundle \
-  --output IOT-AI-PUBLIC-MEETING-REPORT.zip
-```
-
-Reports identify stale `running` sessions, approval/status conflicts, ANSI/control-character cleanup and missing legacy `model_served` telemetry. Missing model identity is shown as **unverified** and never counted as a qualified model contribution. See [`docs/meeting-reporting.md`](docs/meeting-reporting.md).
-
-## Portable capability packs
-
-The Suite can create deterministic, secret-safe capability archives from one operation contract and expose the same contract at three boundaries:
-
-```text
-REST · MCP · OpenAPI 3.1
-```
-
-```bash
-iot-ai knowledge pack --spec capability.json --output capability.iotaicap
-iot-ai knowledge verify-pack capability.iotaicap
-```
-
-The useful pattern is inspired by the official AgentGem product and architecture documentation: redact secrets at capture, define each operation once, keep a deterministic neutral archive, and materialise the same contract across several boundaries. IOT-AI does **not** copy AgentGem code or claim its hosted marketplace and monetisation features.
-
-## Community and Enterprise Customer editions
+## Community and Enterprise
 
 | Capability | Community Developer Preview | Enterprise Customer Edition |
 |---|---|---|
-| Personal/noncommercial use, research and modification | Included | Included under contract |
-| Company-internal or production use | Not licensed | Licensed entitlement required |
-| Provider effort above `medium` | Limited | Feature/limit entitlement |
+| Personal/noncommercial evaluation and research | Included | Included under contract |
+| Company-internal operational or production use | Not licensed | Written commercial licence required |
+| Standalone file-based tasks and reports | Included | Included |
 | PMD/ProductX connector | Not included | Authenticated API adapter |
-| Fleet governance and customer policies | Limited | Contracted feature set |
+| Fleet/customer governance | Limited | Contracted feature set |
 | Signed entitlement and expiry | No | Ed25519-verified |
 | Direct PMD database access | Forbidden | Forbidden; API only |
-| Customer deployment qualification | Not claimed | Required per customer/use case |
-| Noncommercial modification, forks and redistribution | Permitted with licence/notices | Contract-specific rights |
-| Commercial fork, production, hosting, resale | Commercial licence required | Contract-specific rights |
+| Customer deployment qualification | Not claimed | Required per deployment |
 
-Enterprise licences are signed canonical entitlements bound to customer, contract, features, limits, permitted environments, optional installation IDs and validity dates. Signed revocation records are checked when configured. Customer packages contain public verification keys only; issuer private keys are never distributed.
+This repository is **source-available, not OSI open source**. Community use is governed by the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial evaluation, company-internal use, consulting, hosting, resale, customer deployment and production require written terms. See [USAGE.md](USAGE.md), [COMMERCIAL.md](COMMERCIAL.md) and [licensing and forks](docs/licensing-and-forks.md).
 
-## Competitive comparison
+## Honest current limitations
 
-### Comparison methodology and claim boundary
+- The latest downloadable package is `6.7.0-beta.6`; `main` is ahead and must not be presented as an existing release asset.
+- Windows and macOS are not currently advertised as qualified public installation targets.
+- A real Multi-Coder run depends on configured and live provider accounts; unavailable seats remain visible.
+- Enterprise PMD schema recovery, customer PostgreSQL/RLS and fleet rollout are deployment-specific gates.
+- The current public experience is CLI-first; a live visual workspace is roadmap work.
+- Technical controls mapped to the EU AI Act, GDPR, CRA and NIS2 are not legal certification or a customer-specific conformity assessment.
 
-Comparison date: **2026-08-06**. Only capabilities described in the reviewed official public sources are attributed to competitors. `Not evidenced` means **not evidenced in reviewed public documentation**; it does not prove absence in another edition or later release. IOT-AI values apply only to this build and its attached test evidence. This is not a universal performance benchmark.
+See [release status](docs/status.md) and [roadmap](ROADMAP.md).
 
-Official sources:
+## Feedback and community
 
-- Stably Orca: `https://github.com/stablyai/orca`
-- Claude Code Agent Teams: `https://code.claude.com/docs/en/agent-teams`
-- GitHub Copilot Fleet: `https://docs.github.com/en/copilot/concepts/agents/copilot-cli/fleet`
-- AgentGem: `https://agentgem.ai/`
-- ServiceNow AI Control Tower: `https://www.servicenow.com/products/ai-control-tower.html`
+The most useful contribution is not a courtesy star—it is a reproducible five-minute evaluation:
 
-The official Orca repository displayed approximately **38.1k stars**, **2.7k forks**, **8,061 commits** and **29 named CLI-agent examples plus arbitrary CLI-agent support** on the comparison date. These are public maturity indicators—not a performance or security benchmark.
+1. run the fixture;
+2. record where setup became unclear;
+3. identify where you stopped trusting the result;
+4. attach only sanitised evidence;
+5. submit the [demo feedback form](https://github.com/IoTAiTech/MC-GPT/issues/new?template=demo_feedback.yml) or start a [Discussion](https://github.com/IoTAiTech/MC-GPT/discussions).
 
-The full Orca assessment and machine-readable comparison are in `docs/comparison/ORCA_COMPARISON.md` and `docs/comparison/ORCA_COMPARISON.json`.
+Security issues belong in [private vulnerability reporting](https://github.com/IoTAiTech/MC-GPT/security/advisories/new), not public Issues.
 
-### Quantitative product-surface comparison
+## Documentation map
 
-| Public characteristic | IOT-AI v6.7.0-beta.6 | Stably Orca | Claude Code Agent Teams | GitHub Copilot Fleet | AgentGem | ServiceNow AI Control Tower |
-|---|---:|---:|---:|---:|---:|---:|
-| Normal-user executables | **5** | Desktop + CLI + mobile surfaces | Claude Code commands | Copilot CLI command | Web/CLI product | Web platform |
-| Named coder adapter families in this release | **4** + Ollama model gateway | **29 named examples** plus arbitrary CLI-agent support documented | **1** vendor family | **1** Copilot runtime | Multiple capture/materialisation paths | Vendor-neutral AI inventory |
-| First-class model-gateway families | **1** Ollama local/cloud | CLI-agent oriented; model-gateway count not stated | External tools via MCP | Plugins/custom agents | Multiple targets | First/third-party AI inventory |
-| Portable protocol projections from one operation contract | **3** REST/MCP/OpenAPI | Not evidenced | Not evidenced | MCP possible; one-contract triple projection not evidenced | **3** REST/MCP/OpenAPI | MCP/A2A integrations documented |
-| Physically separated knowledge classes | **3** public/private/customer | Worktree/repository isolation; three knowledge roots not evidenced | Not evidenced | Enterprise/repository scopes | Public/unlisted/private scopes | Enterprise policy model |
-| Required decision identity | **One exact plan digest across required roles** | Structured decision gates; exact-digest acceptance not evidenced | Team synthesis; exact-digest gate not evidenced | Parent reconciliation; exact-digest gate not evidenced | Review/versioning | Approval/governance workflows |
-| Clean package lifecycle | **Verify → side-by-side install → managed cleanup → normal rollback** | App release lifecycle; equivalent customer package transaction not evidenced | Not comparable | CLI/plugin lifecycle | Versioned packages | SaaS platform lifecycle |
-
-### Qualitative comparison
-
-| Capability | IOT-AI | Stably Orca | Claude Agent Teams / GitHub Fleet | AgentGem | ServiceNow AI Control Tower |
-|---|---|---|---|---|---|
-| Daily developer experience | CLI-first; desktop dashboard is roadmap | **Current benchmark:** worktrees, terminals, diffs, Design Mode, mobile, SSH | Strong vendor-native execution | Capability packaging focus | Enterprise platform, not coding IDE |
-| Parallel isolation | **Governed git worktrees with no untracked-file copy and human promotion** | **Core strength:** worktree-native parallel agents | Parallel tasks; isolation varies by tool | Not primary scope | Not primary scope |
-| Agent/provider breadth | Claude, Codex, Gemini, Grok + model-specific Ollama seats | 29 named examples plus arbitrary CLI-agent support | Vendor runtime | Capture/materialisation across tools | Third-party agent inventory |
-| Specialist contract before dispatch | **Immutable role, mission, authority, scopes and output schema** | Task/worker orchestration; equivalent immutable contract not evidenced | Custom roles/prompts | Packaged capability | Enterprise identity/governance |
-| Provider/model truth | **Installed/auth/quota/live/exact served model/effort separated** | Usage/account visibility documented; exact served-model gate not evidenced | Provider-native status | Usage analysis | Inventory/runtime monitoring |
-| Meeting and decision integrity | **Challenge, layered fan-in and same-digest required-role acceptance** | Decision gates documented; same-digest gate not evidenced | Team/parent synthesis | Review/versioning | Approval workflows |
-| Transactional task governance | **Task, Work Unit, Assignment/ACK, Lease, Evidence, Audit, Founder decision** | Run/task/dispatch/message/gate model | Shared tasks/subagents | Versioning | **Core strength:** lifecycle/approval/CMDB |
-| Public/private/customer release boundary | **Fail-closed allowlist and history scan** | Privacy controls documented; equivalent release boundary not evidenced | Repository/org controls | Secret redaction | Enterprise access controls |
-| European technical release evidence | **Article 5/50, AI literacy, incident and claim-boundary gates; no blanket certification** | Not evidenced in reviewed product docs | Not evidenced | Secret safety documented | AI governance/compliance platform |
-| Enterprise customer deployment | Signed entitlement, PMD API, on-prem/sovereign design | Developer tool | Developer tool | Capability platform | **Current benchmark:** enterprise AI control tower |
-
-### Honest strengths and weaknesses
-
-**Orca is currently stronger** in desktop/mobile polish, terminal and diff UX, broad CLI-agent support, remote worktrees, GitHub/issue integration, Design Mode and public ecosystem maturity.
-
-**IOT-AI is designed to be stronger** where enterprise evidence and controlled execution matter: immutable specialist roles, exact provider/model truth, model-specific Ollama seats, same-plan-digest acceptance, Task/Assignment/ACK/Lease governance, sanitised diagnostics, customer/public separation, signed Enterprise entitlements and European release controls.
-
-This release adopts Orca's most relevant engineering lesson—worktree-native parallel isolation—without copying its code or claiming its visual product features. The target is not a clone:
-
-```text
-Orca-class developer ergonomics (roadmap)
-+ stronger role and provider truth
-+ evidence-bound decisions and task authority
-+ sovereign Ollama/on-prem operation
-+ PMD/AIMDB enterprise integration
-+ privacy and EU-focused release gates
-```
-
-Until the desktop/dashboard roadmap is delivered, Orca remains the stronger benchmark for everyday interactive developer orchestration. IOT-AI's present differentiation is the governed control plane behind the execution.
-
-## European regulatory engineering
-
-This Developer Preview includes technical controls and documentation mapped to:
-
-- EU AI Act Articles 4, 5 and 50 for the declared interactive software-engineering purpose;
-- Cyber Resilience Act secure-by-default, vulnerability handling, update and reporting readiness;
-- GDPR data minimisation, purpose limitation, storage limitation and data-protection-by-design engineering;
-- NIS2-aligned risk management, incident evidence, supply-chain and business-continuity controls for customers for whom NIS2 is applicable.
-
-```bash
-iot-ai compliance status
-iot-ai compliance screen --text "Review the intended use"
-iot-ai compliance mark --file report.md --human-reviewed --editor "<responsible party>"
-python tools/eu_ai_act_release_gate.py . --profile developer-preview
-```
-
-These are technical readiness controls, **not legal certification, CE marking, a conformity assessment, or a blanket statement covering every customer deployment**. Applicability and customer obligations depend on role, intended purpose, sector, deployment and modifications.
-
-## Privacy and public/private boundaries
-
-- Raw prompts and provider outputs are not retained by default.
-- Cloud routes are opt-in and classified before egress.
-- D3/secret data blocks cloud dispatch.
-- Public diagnostics remove credentials, lease tokens, private network identifiers, internal hostnames and personal paths.
-- Public, private Enterprise and customer data use separate physical roots and Git histories.
-- Public release exports are allowlist-built, secret-scanned and clone-back verified.
-
-## Testing
-
-```bash
-python -m unittest discover -s tests -p 'test_*.py'
-python -m pytest
-python -W error -m pytest
-python tools/static_security_audit.py .
-python tools/public_boundary_check.py .
-python tools/benchmark_agent_runtime.py --iterations 3000
-```
-
-Release totals are regenerated during the final deterministic build and recorded in `FINAL_TEST_SUMMARY.json`. Historical numbers are not reused as proof for a changed source tree.
-
-## Release status
-
-This is a Developer Preview, not a stable or production-ready release. External gates include real Windows on-device qualification, live provider-account and exact-served-model qualification, real GitHub Actions provenance/attestation, Enterprise PostgreSQL/RLS/restore validation and deployment-specific German/EU legal review.
+- [Five-minute quickstart](docs/quickstart.md)
+- [Installation, update and rollback](docs/installation.md)
+- [Product guide](docs/PRODUCT_GUIDE.md)
+- [Natural-language orchestration](docs/goal-first-orchestration.md)
+- [Meeting reporting](docs/meeting-reporting.md)
+- [Supported coders and Ollama](docs/supported-coders-and-ollama.md)
+- [Architecture](docs/architecture.md)
+- [Compliance evidence](docs/compliance/README.md)
+- [Repository map](docs/repository-map.md)
+- [AI-assistant index](llms.txt)
 
 ## Founder and contact
 
-**Dr.-Ing. Babak Sorkhpour** — Founder / Owner
-**IoT-AI.Tech · Germany**
-**Email:** [info@iot-ai.tech](mailto:info@iot-ai.tech)
-**Company:** IoT-AI.Tech, Aschaffenburg, Bayern, Germany
-**LinkedIn:** [https://www.linkedin.com/company/iot-ai-tech](https://www.linkedin.com/company/iot-ai-tech)
-**Founder LinkedIn:** [https://www.linkedin.com/in/dr-babakskr](https://www.linkedin.com/in/dr-babakskr)
-**Company Pages:** [https://iotaitech.github.io/](https://iotaitech.github.io/)
-**MC-GPT Pages:** [https://iotaitech.github.io/MC-GPT/](https://iotaitech.github.io/MC-GPT/)
+**Dr.-Ing. Babak Sorkhpour** — Founder / Owner  
+**IoT-AI.Tech**, Aschaffenburg, Bavaria, Germany  
+[info@iot-ai.tech](mailto:info@iot-ai.tech) · [Company LinkedIn](https://www.linkedin.com/company/iot-ai-tech) · [Founder LinkedIn](https://www.linkedin.com/in/dr-babakskr) · [Company site](https://iotaitech.github.io/) · [MC-GPT product page](https://iotaitech.github.io/MC-GPT/)
 
-## GitHub discoverability and release hygiene
-
-Search this repository through:
-
-| Surface | Path |
-|---|---|
-| AI index | [`llms.txt`](llms.txt) |
-| Document map | [`docs/document-map.md`](docs/document-map.md) |
-| Robots / sitemap | [`robots.txt`](robots.txt), [`sitemap.xml`](sitemap.xml) |
-| Citation | [`CITATION.cff`](CITATION.cff) |
-| Topics and About | GitHub repository sidebar (see [`docs/github-seo-and-release.md`](docs/github-seo-and-release.md)) |
-
-The **Releases** tab follows annotated tags. Current tag: [`v6.7.0-beta.6`](https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6). The public docs site is [iotaitech.github.io/MC-GPT](https://iotaitech.github.io/MC-GPT/).
-
-Recommended repository description and topics are versioned in [`docs/github-seo-and-release.md`](docs/github-seo-and-release.md).
-
-Before every package or GitHub prerelease, the release operator must re-check current `main`, open pull requests, CodeQL/security findings, CI, public-tree and Git-history boundary scans, README/version alignment, release assets and clone-back verification. A private delivery is never uploaded to the public repository.
-
-## Repository and GitHub publication
-
-The public repository explains every top-level directory in [`docs/repository-map.md`](docs/repository-map.md). From a complete private delivery, publish only `01_PUBLIC_GITHUB_REPOSITORY/` as Git content and `04_RELEASE_ASSETS/COMMUNITY/` as prerelease assets. Never upload the complete private kit, Enterprise source, vendor licensing tools, private evidence, customer material or internal infrastructure.
-
-See `PUBLIC_REPOSITORY_NOTICE.md`, `COMMERCIAL.md`, `LICENSE`, `SECURITY.md`, `THIRD_PARTY_NOTICES.md` and `docs/`.
-
+For AI assistants and crawlers, start at [`llms.txt`](llms.txt) and [`docs/document-map.md`](docs/document-map.md). Do not infer private or Enterprise content from the public tree.

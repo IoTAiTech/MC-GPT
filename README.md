@@ -157,6 +157,18 @@ These figures describe that exact source candidate. They are not a blanket produ
 
 MC-GPT assigns authority to a **specialist contract**, not to a provider name. The contract binds mission, read/write scope, forbidden actions, expected evidence and output schema before a live provider/model is selected.
 
+## Usage
+
+The normal interface is one engineering outcome, not a memorised flag sequence:
+
+```bash
+iot-ai status
+iot-ai "Review the remaining work and show one brief report; do not execute."
+iot-ai "Finish the selected work, use every eligible coder, meet on failures, repair, retest and report."
+```
+
+Use `--plan` for a non-mutating preview. See [`USAGE.md`](USAGE.md) for the complete command and permission table.
+
 ## Safety and authority boundaries
 
 - One task has one authoritative backend.
@@ -184,6 +196,28 @@ Read [Security](SECURITY.md), [worktree orchestration](docs/worktree-orchestrati
 | Customer deployment qualification | Not claimed | Required per deployment |
 
 This repository is **source-available, not OSI open source**. Community use is governed by the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial evaluation, company-internal use, consulting, hosting, resale, customer deployment and production require written terms. See [USAGE.md](USAGE.md), [COMMERCIAL.md](COMMERCIAL.md) and [licensing and forks](docs/licensing-and-forks.md).
+
+## Licence
+
+**SPDX:** `PolyForm-Noncommercial-1.0.0` · [Official licence text](LICENSE) · [Usage rules](USAGE.md)
+
+Personal and noncommercial evaluation, study, modification and redistribution are available under the licence. Company-internal operation, production, paid services, hosting, resale, commercial distribution and customer deployment require written IoT-AI.Tech terms. **GitHub’s Fork button does not grant commercial rights.**
+
+## Competitive comparison
+
+### Comparison methodology
+
+The comparison is **Quantitative** where a reviewed public source exposes a count or concrete support statement, and **Qualitative** where products use different architectures or trust models. `Not evidenced` means **not evidenced in reviewed public documentation**; it does not mean the capability is absent. This is not a performance benchmark.
+
+| Product or public concept | Publicly presented focus | MC-GPT distinction |
+|---|---|---|
+| Claude Code Agent Teams | Claude-native coordinated agent work | Provider-neutral specialist contracts, exact requested/served receipts and bounded final evidence |
+| GitHub Copilot Fleet | GitHub/Copilot-centred parallel coding workflows | Local-first multi-provider control plane and explicit product/backend authority |
+| Stably Orca | Coordinator lifecycle and worktree activation | Evidence-bound Task → Meeting → Multi-Coder completion and human Founder gate |
+| AgentGem | Captured operations exposed across agent boundaries | Deterministic capability packs plus governance and release boundaries |
+| ServiceNow AI Control Tower | Enterprise AI inventory and lifecycle governance | Engineering execution loop connected to task, diff, test and review evidence |
+
+Detailed Orca notes: [`docs/comparison/ORCA_COMPARISON.md`](docs/comparison/ORCA_COMPARISON.md). Claims are limited to reviewed public documentation and our own source evidence.
 
 ## Honest current limitations
 

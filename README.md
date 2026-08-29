@@ -120,6 +120,22 @@ iot-ai \
 
 The fixture contains no customer data, network dependency, database or external framework. See the complete [Quickstart](docs/quickstart.md), [Installation guide](docs/installation.md) and [nine-criterion demo contract](examples/quickstart-demo/TASK.md).
 
+## Usage
+
+The normal interface is the engineering outcome, not a memorised sequence of internal flags:
+
+```bash
+iot-ai status
+
+iot-ai \
+  "Finish the selected work, use every eligible coder, meet on failures, repair, retest and return one complete evidence table."
+
+iot-ai \
+  "Review the remaining work, explain the blockers and do not execute."
+```
+
+Advanced Task, Meeting, Multi-Coder, Mesh and Worktree commands remain available for diagnosis and controlled operations. See [USAGE.md](USAGE.md), [goal-first orchestration](docs/goal-first-orchestration.md) and the [autonomous closed-loop contract](docs/autonomous-closed-loop.md).
+
 ## What the final report contains
 
 Every terminal run can emit brief or complete reports in JSON, Markdown, CSV and XLSX:
@@ -173,7 +189,36 @@ Read [Security](SECURITY.md), [worktree orchestration](docs/worktree-orchestrati
 | Direct PMD database access | Forbidden | Forbidden; API only |
 | Customer deployment qualification | Not claimed | Required per deployment |
 
-This repository is **source-available, not OSI open source**. Community use is governed by the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial evaluation, company-internal use, consulting, hosting, resale, customer deployment and production require written terms. See [USAGE.md](USAGE.md), [COMMERCIAL.md](COMMERCIAL.md) and [licensing and forks](docs/licensing-and-forks.md).
+## Licence
+
+**SPDX:** `PolyForm-Noncommercial-1.0.0` · **Official text:** [LICENSE](LICENSE) · **Operational guide:** [USAGE.md](USAGE.md)
+
+This repository is source-available, not OSI open source. **GitHub’s Fork button does not grant commercial rights.**
+
+| You may under the Community licence | Written commercial terms are required for |
+|---|---|
+| Personal use, study, hobby and noncommercial testing | Company-internal operational use |
+| Noncommercial research | Production or customer deployment |
+| Modify and keep a private noncommercial fork | Paid consulting, integration or support |
+| Redistribute noncommercial copies with licence and notices | Hosting, SaaS, resale or commercial redistribution |
+
+Commercial enquiries: [info@iot-ai.tech](mailto:info@iot-ai.tech) · [COMMERCIAL.md](COMMERCIAL.md).
+
+## Competitive comparison
+
+### Comparison methodology
+
+The comparison is evidence-bounded and dated. **Quantitative** repository indicators such as stars, forks or release counts describe public adoption at the recorded date; they are not quality, performance or security benchmarks. **Qualitative** capability statements are limited to reviewed official public documentation. A feature described as **not evidenced in reviewed public documentation** is not claimed to be absent from a private edition or future release.
+
+| Product or public surface | Publicly visible strength reviewed | MC-GPT relationship |
+|---|---|---|
+| Claude Code Agent Teams | provider-native teamwork and agent collaboration | MC-GPT focuses on cross-provider task authority, review separation and evidence |
+| GitHub Copilot Fleet | GitHub-native agent workflow and repository integration | MC-GPT adds vendor-neutral provider/model receipts and local/Enterprise boundaries |
+| Stably Orca | mature visual worktree and agent experience | MC-GPT adopts worktree isolation lessons while targeting stricter governed completion |
+| AgentGem | portable agent/capability patterns across tool boundaries | MC-GPT uses an independent capability-pack design without copying source or assets |
+| ServiceNow AI Control Tower | enterprise AI inventory and governance positioning | MC-GPT targets engineering execution, change proof and PMD/ProductX integration |
+
+The detailed Stably Orca review, including historical ecosystem figures and explicit non-copying boundaries, is in [`docs/comparison/ORCA_COMPARISON.md`](docs/comparison/ORCA_COMPARISON.md). Other comparisons remain dated snapshots and must be refreshed before new marketing claims are made.
 
 ## Honest current limitations
 

@@ -1,200 +1,224 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://iot-ai.tech/schemas/minimum-change-assessment-v1.schema.json",
-  "title": "MC-GPT Minimum Necessary Change Assessment",
-  "description": "Evidence-bound pre-code assessment used to select the first sufficient solution rung without removing required safety, privacy, accessibility, data-protection or correctness controls.",
+  "title": "MC-GPT Minimum Necessary Change Assessment Result",
+  "description": "Validated result for the evidence-bound pre-code Minimum Necessary Change assessment.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema",
     "decision",
-    "selected_rung",
-    "selected_strategy",
-    "requirement_understanding",
-    "evidence",
-    "alternatives",
-    "safety_invariants",
-    "implementation_budget",
-    "confidence"
+    "errors"
   ],
   "properties": {
     "schema": {
-      "const": "iot-ai.minimum-change-assessment.v1"
+      "const": "iot-ai.minimum-necessary-change-assessment.v1"
     },
     "decision": {
-      "enum": [
-        "no-change",
-        "reuse-existing",
-        "use-standard-library",
-        "use-native-capability",
-        "use-existing-dependency",
-        "minimal-local-change",
-        "minimum-new-code"
-      ]
+      "enum": ["pass", "needs-work", "block"]
+    },
+    "contract_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "assessment_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
     },
     "selected_rung": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 7
+      "type": ["string", "null"],
+      "enum": [
+        "necessity",
+        "existing-capability",
+        "standard-library",
+        "native-platform",
+        "existing-dependency",
+        "minimal-local-change",
+        "minimum-new-code",
+        null
+      ]
     },
-    "selected_strategy": {
-      "type": "string",
-      "minLength": 3,
-      "maxLength": 2000
-    },
-    "requirement_understanding": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["problem", "affected_flow", "acceptance_criteria"],
-      "properties": {
-        "problem": {"type": "string", "minLength": 1},
-        "affected_flow": {
-          "type": "array",
-          "minItems": 1,
-          "items": {"type": "string", "minLength": 1},
-          "uniqueItems": true
-        },
-        "acceptance_criteria": {
-          "type": "array",
-          "minItems": 1,
-          "items": {"type": "string", "minLength": 1}
-        }
-      }
-    },
-    "evidence": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["kind", "reference", "finding"],
-        "properties": {
-          "kind": {
-            "enum": [
-              "repository-path",
-              "symbol",
-              "dependency",
-              "standard-library",
-              "native-platform",
-              "database-capability",
-              "runtime-evidence",
-              "documentation",
-              "not-applicable"
-            ]
-          },
-          "reference": {"type": "string", "minLength": 1},
-          "finding": {"type": "string", "minLength": 1},
-          "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
-        }
-      }
-    },
-    "alternatives": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["rung", "strategy", "decision", "reason"],
-        "properties": {
-          "rung": {"type": "integer", "minimum": 1, "maximum": 7},
-          "strategy": {"type": "string", "minLength": 1},
-          "decision": {"enum": ["selected", "rejected", "not-applicable"]},
-          "reason": {"type": "string", "minLength": 1}
-        }
-      }
-    },
-    "safety_invariants": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "requested_behavior",
-        "trust_boundary_validation",
-        "data_loss_prevention",
-        "security_controls",
-        "privacy_controls",
-        "accessibility",
-        "rollback_and_recovery",
-        "deterministic_verification"
-      ],
-      "properties": {
-        "requested_behavior": {"$ref": "#/$defs/invariant"},
-        "trust_boundary_validation": {"$ref": "#/$defs/invariant"},
-        "data_loss_prevention": {"$ref": "#/$defs/invariant"},
-        "security_controls": {"$ref": "#/$defs/invariant"},
-        "privacy_controls": {"$ref": "#/$defs/invariant"},
-        "accessibility": {"$ref": "#/$defs/invariant"},
-        "rollback_and_recovery": {"$ref": "#/$defs/invariant"},
-        "deterministic_verification": {"$ref": "#/$defs/invariant"}
-      }
-    },
-    "implementation_budget": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "max_files_added",
-        "max_files_modified",
-        "max_added_lines",
-        "max_new_runtime_dependencies",
-        "required_tests"
-      ],
-      "properties": {
-        "max_files_added": {"type": "integer", "minimum": 0, "maximum": 1000},
-        "max_files_modified": {"type": "integer", "minimum": 0, "maximum": 1000},
-        "max_added_lines": {"type": "integer", "minimum": 0, "maximum": 1000000},
-        "max_new_runtime_dependencies": {"type": "integer", "minimum": 0, "maximum": 100},
-        "required_tests": {
-          "type": "array",
-          "minItems": 1,
-          "items": {"type": "string", "minLength": 1}
-        }
-      }
-    },
-    "confidence": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
-    },
-    "dissent": {
+    "errors": {
       "type": "array",
       "items": {"type": "string"},
-      "default": []
-    }
-  },
-  "$defs": {
-    "invariant": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["status", "rationale"],
-      "properties": {
-        "status": {"enum": ["preserved", "strengthened", "not-applicable"]},
-        "rationale": {"type": "string", "minLength": 1}
-      }
+      "uniqueItems": true
+    },
+    "normalized": {
+      "$ref": "#/$defs/normalizedAssessment"
     }
   },
   "allOf": [
     {
-      "if": {"properties": {"selected_rung": {"minimum": 5}}},
+      "if": {
+        "properties": {"decision": {"enum": ["pass", "needs-work"]}},
+        "required": ["decision"]
+      },
       "then": {
-        "properties": {
-          "alternatives": {
-            "contains": {
-              "type": "object",
-              "properties": {"rung": {"const": 1}, "decision": {"enum": ["rejected", "not-applicable"]}},
-              "required": ["rung", "decision"]
-            }
-          }
-        }
+        "required": [
+          "contract_sha256",
+          "assessment_sha256",
+          "selected_rung",
+          "normalized"
+        ]
       }
     },
     {
-      "if": {"properties": {"selected_rung": {"const": 7}}},
+      "if": {
+        "properties": {"decision": {"const": "pass"}},
+        "required": ["decision"]
+      },
       "then": {
         "properties": {
-          "alternatives": {
-            "minItems": 6
-          }
+          "errors": {"maxItems": 0}
         }
       }
     }
-  ]
+  ],
+  "$defs": {
+    "rungDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "reason", "evidence_refs"],
+      "properties": {
+        "decision": {
+          "enum": ["selected", "rejected", "not-applicable", "unassessed"]
+        },
+        "reason": {"type": "string"},
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "budgetException": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "evidence_refs", "acceptance_refs"],
+      "properties": {
+        "reason": {"type": "string"},
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "acceptance_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "new_dependencies",
+        "new_external_services",
+        "new_databases_or_schemas",
+        "new_agents_or_provider_routes",
+        "new_abstraction_layers"
+      ],
+      "properties": {
+        "new_dependencies": {"$ref": "#/$defs/stringList"},
+        "new_external_services": {"$ref": "#/$defs/stringList"},
+        "new_databases_or_schemas": {"$ref": "#/$defs/stringList"},
+        "new_agents_or_provider_routes": {"$ref": "#/$defs/stringList"},
+        "new_abstraction_layers": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "stringList": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "normalizedAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selected_rung",
+        "rung_assessments",
+        "acceptance_criteria_preserved",
+        "controls_preserved",
+        "rejected_alternatives",
+        "estimated_change_surface",
+        "dependency_service_schema_agent_delta",
+        "budget_exceptions",
+        "verification_plan",
+        "remaining_uncertainty"
+      ],
+      "properties": {
+        "selected_rung": {
+          "enum": [
+            "necessity",
+            "existing-capability",
+            "standard-library",
+            "native-platform",
+            "existing-dependency",
+            "minimal-local-change",
+            "minimum-new-code"
+          ]
+        },
+        "rung_assessments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "necessity",
+            "existing-capability",
+            "standard-library",
+            "native-platform",
+            "existing-dependency",
+            "minimal-local-change",
+            "minimum-new-code"
+          ],
+          "properties": {
+            "necessity": {"$ref": "#/$defs/rungDecision"},
+            "existing-capability": {"$ref": "#/$defs/rungDecision"},
+            "standard-library": {"$ref": "#/$defs/rungDecision"},
+            "native-platform": {"$ref": "#/$defs/rungDecision"},
+            "existing-dependency": {"$ref": "#/$defs/rungDecision"},
+            "minimal-local-change": {"$ref": "#/$defs/rungDecision"},
+            "minimum-new-code": {"$ref": "#/$defs/rungDecision"}
+          }
+        },
+        "acceptance_criteria_preserved": {"type": "boolean"},
+        "controls_preserved": {"$ref": "#/$defs/stringList"},
+        "rejected_alternatives": {
+          "type": "array",
+          "items": {}
+        },
+        "estimated_change_surface": {
+          "type": "object"
+        },
+        "dependency_service_schema_agent_delta": {"$ref": "#/$defs/delta"},
+        "budget_exceptions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "new_dependencies",
+            "new_external_services",
+            "new_databases_or_schemas",
+            "new_agents_or_provider_routes",
+            "new_abstraction_layers"
+          ],
+          "properties": {
+            "new_dependencies": {"$ref": "#/$defs/budgetException"},
+            "new_external_services": {"$ref": "#/$defs/budgetException"},
+            "new_databases_or_schemas": {"$ref": "#/$defs/budgetException"},
+            "new_agents_or_provider_routes": {"$ref": "#/$defs/budgetException"},
+            "new_abstraction_layers": {"$ref": "#/$defs/budgetException"}
+          }
+        },
+        "verification_plan": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "remaining_uncertainty": {
+          "type": "array",
+          "items": {}
+        }
+      }
+    }
+  }
 }

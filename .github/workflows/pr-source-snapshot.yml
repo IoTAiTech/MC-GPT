@@ -1,0 +1,42 @@
+# Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Version: 1.0.0 | Date: 2026-08-30
+# Temporary validation-only workflow. Remove before Founder acceptance.
+name: PR source snapshot
+
+on:
+  push:
+    branches:
+      - feature/minimum-necessary-change-gate-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Build exact Git source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output="${RUNNER_TEMP}/mc-gpt-pr14-source.zip" HEAD
+          sha256sum "${RUNNER_TEMP}/mc-gpt-pr14-source.zip" > "${RUNNER_TEMP}/mc-gpt-pr14-source.zip.sha256"
+          git rev-parse HEAD > "${RUNNER_TEMP}/SOURCE_COMMIT.txt"
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: mc-gpt-pr14-source
+          path: |
+            ${{ runner.temp }}/mc-gpt-pr14-source.zip
+            ${{ runner.temp }}/mc-gpt-pr14-source.zip.sha256
+            ${{ runner.temp }}/SOURCE_COMMIT.txt
+          retention-days: 7
+          if-no-files-found: error

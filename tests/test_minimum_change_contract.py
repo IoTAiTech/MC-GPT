@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 from iot_ai.graph_runtime import GraphNode, _validate_output
-from iot_ai.minimum_change import ASSESSMENT_SCHEMA, VALID_DECISIONS
+from iot_ai.minimum_change import ASSESSMENT_SCHEMA, DECISION_BY_RUNG
 from iot_ai.roles import ROLE_CATALOG
 
 
@@ -25,7 +25,10 @@ class MinimumChangePublicContractTests(unittest.TestCase):
             )
         )
         self.assertEqual(schema["properties"]["schema"]["const"], ASSESSMENT_SCHEMA)
-        self.assertEqual(set(schema["properties"]["decision"]["enum"]), VALID_DECISIONS)
+        self.assertEqual(
+            set(schema["properties"]["decision"]["enum"]),
+            set(DECISION_BY_RUNG.values()),
+        )
         self.assertEqual(schema["properties"]["selected_rung"]["minimum"], 1)
         self.assertEqual(schema["properties"]["selected_rung"]["maximum"], 7)
         self.assertFalse(schema["additionalProperties"])

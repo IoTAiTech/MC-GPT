@@ -1,7 +1,9 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 """Minimal disposable authentication fixture for the MC-GPT quickstart.
 
 Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-Version: 1.0.0
+Version: 1.0.1
 """
 
 from __future__ import annotations

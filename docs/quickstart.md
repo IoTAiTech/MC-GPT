@@ -1,8 +1,8 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.8.0-beta.1 | Date: 2026-08-28 -->
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.8.0-beta.1 | Date: 2026-08-29 -->
 
 # MC-GPT five-minute evaluation
 
-This guide separates the **latest downloadable preview** from the newer source snapshot on `main`:
+This guide separates the **latest downloadable preview** from the newer source snapshot:
 
 ```text
 latest tagged download: IOT-AI Suite 6.7.0-beta.6 / MC-GPT 0.8.0-alpha.6
@@ -17,7 +17,7 @@ Use a disposable repository. Do not start with customer code, credentials, priva
 - Python 3.11 or newer;
 - Git;
 - Linux for the currently documented public evaluation path;
-- at least one configured provider CLI only when you move from plan mode to execution.
+- at least one configured provider route only when moving from plan-only inspection to execution.
 
 ## Install the tagged wheel
 
@@ -25,39 +25,11 @@ Use a disposable repository. Do not start with customer code, credentials, priva
 
 ```bash
 python3 -m pip install --user pipx
-python3 -m pipx ensurepath
-pipx install \
+python3 -m pipx install \
   https://github.com/IoTAiTech/MC-GPT/releases/download/v6.7.0-beta.6/iot_ai_coder_suite-6.7.0b6-py3-none-any.whl
 ```
 
-### Option B — verified curl installer
-
-Inspect the script first, then apply it:
-
-```bash
-curl -fsSLo /tmp/install-mc-gpt.sh \
-  https://raw.githubusercontent.com/IoTAiTech/MC-GPT/main/installers/install-community-preview.sh
-less /tmp/install-mc-gpt.sh
-sh /tmp/install-mc-gpt.sh
-sh /tmp/install-mc-gpt.sh --apply
-```
-
-The installer verifies this published wheel SHA-256 before creating a versioned virtual environment:
-
-```text
-18a752eddcfa9336152cfe72e8ab320372e021121f89e68dbe086474f8ab2807
-```
-
-### Option C — ordinary virtual environment
-
-```bash
-python3 -m venv .mc-gpt-venv
-.mc-gpt-venv/bin/python -m pip install --upgrade pip
-.mc-gpt-venv/bin/python -m pip install \
-  https://github.com/IoTAiTech/MC-GPT/releases/download/v6.7.0-beta.6/iot_ai_coder_suite-6.7.0b6-py3-none-any.whl
-```
-
-## Verify the installation
+Verify:
 
 ```bash
 iot-ai --version
@@ -65,7 +37,45 @@ iot-ai help
 iot-ai status
 ```
 
-A status report may show provider routes as unavailable. That is an honest readiness result, not an installation failure.
+When the current shell cannot yet find `iot-ai`, inspect the executable location with:
+
+```bash
+python3 -m pipx environment
+```
+
+### Option B — ordinary virtual environment
+
+```bash
+python3 -m venv .mc-gpt-venv
+.mc-gpt-venv/bin/python -m pip install --upgrade pip
+.mc-gpt-venv/bin/python -m pip install \
+  https://github.com/IoTAiTech/MC-GPT/releases/download/v6.7.0-beta.6/iot_ai_coder_suite-6.7.0b6-py3-none-any.whl
+
+.mc-gpt-venv/bin/iot-ai --version
+.mc-gpt-venv/bin/iot-ai help
+.mc-gpt-venv/bin/iot-ai status
+```
+
+Published wheel SHA-256:
+
+```text
+18a752eddcfa9336152cfe72e8ab320372e021121f89e68dbe086474f8ab2807
+```
+
+For an independent digest check, download the wheel and run:
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import hashlib
+
+path = Path("iot_ai_coder_suite-6.7.0b6-py3-none-any.whl")
+expected = "18a752eddcfa9336152cfe72e8ab320372e021121f89e68dbe086474f8ab2807"
+actual = hashlib.sha256(path.read_bytes()).hexdigest()
+print(actual)
+raise SystemExit(0 if actual == expected else 1)
+PY
+```
 
 ## Run the disposable fixture
 
@@ -75,9 +85,9 @@ cd MC-GPT/examples/quickstart-demo
 python3 -m unittest discover -s tests -v
 ```
 
-The baseline tests must pass before any agent modifies the fixture.
+Expected baseline: three tests pass.
 
-Read the task:
+Read the nine-criterion task contract:
 
 ```bash
 cat TASK.md
@@ -87,14 +97,13 @@ Compile a plan without writes or provider spending:
 
 ```bash
 iot-ai \
-  "Read TASK.md. Inspect this disposable fixture, resolve the acceptance criteria, show the exact specialist and provider seats, identify the tests that must run after the change, and do not execute." \
-  --plan
+  "Read TASK.md. Inspect this disposable fixture, resolve all nine acceptance criteria, name the writer and independent review roles, identify the exact post-change test command, and do not execute."
 ```
 
 The plan should identify:
 
-- the current authentication behaviour;
-- the requested rate-limit semantics;
+- current authentication behaviour;
+- rate-limit semantics;
 - deterministic clock injection;
 - post-change tests;
 - one writer and independent review roles;
@@ -106,7 +115,13 @@ Only after at least one supported provider route is configured:
 
 ```bash
 iot-ai \
-  "Implement TASK.md in this disposable fixture. Preserve existing behaviour, use one authorised writer and independent review, run all tests on the post-change tree, repair failures within the bounded loop, and return one complete evidence table."
+  "Implement TASK.md in this disposable fixture. Preserve existing behaviour, use one authorised writer and independent review, run all tests on the post-change tree, repair bounded failures, and return one complete evidence table."
+```
+
+The fixture includes a minimal `pyproject.toml`, so MC-GPT can detect and run:
+
+```bash
+python3 -m pytest -q
 ```
 
 A truthful terminal result is one of:
@@ -121,23 +136,31 @@ budget exhausted
 
 MC-GPT must not call a zero-eligible run a pass, invent model identity, treat progress as implementation, or silently copy PMD tasks into a second task authority.
 
-## Review the result
+## Review the actual writer worktree
 
-Inspect at least:
+MC-GPT writes in an isolated worker path. Do not review the untouched checkout from which the command was launched.
+
+Read the `workers[].path` value from the generated worktree record or final change-binding evidence, then use that exact local path:
 
 ```bash
-git status --short
-git diff --stat
-git diff
-python3 -m unittest discover -s tests -v
-iot-ai status --logs
+WRITER_WORKTREE="/absolute/path/from-the-local-worktree-record"
+
+git -C "$WRITER_WORKTREE" status --short
+git -C "$WRITER_WORKTREE" diff --stat
+git -C "$WRITER_WORKTREE" diff
+(
+  cd "$WRITER_WORKTREE"
+  python3 -m pytest -q
+)
 ```
 
-The final report should identify the task, acceptance criteria, requested and served models, changed files, post-change test results, repairs, final state, remaining work and evidence locations.
+Never publish the local path. A public feedback report should include only sanitised changed-file names, test results and evidence hashes.
+
+The final report should identify the Task, all nine acceptance criteria, requested and served models, changed files, post-change tests, repairs, final state, remaining work and evidence references.
 
 ## Send useful feedback
 
-Use the repository's [demo feedback issue form](https://github.com/IoTAiTech/MC-GPT/issues/new?template=demo_feedback.yml). Report:
+Use the repository's [demo feedback form](https://github.com/IoTAiTech/MC-GPT/issues/new?template=demo_feedback.yml). Report:
 
 1. time to first meaningful result;
 2. the first unclear setup step;

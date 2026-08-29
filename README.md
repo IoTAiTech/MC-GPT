@@ -6,12 +6,12 @@
 
 <p align="center">
   Coordinate Claude Code, OpenAI Codex, Gemini CLI, Grok CLI and Ollama from one engineering outcome.<br />
-  MC-GPT isolates work, runs tests and reviews, and returns one evidence-backed completion report.
+  MC-GPT isolates work, runs post-change tests and independent review, and returns one evidence-backed completion report.
 </p>
 
 <p align="center">
-  <a href="docs/quickstart.md"><strong>Start the 5-minute evaluation</strong></a> ·
-  <a href="examples/quickstart-demo/README.md">Open the demo fixture</a> ·
+  <a href="docs/quickstart.md"><strong>Start the five-minute evaluation</strong></a> ·
+  <a href="examples/quickstart-demo/README.md">Open the disposable fixture</a> ·
   <a href="https://iotaitech.github.io/MC-GPT/">Product page</a> ·
   <a href="https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6">Latest downloadable preview</a>
 </p>
@@ -24,8 +24,8 @@
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-lightgrey.svg)](LICENSE)
 
 > **Latest downloadable Community Preview:** IOT-AI Suite `6.7.0-beta.6` / MC-GPT `0.8.0-alpha.6`  
-> **Current `main` source snapshot:** IOT-AI Suite `6.8.0-beta.1` / MC-GPT `0.8.0-alpha.7` — not yet a tagged download  
-> **Claim boundary:** Community Developer Preview · `production_claim: false` · English and German
+> **Current `main` source snapshot after this change:** IOT-AI Suite `6.8.0-beta.1` / MC-GPT `0.8.0-alpha.7` — not yet a tagged download  
+> **Claim boundary:** Community Developer Preview · `production_claim: false` · public documentation in English
 
 ## The problem
 
@@ -41,7 +41,7 @@ MC-GPT treats **Task, Meeting and Multi-Coder as one governed lifecycle**, rathe
 
 ## The magic moment
 
-You describe the result once:
+Describe the result once:
 
 ```bash
 iot-ai "Add rate limiting to the login path, preserve current behaviour, use independent review, repair any failure, rerun the tests and give me one final evidence table."
@@ -57,10 +57,10 @@ natural-language outcome
 → isolated writer worktree
 → independent review seats
 → deterministic post-change tests
-→ failure meeting and bounded repair when required
-→ source/diff/evidence audit
+→ bounded repair when required
+→ source, diff and evidence audit
 → technical completion, exact blocker, or Founder decision gate
-→ brief or complete JSON/Markdown/CSV/XLSX report
+→ brief or complete JSON / Markdown / CSV / XLSX report
 ```
 
 A zero-eligible run is `noop`, one successful provider is never called consensus, progress telemetry cannot manufacture completion, and Founder Accept/Reject/Rework remains human-only.
@@ -73,27 +73,17 @@ A zero-eligible run is `noop`, one successful provider is never called consensus
 
 ## Try it in five minutes
 
-### 1. Install the latest tagged preview
+### 1. Install the latest tagged wheel
 
-Preferred isolated installation:
+Use an isolated `pipx` environment:
 
 ```bash
 python3 -m pip install --user pipx
-python3 -m pipx ensurepath
-pipx install \
+python3 -m pipx install \
   https://github.com/IoTAiTech/MC-GPT/releases/download/v6.7.0-beta.6/iot_ai_coder_suite-6.7.0b6-py3-none-any.whl
 ```
 
-Or use the repository's SHA-256-verifying installer in plan mode first:
-
-```bash
-curl -fsSLo /tmp/install-mc-gpt.sh \
-  https://raw.githubusercontent.com/IoTAiTech/MC-GPT/main/installers/install-community-preview.sh
-sh /tmp/install-mc-gpt.sh
-sh /tmp/install-mc-gpt.sh --apply
-```
-
-The published wheel digest is:
+Published wheel SHA-256:
 
 ```text
 18a752eddcfa9336152cfe72e8ab320372e021121f89e68dbe086474f8ab2807
@@ -102,10 +92,13 @@ The published wheel digest is:
 ### 2. Verify the CLI
 
 ```bash
+python3 -m pipx runpip iot-ai-coder-suite show iot-ai-coder-suite
 iot-ai --version
 iot-ai help
 iot-ai status
 ```
+
+If your shell has not yet reloaded the user binary path, run the `iot-ai` executable from the path printed by `python3 -m pipx environment`.
 
 ### 3. Run the disposable fixture
 
@@ -115,13 +108,17 @@ cd MC-GPT/examples/quickstart-demo
 python3 -m unittest discover -s tests -v
 
 iot-ai \
-  "Read TASK.md, plan the change in this disposable fixture, show the exact acceptance criteria and provider seats, but do not execute." \
-  --plan
+  "Read TASK.md. Inspect this disposable fixture, produce a complete implementation and test plan, name the writer and independent review roles, but do not execute."
 ```
 
-When at least one supported provider route is configured, remove `--plan` to run the governed implementation loop. The fixture contains no customer data and uses only Python's standard library.
+When at least one supported provider route is configured, run the governed implementation:
 
-See the complete [Quickstart](docs/quickstart.md), [Installation guide](docs/installation.md) and [demo acceptance contract](examples/quickstart-demo/TASK.md).
+```bash
+iot-ai \
+  "Implement TASK.md in this disposable fixture. Preserve existing behaviour, use one authorised writer and independent review, run all tests on the post-change tree, repair bounded failures and return one complete evidence table."
+```
+
+The fixture contains no customer data, network dependency, database or external framework. See the complete [Quickstart](docs/quickstart.md), [Installation guide](docs/installation.md) and [nine-criterion demo contract](examples/quickstart-demo/TASK.md).
 
 ## What the final report contains
 
@@ -132,20 +129,13 @@ Every terminal run can emit brief or complete reports in JSON, Markdown, CSV and
 
 Provider participation is explicit: requested model, served model, authentication/readiness result, outage or fallback status, substantive contribution and latency. Missing identity is reported as **unverified**, never silently upgraded to a successful seat.
 
-## Evidence available in the current source snapshot
+## Evidence and claim discipline
 
-The checked-in [`FINAL_TEST_SUMMARY.json`](FINAL_TEST_SUMMARY.json) records the current `6.8.0-beta.1` source-candidate evidence:
+The live badges above represent hosted checks for the commit currently displayed by GitHub. Checked-in evidence files such as `FINAL_TEST_SUMMARY.json` apply only to the exact source revision and hashes named inside them; they are historical evidence unless explicitly regenerated for the current commit.
 
-- `220` pytest cases passed with warnings treated as errors;
-- `220` unittest cases passed;
-- `44` focused Task/Meeting/Multi-Coder/update cases passed;
-- public-boundary scan: `0` findings in the current tree;
-- deterministic static-security scan: `0` findings across `113` files;
-- runtime intent/compiler benchmark: `p95 1.1738 ms` against a `10 ms` target.
+No package checksum, test count, provider installation, API health result or Meeting record is presented as proof of production readiness by itself.
 
-These figures describe that exact source candidate. They are not a blanket production, provider-account, Windows, customer PMD or legal-compliance claim. Hosted workflow status is represented by the live badges above.
-
-## Supported execution seats
+## Supported execution routes
 
 | Family | Typical role | Access path |
 |---|---|---|
@@ -155,19 +145,7 @@ These figures describe that exact source candidate. They are not a blanket produ
 | Grok CLI | implementation and adversarial review | Grok subscription or configured API |
 | Ollama local/cloud | exact model-specific specialist seats | configured Ollama route and privacy policy |
 
-MC-GPT assigns authority to a **specialist contract**, not to a provider name. The contract binds mission, read/write scope, forbidden actions, expected evidence and output schema before a live provider/model is selected.
-
-## Usage
-
-The normal interface is one engineering outcome, not a memorised flag sequence:
-
-```bash
-iot-ai status
-iot-ai "Review the remaining work and show one brief report; do not execute."
-iot-ai "Finish the selected work, use every eligible coder, meet on failures, repair, retest and report."
-```
-
-Use `--plan` for a non-mutating preview. See [`USAGE.md`](USAGE.md) for the complete command and permission table.
+“Supported route” does not mean a provider participated in a particular run. Each run records requested, attempted, served and substantive seats separately.
 
 ## Safety and authority boundaries
 
@@ -175,7 +153,7 @@ Use `--plan` for a non-mutating preview. See [`USAGE.md`](USAGE.md) for the comp
 - ProductX/PMD work uses an authenticated, versioned API adapter; direct product-database access is forbidden.
 - Parallel writers use isolated Git worktrees or exclusive path leases.
 - One designated implementer writes; review seats remain read-only.
-- Tests run against the post-change tree and are bound to the recorded diff.
+- Tests and review evidence must bind to the recorded post-change tree.
 - Public export is allowlist-built and scanned for secrets, private infrastructure, personal paths and customer material.
 - Public release, history replacement, destructive mutation, production deployment and Founder final acceptance remain explicit gates.
 - Repair loops are bounded by failure fingerprints, time/token budgets and no-new-evidence limits.
@@ -197,32 +175,10 @@ Read [Security](SECURITY.md), [worktree orchestration](docs/worktree-orchestrati
 
 This repository is **source-available, not OSI open source**. Community use is governed by the [PolyForm Noncommercial License 1.0.0](LICENSE). Commercial evaluation, company-internal use, consulting, hosting, resale, customer deployment and production require written terms. See [USAGE.md](USAGE.md), [COMMERCIAL.md](COMMERCIAL.md) and [licensing and forks](docs/licensing-and-forks.md).
 
-## Licence
-
-**SPDX:** `PolyForm-Noncommercial-1.0.0` · [Official licence text](LICENSE) · [Usage rules](USAGE.md)
-
-Personal and noncommercial evaluation, study, modification and redistribution are available under the licence. Company-internal operation, production, paid services, hosting, resale, commercial distribution and customer deployment require written IoT-AI.Tech terms. **GitHub’s Fork button does not grant commercial rights.**
-
-## Competitive comparison
-
-### Comparison methodology
-
-The comparison is **Quantitative** where a reviewed public source exposes a count or concrete support statement, and **Qualitative** where products use different architectures or trust models. `Not evidenced` means **not evidenced in reviewed public documentation**; it does not mean the capability is absent. This is not a performance benchmark.
-
-| Product or public concept | Publicly presented focus | MC-GPT distinction |
-|---|---|---|
-| Claude Code Agent Teams | Claude-native coordinated agent work | Provider-neutral specialist contracts, exact requested/served receipts and bounded final evidence |
-| GitHub Copilot Fleet | GitHub/Copilot-centred parallel coding workflows | Local-first multi-provider control plane and explicit product/backend authority |
-| Stably Orca | Coordinator lifecycle and worktree activation | Evidence-bound Task → Meeting → Multi-Coder completion and human Founder gate |
-| AgentGem | Captured operations exposed across agent boundaries | Deterministic capability packs plus governance and release boundaries |
-| ServiceNow AI Control Tower | Enterprise AI inventory and lifecycle governance | Engineering execution loop connected to task, diff, test and review evidence |
-
-Detailed Orca notes: [`docs/comparison/ORCA_COMPARISON.md`](docs/comparison/ORCA_COMPARISON.md). Claims are limited to reviewed public documentation and our own source evidence.
-
 ## Honest current limitations
 
-- The latest downloadable package is `6.7.0-beta.6`; `main` is ahead and must not be presented as an existing release asset.
-- Windows and macOS are not currently advertised as qualified public installation targets.
+- The latest downloadable package is `6.7.0-beta.6`; the current source is ahead and must not be presented as an existing release asset.
+- The public evaluation path is Linux-first; Windows and macOS are not currently advertised as qualified installation targets.
 - A real Multi-Coder run depends on configured and live provider accounts; unavailable seats remain visible.
 - Enterprise PMD schema recovery, customer PostgreSQL/RLS and fleet rollout are deployment-specific gates.
 - The current public experience is CLI-first; a live visual workspace is roadmap work.
@@ -245,7 +201,7 @@ Security issues belong in [private vulnerability reporting](https://github.com/I
 ## Documentation map
 
 - [Five-minute quickstart](docs/quickstart.md)
-- [Installation, update and rollback](docs/installation.md)
+- [Installation](docs/installation.md)
 - [Product guide](docs/PRODUCT_GUIDE.md)
 - [Natural-language orchestration](docs/goal-first-orchestration.md)
 - [Meeting reporting](docs/meeting-reporting.md)

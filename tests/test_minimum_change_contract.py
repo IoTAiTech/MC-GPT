@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 from iot_ai.graph_runtime import GraphNode, _validate_output
-from iot_ai.minimum_change import ASSESSMENT_SCHEMA, DECISION_BY_RUNG
+from iot_ai.minimum_change import ASSESSMENT_SCHEMA, RUNG_DEFINITIONS
 from iot_ai.roles import ROLE_CATALOG
 
 
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MinimumChangePublicContractTests(unittest.TestCase):
-    def test_public_json_schema_matches_runtime_identity_and_decisions(self) -> None:
+    def test_public_json_schema_matches_runtime_identity_and_rungs(self) -> None:
         schema = json.loads(
             (ROOT / "schemas" / "minimum-change-assessment-v1.schema.json").read_text(
                 encoding="utf-8"
@@ -27,10 +27,19 @@ class MinimumChangePublicContractTests(unittest.TestCase):
         self.assertEqual(schema["properties"]["schema"]["const"], ASSESSMENT_SCHEMA)
         self.assertEqual(
             set(schema["properties"]["decision"]["enum"]),
-            set(DECISION_BY_RUNG.values()),
+            {"pass", "needs-work", "block"},
         )
-        self.assertEqual(schema["properties"]["selected_rung"]["minimum"], 1)
-        self.assertEqual(schema["properties"]["selected_rung"]["maximum"], 7)
+        runtime_rungs = {str(item["id"]) for item in RUNG_DEFINITIONS}
+        public_rungs = {
+            value
+            for value in schema["properties"]["selected_rung"]["enum"]
+            if value is not None
+        }
+        normalized_rungs = set(
+            schema["$defs"]["normalizedAssessment"]["properties"]["selected_rung"]["enum"]
+        )
+        self.assertEqual(public_rungs, runtime_rungs)
+        self.assertEqual(normalized_rungs, runtime_rungs)
         self.assertFalse(schema["additionalProperties"])
 
     def test_planning_and_implementation_roles_require_the_assessment(self) -> None:

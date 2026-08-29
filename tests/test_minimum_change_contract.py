@@ -64,7 +64,22 @@ class MinimumChangePublicContractTests(unittest.TestCase):
             output_schema=role.output_fields,
             effort=role.default_effort,
         )
-        payload = {field: "present" for field in role.output_fields}
+        payload = {
+            "decision": "accept",
+            "direct_answer": "Use the first sufficient evidence-bound solution rung.",
+            "5w1h": {"defined": True},
+            "minimum_change_assessment": {"selected_rung": "minimal-local-change"},
+            "plan": [],
+            "architecture": {"defined": True},
+            "kpis": [],
+            "sla": {"defined": True},
+            "use_cases": [],
+            "test_cases": [],
+            "failure_cases": [],
+            "risks": [],
+            "disagreements": [],
+            "missing_evidence": [],
+        }
         payload.pop("minimum_change_assessment")
         with self.assertRaises(ValueError):
             _validate_output(node, payload)

@@ -1,0 +1,308 @@
+name: PR14 deep hardening 20260830
+
+on:
+  push:
+    branches:
+      - feature/minimum-necessary-change-gate-v1
+    paths:
+      - tools/_pr14_deep_hardening_once_20260830.py
+      - .github/workflows/pr14-deep-hardening-20260830.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr14-deep-hardening-20260830
+  cancel-in-progress: false
+
+jobs:
+  deep-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUTF8: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Checkout exact PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: feature/minimum-necessary-change-gate-v1
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Apply fail-closed hardening in runner worktree
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/pr14-deep-validation
+          python tools/_pr14_deep_hardening_once_20260830.py \
+            2>&1 | tee evidence/pr14-deep-validation/hardening.log
+          git diff --check
+
+      - name: Install project and isolated validation tools
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m pip install \
+            coverage==7.10.6 \
+            jsonschema==4.25.1 \
+            build==1.3.0 \
+            bandit==1.8.6 \
+            pip-audit==2.9.0
+          python -m pip check
+
+      - name: Compile all Python sources
+        run: |
+          set -euo pipefail
+          python -m compileall -q src tests tools
+
+      - name: Focused deep suite with warnings as errors
+        run: |
+          set -euo pipefail
+          python -m pytest -W error -vv --tb=short \
+            tests/test_minimum_change.py \
+            tests/test_minimum_change_deep.py \
+            tests/test_minimum_change_benchmark.py \
+            tests/test_minimum_change_contract.py \
+            tests/test_minimum_change_prompt_integration.py \
+            tests/test_task_validation.py \
+            2>&1 | tee evidence/pr14-deep-validation/focused-werror.log
+
+      - name: Statement and branch coverage hard gate
+        run: |
+          set -euo pipefail
+          coverage erase
+          coverage run --branch -m pytest -q \
+            tests/test_minimum_change.py \
+            tests/test_minimum_change_deep.py \
+            tests/test_minimum_change_benchmark.py \
+            tests/test_minimum_change_contract.py \
+            tests/test_minimum_change_prompt_integration.py \
+            tests/test_task_validation.py
+          coverage report \
+            --include='*/src/iot_ai/minimum_change.py' \
+            --show-missing \
+            --fail-under=100 \
+            2>&1 | tee evidence/pr14-deep-validation/coverage-report.txt
+          coverage json \
+            --include='*/src/iot_ai/minimum_change.py' \
+            -o evidence/pr14-deep-validation/coverage.json
+
+      - name: Validate public JSON Schemas and runtime result
+        run: |
+          set -euo pipefail
+          python - <<'PY' 2>&1 | tee evidence/pr14-deep-validation/schema-validation.log
+          # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+          from tests.test_minimum_change_deep import passing_result
+
+          root = Path('.')
+          schemas = [
+              root / 'schemas/minimum-change-assessment-v1.schema.json',
+              root / 'schemas/minimum-change-provider-assessment-v1.schema.json',
+          ]
+          for path in schemas:
+              payload = json.loads(path.read_text(encoding='utf-8'))
+              Draft202012Validator.check_schema(payload)
+              print(f'SCHEMA PASS: {path}')
+          _, result = passing_result(88)
+          assessment_schema = json.loads(schemas[0].read_text(encoding='utf-8'))
+          Draft202012Validator(assessment_schema).validate(result)
+          print('RUNTIME RESULT AGAINST PUBLIC SCHEMA: PASS')
+          PY
+
+      - name: Curated critical-control mutation suite
+        run: |
+          set -euo pipefail
+          python tools/_pr14_curated_mutation_once_20260830.py \
+            2>&1 | tee evidence/pr14-deep-validation/mutation.log
+
+      - name: Deterministic semantic benchmark
+        run: |
+          set -euo pipefail
+          python benchmarks/minimum-change/evaluate.py \
+            > evidence/pr14-deep-validation/benchmark.json
+          python - <<'PY'
+          # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+          import json
+          from pathlib import Path
+          path = Path('evidence/pr14-deep-validation/benchmark.json')
+          payload = json.loads(path.read_text(encoding='utf-8'))
+          if payload.get('decision') != 'pass':
+              raise SystemExit(f"benchmark blocked: {payload}")
+          if payload.get('provider_calls') not in {0, None}:
+              raise SystemExit(f"unexpected provider calls: {payload.get('provider_calls')}")
+          print(json.dumps(payload, indent=2, sort_keys=True))
+          PY
+
+      - name: Full repository regression
+        run: |
+          set -euo pipefail
+          python -m pytest -vv --tb=short tests \
+            2>&1 | tee evidence/pr14-deep-validation/full-pytest.log
+
+      - name: Repository, privacy, and EU technical gates
+        run: |
+          set -euo pipefail
+          python tools/public_boundary_check.py . \
+            2>&1 | tee evidence/pr14-deep-validation/public-boundary.log
+          python tools/eu_ai_act_release_gate.py . \
+            2>&1 | tee evidence/pr14-deep-validation/eu-ai-act-gate.log
+          python tools/verify_repository.py . \
+            2>&1 | tee evidence/pr14-deep-validation/repository-verification.log
+
+      - name: Focused static security analysis
+        run: |
+          set -euo pipefail
+          bandit -q -r \
+            src/iot_ai/minimum_change.py \
+            src/iot_ai/prompt_compiler.py \
+            2>&1 | tee evidence/pr14-deep-validation/bandit.log
+
+      - name: Audit runtime dependency set
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+          import tomllib
+          from pathlib import Path
+          payload = tomllib.loads(Path('pyproject.toml').read_text(encoding='utf-8'))
+          requirements = payload.get('project', {}).get('dependencies', [])
+          Path('evidence/pr14-deep-validation/runtime-requirements.txt').write_text(
+              '\n'.join(requirements) + ('\n' if requirements else ''),
+              encoding='utf-8',
+          )
+          PY
+          if [[ -s evidence/pr14-deep-validation/runtime-requirements.txt ]]; then
+            pip-audit -r evidence/pr14-deep-validation/runtime-requirements.txt \
+              2>&1 | tee evidence/pr14-deep-validation/pip-audit.log
+          else
+            echo 'No runtime dependencies declared.' | tee evidence/pr14-deep-validation/pip-audit.log
+          fi
+
+      - name: Build wheel and verify clean-install smoke
+        run: |
+          set -euo pipefail
+          rm -rf dist build ./*.egg-info
+          python -m build \
+            2>&1 | tee evidence/pr14-deep-validation/build.log
+          python -m venv "${RUNNER_TEMP}/mcgpt-wheel-smoke"
+          "${RUNNER_TEMP}/mcgpt-wheel-smoke/bin/python" -m pip install --upgrade pip
+          "${RUNNER_TEMP}/mcgpt-wheel-smoke/bin/python" -m pip install dist/*.whl
+          "${RUNNER_TEMP}/mcgpt-wheel-smoke/bin/python" - <<'PY' \
+            2>&1 | tee evidence/pr14-deep-validation/wheel-smoke.log
+          # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+          import iot_ai
+          from iot_ai.minimum_change import compile_contract, validate_contract
+          task = {
+              'id': 'wheel-smoke',
+              'revision': 1,
+              'title': 'Wheel smoke',
+              'description': 'Verify installed package behaviour.',
+              'acceptance_criteria': 'Contract validates.',
+              'risk_class': 'R1',
+              'priority': 'normal',
+              'task_type': 'verification',
+              'source': 'wheel',
+              'source_id': 'wheel-smoke',
+              'tags': ['smoke'],
+          }
+          contract = compile_contract(task)
+          assert validate_contract(contract)['decision'] == 'pass'
+          print('WHEEL IMPORT AND CONTRACT SMOKE: PASS', iot_ai.__version__)
+          PY
+          "${RUNNER_TEMP}/mcgpt-wheel-smoke/bin/python" -m pip check \
+            2>&1 | tee evidence/pr14-deep-validation/wheel-pip-check.log
+
+      - name: Create immutable deep-validation receipt
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+          import hashlib
+          import json
+          import platform
+          import subprocess
+          from pathlib import Path
+
+          root = Path('evidence/pr14-deep-validation')
+          files = {}
+          for path in sorted(root.glob('*')):
+              if path.is_file():
+                  files[path.name] = {
+                      'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                      'bytes': path.stat().st_size,
+                  }
+          mutation = json.loads((root / 'curated-mutation-report.json').read_text(encoding='utf-8'))
+          coverage = json.loads((root / 'coverage.json').read_text(encoding='utf-8'))
+          receipt = {
+              'schema': 'iot-ai.pr14-deep-validation-receipt.v1',
+              'decision': 'pass',
+              'branch': 'feature/minimum-necessary-change-gate-v1',
+              'tested_commit_before_hardening': subprocess.check_output(
+                  ['git', 'rev-parse', 'HEAD'], text=True
+              ).strip(),
+              'python': platform.python_version(),
+              'platform': platform.platform(),
+              'coverage_percent': coverage['totals']['percent_covered'],
+              'branch_coverage_percent': coverage['totals'].get('percent_covered'),
+              'curated_mutation_score_percent': mutation['score_percent'],
+              'full_regression': 'pass',
+              'schema_validation': 'pass',
+              'package_build': 'pass',
+              'wheel_smoke': 'pass',
+              'security_gates': 'pass',
+              'production_claim': False,
+              'merge_performed': False,
+              'release_performed': False,
+              'pmd_runtime_mutated': False,
+              'files': files,
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          (root / 'DEEP_VALIDATION_RECEIPT.json').write_text(
+              json.dumps(receipt, indent=2, sort_keys=True), encoding='utf-8'
+          )
+          print(json.dumps(receipt, indent=2, sort_keys=True))
+          PY
+          cp -a evidence/pr14-deep-validation "${RUNNER_TEMP}/pr14-deep-validation-artifact"
+
+      - name: Commit only after every deep gate passes
+        run: |
+          set -euo pipefail
+          git config user.name "Dr. Babak Sorkhpour"
+          git config user.email "babakskr@gmail.com"
+          rm -rf evidence dist build ./*.egg-info
+          rm -f tools/_pr14_curated_mutation_once_20260830.py
+          rm -f tools/_pr14_deep_hardening_once_20260830.py
+          rm -f .github/workflows/pr14-deep-hardening-20260830.yml
+          rm -f .github/workflows/pr-source-snapshot.yml
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No persistent changes to commit."
+            exit 1
+          fi
+          git commit -m "test(hardening): complete PR14 deep validation and fail-closed receipts
+
+          Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+          production_claim: false"
+          git push origin HEAD:feature/minimum-necessary-change-gate-v1
+
+      - name: Upload complete evidence bundle
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: mc-gpt-pr14-deep-validation-20260830
+          path: ${{ runner.temp }}/pr14-deep-validation-artifact
+          if-no-files-found: warn
+          retention-days: 14

@@ -32,5 +32,7 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Verify tree and Git history
         run: python tools/public_boundary_check.py . --git-history
+      - name: Verify public repository language boundary
+        run: python tools/no_arabic_script_check.py .
       - name: EU AI Act technical release gate
         run: python tools/eu_ai_act_release_gate.py .

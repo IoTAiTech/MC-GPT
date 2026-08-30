@@ -69,6 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           python tools/public_boundary_check.py . --git-history
+          python tools/no_arabic_script_check.py .
           python tools/eu_ai_act_release_gate.py .
           python tools/verify_repository.py . --check-sbom
           OUT_DIR="${RUNNER_TEMP}/iot-ai-release"

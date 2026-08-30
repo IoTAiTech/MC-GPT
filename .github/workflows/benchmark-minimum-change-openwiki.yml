@@ -1,6 +1,9 @@
 name: Minimum change benchmark and OpenWiki qualification
 
 on:
+  push:
+    branches:
+      - benchmark/minimum-change-openwiki-v1
   pull_request:
     branches:
       - feature/minimum-necessary-change-gate-v1

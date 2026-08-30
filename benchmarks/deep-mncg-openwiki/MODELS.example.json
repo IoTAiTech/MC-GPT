@@ -1,0 +1,12 @@
+{
+  "instructions": "Copy to MODELS.local.json outside version control. Enable only routes with exact provider-emitted model identity and a qualification receipt digest.",
+  "models": [
+    {"enabled": false,"model_requested": "REQUIRED_AT_RUNTIME","model_served": "REQUIRED_AT_RUNTIME","provider": "OpenAI Codex","qualification_receipt_sha256": "REQUIRED_AT_RUNTIME","slot_id": "codex"},
+    {"enabled": false,"model_requested": "REQUIRED_AT_RUNTIME","model_served": "REQUIRED_AT_RUNTIME","provider": "Claude Code","qualification_receipt_sha256": "REQUIRED_AT_RUNTIME","slot_id": "claude"},
+    {"enabled": false,"model_requested": "REQUIRED_AT_RUNTIME","model_served": "REQUIRED_AT_RUNTIME","provider": "Gemini CLI","qualification_receipt_sha256": "REQUIRED_AT_RUNTIME","slot_id": "gemini"},
+    {"enabled": false,"model_requested": "REQUIRED_AT_RUNTIME","model_served": "REQUIRED_AT_RUNTIME","provider": "Grok CLI","qualification_receipt_sha256": "REQUIRED_AT_RUNTIME","slot_id": "grok"},
+    {"enabled": false,"model_requested": "REQUIRED_AT_RUNTIME","model_served": "REQUIRED_AT_RUNTIME","provider": "Ollama Cloud exact-model seat","qualification_receipt_sha256": "REQUIRED_AT_RUNTIME","slot_id": "ollama_cloud_exact"}
+  ],
+  "production_claim": false,
+  "schema": "iot-ai.benchmark-model-qualification.v1"
+}

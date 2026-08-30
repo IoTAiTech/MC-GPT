@@ -1,0 +1,12 @@
+{
+  "arms_registered": 6,
+  "benchmark_id": "mcgpt-mncg-openwiki-2026-01",
+  "performance_claim_allowed": false,
+  "production_claim": false,
+  "protocol_written": true,
+  "provider_trials_executed": 0,
+  "schema": "iot-ai.deep-benchmark-status.v1",
+  "status": "STARTED_PRE_REGISTERED",
+  "task_catalog_pinned": true,
+  "task_count": 30
+}

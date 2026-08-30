@@ -31,7 +31,19 @@ jobs:
         run: python3 benchmarks/deep-mncg-openwiki/scripts/validate_benchmark.py benchmarks/deep-mncg-openwiki
       - name: Run benchmark contract tests
         run: python3 -m unittest discover -s benchmarks/deep-mncg-openwiki/tests -p "test_*.py"
-      - name: Confirm no provider execution is configured
+      - name: Confirm no provider execution or performance claim is configured
         run: |
           test ! -f benchmarks/deep-mncg-openwiki/MODELS.local.json
-          grep -q 'provider_trials_executed: `0`' benchmarks/deep-mncg-openwiki/README.md
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          status = json.loads(
+              Path("benchmarks/deep-mncg-openwiki/STATUS.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          assert status["provider_trials_executed"] == 0
+          assert status["performance_claim_allowed"] is False
+          assert status["production_claim"] is False
+          PY

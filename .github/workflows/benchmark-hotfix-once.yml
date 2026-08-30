@@ -1,0 +1,122 @@
+name: Benchmark robustness hotfix once
+
+on:
+  push:
+    branches:
+      - benchmark/minimum-change-openwiki-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out benchmark branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: benchmark/minimum-change-openwiki-v1
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply exact robustness patch and remove this workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          benchmark = Path("benchmarks/minimum-change-v2/benchmark.py")
+          text = benchmark.read_text(encoding="utf-8")
+          old = '        base = 40 + (int(scheduled["task_id"][1:]) % 9) * 10\n'
+          new = (
+              '        task_seed = int(digest({"task_id": scheduled["task_id"]})[:8], 16)\n'
+              '        base = 40 + (task_seed % 9) * 10\n'
+          )
+          if text.count(old) != 1:
+              raise SystemExit("expected synthetic task-id expression exactly once")
+          benchmark.write_text(text.replace(old, new), encoding="utf-8")
+
+          test = Path("tests/test_minimum_change_benchmark_v2_nonnumeric.py")
+          test.write_text(
+              '''# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+          # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
+          # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+          # Version: 1.0.0
+          """Regression test for opaque, nonnumeric benchmark task identifiers."""
+          from __future__ import annotations
+
+          import importlib.util
+          import json
+          import unittest
+          from pathlib import Path
+
+          ROOT = Path(__file__).resolve().parents[1]
+          BENCH = ROOT / "benchmarks" / "minimum-change-v2"
+
+
+          class BenchmarkOpaqueTaskIdTests(unittest.TestCase):
+              def test_synthetic_selftest_accepts_opaque_task_ids(self) -> None:
+                  spec = importlib.util.spec_from_file_location("benchmark_v2_opaque_id", BENCH / "benchmark.py")
+                  if spec is None or spec.loader is None:
+                      self.fail("unable to load benchmark module")
+                  module = importlib.util.module_from_spec(spec)
+                  spec.loader.exec_module(module)
+                  protocol = json.loads((BENCH / "protocol.json").read_text(encoding="utf-8"))
+                  corpus = json.loads((BENCH / "task-corpus.json").read_text(encoding="utf-8"))
+                  corpus["tasks"][0]["id"] = "Tui"
+                  schedule = module.build_schedule(protocol, corpus, provider_ids=["openai-codex"])
+                  results = module.synthetic_results(schedule)
+                  self.assertEqual(len(results), schedule["run_count"])
+                  self.assertTrue(any(row["task_id"] == "Tui" for row in results))
+                  analysis = module.analyse_results(protocol, corpus, schedule, results)
+                  self.assertEqual(analysis["decision"], "pass")
+                  self.assertFalse(analysis["any_savings_claim_allowed"])
+
+
+          if __name__ == "__main__":
+              unittest.main()
+          ''',
+              encoding="utf-8",
+          )
+
+          Path(".github/workflows/benchmark-hotfix-once.yml").unlink()
+          PY
+
+      - name: Verify patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tests/test_minimum_change_benchmark_v2.py
+          python tests/test_minimum_change_benchmark_v2_nonnumeric.py
+          OUT="${RUNNER_TEMP}/benchmark-selftest"
+          python benchmarks/minimum-change-v2/benchmark.py selftest --output-dir "$OUT" > "$OUT-output.json"
+          python - "$OUT" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          analysis = json.loads((Path(sys.argv[1]) / "analysis.json").read_text(encoding="utf-8"))
+          assert analysis["decision"] == "pass"
+          assert analysis["any_savings_claim_allowed"] is False
+          PY
+          git diff --check
+
+      - name: Commit exact fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Dr. Babak Sorkhpour"
+          git config user.email "babakskr@gmail.com"
+          git add -- \
+            benchmarks/minimum-change-v2/benchmark.py \
+            tests/test_minimum_change_benchmark_v2_nonnumeric.py \
+            .github/workflows/benchmark-hotfix-once.yml
+          git commit -m "fix(benchmark): support opaque task identifiers
+
+          Replace positional numeric parsing with a deterministic task-ID digest and add an adversarial regression for nonnumeric identifiers.
+
+          Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+          production_claim: false"
+          git push origin HEAD:benchmark/minimum-change-openwiki-v1

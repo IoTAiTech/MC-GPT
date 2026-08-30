@@ -538,7 +538,8 @@ def synthetic_results(schedule: Mapping[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for scheduled in schedule["runs"]:
         multiplier = arm_multiplier[scheduled["arm_id"]]
-        base = 40 + (int(scheduled["task_id"][1:]) % 9) * 10
+        task_seed = int(digest({"task_id": scheduled["task_id"]})[:8], 16)
+        base = 40 + (task_seed % 9) * 10
         metrics = {
             "source_lines_added": round(base * multiplier, 6),
             "source_lines_deleted": 4,

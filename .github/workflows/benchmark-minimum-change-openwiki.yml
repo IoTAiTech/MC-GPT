@@ -7,11 +7,6 @@ on:
   pull_request:
     branches:
       - feature/minimum-necessary-change-gate-v1
-    paths:
-      - ".github/workflows/benchmark-minimum-change-openwiki.yml"
-      - "benchmarks/minimum-change-v2/**"
-      - "tests/test_minimum_change_benchmark_v2.py"
-      - "docs/research/openwiki-assessment.md"
   workflow_dispatch:
 
 permissions:
@@ -23,7 +18,7 @@ concurrency:
 
 jobs:
   benchmark-protocol:
-    name: Benchmark protocol (${{ matrix.python }})
+    name: Benchmark protocol Python ${{ matrix.python }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -36,12 +31,12 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
     steps:
       - name: Check out MC-GPT
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: ${{ matrix.python }}
           cache: pip
@@ -53,47 +48,26 @@ jobs:
           python -m pip install -e ".[dev]"
           python -m pip check
 
-      - name: Compile
-        run: python -m compileall -q benchmarks/minimum-change-v2 tests/test_minimum_change_benchmark_v2.py
+      - name: Compile and test protocol
+        run: |
+          set -euo pipefail
+          python -m compileall -q benchmarks/minimum-change-v2 tests/test_minimum_change_benchmark_v2.py
+          python -m pytest -q tests/test_minimum_change_benchmark_v2.py
 
-      - name: Protocol tests
-        run: python -m pytest -q tests/test_minimum_change_benchmark_v2.py
-
-      - name: Validate and self-test
+      - name: Validate and run synthetic self-test
         run: |
           set -euo pipefail
           OUT="${RUNNER_TEMP}/minimum-change-v2-${{ matrix.python }}"
           mkdir -p "$OUT"
-          python benchmarks/minimum-change-v2/benchmark.py validate | tee "$OUT/validation.json"
-          python benchmarks/minimum-change-v2/benchmark.py schedule \
-            --providers openai-codex \
-            --output "$OUT/schedule.json"
-          python benchmarks/minimum-change-v2/benchmark.py selftest \
-            --output-dir "$OUT/selftest" | tee "$OUT/selftest-output.json"
-          python - "$OUT" <<'PY'
-          import hashlib
-          import json
-          import sys
-          from pathlib import Path
+          python benchmarks/minimum-change-v2/benchmark.py validate > "$OUT/validation.json"
+          python benchmarks/minimum-change-v2/benchmark.py schedule --providers openai-codex --output "$OUT/schedule.json"
+          python benchmarks/minimum-change-v2/benchmark.py selftest --output-dir "$OUT/selftest" > "$OUT/selftest-output.json"
+          python -c 'import json,os,pathlib; p=pathlib.Path(os.environ["RUNNER_TEMP"])/("minimum-change-v2-"+os.environ["MATRIX_PYTHON"])/"selftest"/"analysis.json"; d=json.loads(p.read_text()); assert d["decision"]=="pass" and d["any_savings_claim_allowed"] is False' 
+        env:
+          MATRIX_PYTHON: ${{ matrix.python }}
 
-          root = Path(sys.argv[1])
-          analysis = json.loads((root / "selftest" / "analysis.json").read_text())
-          assert analysis["decision"] == "pass"
-          assert analysis["any_savings_claim_allowed"] is False
-          files = []
-          for path in sorted(p for p in root.rglob("*") if p.is_file()):
-              files.append({
-                  "path": path.relative_to(root).as_posix(),
-                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-                  "size": path.stat().st_size,
-              })
-          (root / "manifest.json").write_text(
-              json.dumps({"files": files, "production_claim": False}, indent=2, sort_keys=True) + "\n"
-          )
-          PY
-
-      - name: Upload protocol evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: minimum-change-benchmark-${{ matrix.python }}
           path: ${{ runner.temp }}/minimum-change-v2-${{ matrix.python }}/**
@@ -111,8 +85,8 @@ jobs:
       OPENWIKI_CONFIG_DIR: ${{ runner.temp }}/openwiki-config
       NODE_OPTIONS: "--max-old-space-size=4096"
     steps:
-      - name: Check out OpenWiki at the reviewed revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out OpenWiki at reviewed revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: langchain-ai/openwiki
           ref: 05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe
@@ -120,23 +94,23 @@ jobs:
           persist-credentials: false
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
         with:
           run_install: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "22"
           cache: pnpm
           cache-dependency-path: openwiki-upstream/pnpm-lock.yaml
 
-      - name: Verify exact source identity
+      - name: Verify exact source
         working-directory: openwiki-upstream
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe"
-          test "$(git status --porcelain)" = ""
+          test -z "$(git status --porcelain)"
           node --version
           pnpm --version
 
@@ -144,20 +118,14 @@ jobs:
         working-directory: openwiki-upstream
         run: pnpm install --frozen-lockfile
 
-      - name: Format and lint
+      - name: Run upstream quality pipeline
         working-directory: openwiki-upstream
         run: |
           set -euo pipefail
           pnpm run format:check
           pnpm run lint:check
-
-      - name: Upstream test pipeline
-        working-directory: openwiki-upstream
-        run: pnpm test
-
-      - name: Evaluation ledger typecheck
-        working-directory: openwiki-upstream
-        run: pnpm run eval:ledger:typecheck
+          pnpm test
+          pnpm run eval:ledger:typecheck
 
       - name: Provider-free CLI smoke
         working-directory: openwiki-upstream
@@ -170,42 +138,16 @@ jobs:
           printf '# Fixture\n' > README.md
           git add README.md
           git -c user.name='MC-GPT Audit' -c user.email='audit@example.invalid' commit -q -m fixture
-          node "${GITHUB_WORKSPACE}/openwiki-upstream/dist/cli/cli.js" code --dry-run --init \
-            > "${RUNNER_TEMP}/openwiki-dry-run.txt"
+          node "${GITHUB_WORKSPACE}/openwiki-upstream/dist/cli/cli.js" code --dry-run --init > "${RUNNER_TEMP}/openwiki-dry-run.txt"
 
       - name: Build qualification receipt
+        working-directory: openwiki-upstream
         run: |
           set -euo pipefail
-          node <<'NODE'
-          const fs = require('fs');
-          const path = require('path');
-          const crypto = require('crypto');
-          const temp = process.env.RUNNER_TEMP;
-          const source = path.join(process.env.GITHUB_WORKSPACE, 'openwiki-upstream');
-          const receipt = {
-            schema: 'iot-ai.openwiki-upstream-qualification.v1',
-            repository: 'langchain-ai/openwiki',
-            commit: '05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe',
-            package_version: require(path.join(source, 'package.json')).version,
-            node: process.version,
-            telemetry_disabled: process.env.DO_NOT_TRACK === '1',
-            frozen_install: true,
-            format: 'pass',
-            lint: 'pass',
-            upstream_test_pipeline: 'pass',
-            eval_ledger_typecheck: 'pass',
-            cli_help: 'pass',
-            provider_free_dry_run: 'pass',
-            provider_calls: 0,
-            production_claim: false,
-          };
-          const canonical = JSON.stringify(receipt, Object.keys(receipt).sort());
-          receipt.receipt_sha256 = crypto.createHash('sha256').update(canonical).digest('hex');
-          fs.writeFileSync(path.join(temp, 'openwiki-qualification.json'), JSON.stringify(receipt, null, 2) + '\n');
-          NODE
+          node -e 'const fs=require("fs"),crypto=require("crypto"),pkg=require("./package.json"); const r={schema:"iot-ai.openwiki-upstream-qualification.v1",repository:"langchain-ai/openwiki",commit:"05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe",package_version:pkg.version,node:process.version,telemetry_disabled:process.env.DO_NOT_TRACK==="1",frozen_install:true,format:"pass",lint:"pass",upstream_test_pipeline:"pass",eval_ledger_typecheck:"pass",cli_help:"pass",provider_free_dry_run:"pass",provider_calls:0,production_claim:false}; r.receipt_sha256=crypto.createHash("sha256").update(JSON.stringify(r)).digest("hex"); fs.writeFileSync(process.env.RUNNER_TEMP+"/openwiki-qualification.json",JSON.stringify(r,null,2)+"\n")'
 
       - name: Upload OpenWiki qualification evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: openwiki-upstream-qualification
           path: |

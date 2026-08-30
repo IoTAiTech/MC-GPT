@@ -33,6 +33,8 @@ minimum new code
 
 The corpus includes security, privacy, recovery, database, UI, IAM, Meeting, release, provider, and observability cases. Each task has explicit acceptance criteria, an expected rung, a risk class, and a public-data-only flag.
 
+Task identifiers are opaque strings. Scheduling, synthetic self-tests, receipts, and analysis never derive semantics or ordering from an identifier's spelling.
+
 The current corpus is a protocol corpus. Runnable fixture repositories must be frozen and hashed before live provider execution.
 
 ## Experimental design

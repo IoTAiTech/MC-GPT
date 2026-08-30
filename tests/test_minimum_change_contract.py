@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.8.0-beta.1 | Date: 2026-08-29
+# Version: 6.8.0-beta.1 | Date: 2026-08-30
 """Public schema, role and runtime-presence contracts for the minimum-change gate."""
 from __future__ import annotations
 
@@ -50,17 +50,17 @@ class MinimumChangePublicContractTests(unittest.TestCase):
                     ROLE_CATALOG[role_id].output_fields,
                 )
 
-    def test_graph_runtime_rejects_missing_required_assessment_field(self) -> None:
+    def test_graph_runtime_marks_missing_required_assessment_as_failed(self) -> None:
         role = ROLE_CATALOG["plan-synthesizer"]
         node = GraphNode(
             node_id="plan-synthesis",
             role_id=role.role_id,
+            mission=role.mission,
             stage="plan-synthesis",
-            dependencies=(),
+            depends_on=(),
             required=True,
             read_scope=("normalized-evidence",),
             write_scope=("plan",),
-            forbidden_actions=role.forbidden_actions,
             output_schema=role.output_fields,
             effort=role.default_effort,
         )
@@ -68,7 +68,6 @@ class MinimumChangePublicContractTests(unittest.TestCase):
             "decision": "accept",
             "direct_answer": "Use the first sufficient evidence-bound solution rung.",
             "5w1h": {"defined": True},
-            "minimum_change_assessment": {"selected_rung": "minimal-local-change"},
             "plan": [],
             "architecture": {"defined": True},
             "kpis": [],
@@ -80,9 +79,10 @@ class MinimumChangePublicContractTests(unittest.TestCase):
             "disagreements": [],
             "missing_evidence": [],
         }
-        payload.pop("minimum_change_assessment")
-        with self.assertRaises(ValueError):
-            _validate_output(node, payload)
+        result = _validate_output(node, {"status": "pass", "output": payload})
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["failure_class"], "missing-output-fields")
+        self.assertIn("minimum_change_assessment", result["missing_output_fields"])
 
     def test_public_docs_keep_upstream_claims_separate_from_mc_gpt_claims(self) -> None:
         research = (ROOT / "docs" / "research" / "ponytail-assessment.md").read_text(
@@ -93,7 +93,7 @@ class MinimumChangePublicContractTests(unittest.TestCase):
         )
         self.assertIn("DietrichGebert/ponytail", research)
         self.assertIn("does not prove", research)
-        self.assertIn("does not copy Ponytail source code", gate)
+        self.assertIn("no ponytail source code is copied", gate.casefold())
         self.assertIn("production_claim: false", gate)
 
     def test_skill_preserves_security_privacy_accessibility_and_recovery(self) -> None:

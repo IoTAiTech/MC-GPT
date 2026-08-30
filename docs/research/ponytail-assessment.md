@@ -1,4 +1,4 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 1.0.0 | Date: 2026-08-29 -->
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 1.0.1 | Date: 2026-08-30 -->
 
 # Ponytail assessment for MC-GPT and ProductX
 
@@ -95,7 +95,7 @@ The upstream benchmark does not prove:
 | Release | Challenge duplicate installers, workflows, dependencies and packaging logic |
 | Dashboard services | Prefer existing ProductX/dashboard capability over another local implementation |
 
-## Direct value for AI-IoT.Tech services
+## Direct value for IoT-AI.Tech services
 
 ### PMD
 

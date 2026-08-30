@@ -1,0 +1,149 @@
+{
+  "analysis": {
+    "bootstrap_confidence": 0.95,
+    "bootstrap_iterations": 10000,
+    "minimum_complete_pairs_per_comparison": 20,
+    "multiple_comparison_note_required": true,
+    "no_savings_claim_if_hard_gate_inferiority": true,
+    "no_savings_claim_if_model_identity_unverified": true,
+    "paired_by": [
+      "task_id",
+      "provider_id",
+      "model_served",
+      "repetition"
+    ],
+    "report_failures_separately": true,
+    "report_median_and_iqr": true,
+    "sign_test": true
+  },
+  "arms": [
+    {
+      "description": "MC-GPT workflow without an explicit minimum-change instruction or gate.",
+      "enabled": true,
+      "external_source": null,
+      "id": "baseline"
+    },
+    {
+      "description": "Same workflow plus one sentence requesting the simplest sufficient change.",
+      "enabled": true,
+      "external_source": null,
+      "id": "simple-yagni"
+    },
+    {
+      "description": "MC-GPT native structured Minimum Necessary Change Gate with evidence, budgets, and safety invariants.",
+      "enabled": true,
+      "external_source": null,
+      "id": "mcgpt-minimum-change"
+    },
+    {
+      "description": "Optional external Ponytail arm. Disabled unless exact upstream version, licence notice, integration method, and prompt/source provenance are recorded.",
+      "enabled": false,
+      "external_source": {
+        "commit": "2ed6c52c9d7e5e56942508591085fd45dea277d3",
+        "license": "MIT",
+        "repository": "DietrichGebert/ponytail"
+      },
+      "id": "ponytail-experimental"
+    }
+  ],
+  "author": "Dr.-Ing. Babak Sorkhpour, with AI assistance",
+  "design": {
+    "cross_arm_context_reuse": false,
+    "failed_and_timed_out_runs_included": true,
+    "fresh_workspace_per_run": true,
+    "intention_to_treat": true,
+    "order": "deterministic balanced Latin rotation derived from protocol seed",
+    "provider_and_model_requested_served_both_required": true,
+    "repetitions_per_enabled_arm": 5,
+    "seed": 680001,
+    "timeout_seconds": 1800,
+    "unit_of_randomisation": "task-provider-repetition"
+  },
+  "hard_gates": [
+    "acceptance_criteria_complete",
+    "post_change_tests_passed",
+    "security_privacy_controls_passed",
+    "independent_review_passed",
+    "source_change_bound_to_post_tree",
+    "no_secret_or_private_data_disclosure",
+    "no_unapproved_runtime_dependency",
+    "rollback_or_no_change_rationale_verified"
+  ],
+  "primary_endpoints": [
+    {
+      "direction": "non-inferior",
+      "id": "hard_gate_pass_rate",
+      "minimum": "100% for publishable successful runs"
+    },
+    {
+      "conditional_on": "all hard gates pass",
+      "direction": "lower",
+      "id": "source_lines_added"
+    },
+    {
+      "conditional_on": "all hard gates pass",
+      "direction": "lower",
+      "id": "new_runtime_dependencies"
+    }
+  ],
+  "privacy": {
+    "absolute_paths_forbidden_in_public_results": true,
+    "credentials_forbidden_in_receipts": true,
+    "customer_data_forbidden": true,
+    "public_fixture_only": true,
+    "raw_prompts_private_by_default": true
+  },
+  "production_claim": false,
+  "providers": [
+    {
+      "id": "openai-codex",
+      "qualification": "planned",
+      "surface": "Codex CLI"
+    },
+    {
+      "id": "anthropic-claude-code",
+      "qualification": "planned",
+      "surface": "Claude Code"
+    },
+    {
+      "id": "google-gemini-cli",
+      "qualification": "planned",
+      "surface": "Gemini CLI"
+    },
+    {
+      "id": "xai-grok-cli",
+      "qualification": "planned",
+      "surface": "Grok CLI"
+    },
+    {
+      "id": "ollama-exact-model",
+      "qualification": "planned",
+      "surface": "Ollama local or cloud exact-model seat"
+    }
+  ],
+  "research_questions": [
+    "Does the structured Minimum Necessary Change Gate reduce change surface without reducing acceptance, security, privacy, accessibility, recovery, or test quality?",
+    "Is the effect consistent across providers and task rungs?",
+    "Does the gate reduce dependency, service, schema, agent, or abstraction growth?",
+    "Does the gate reduce rework, tokens, cost, and wall-clock time after accounting for failed and timed-out runs?"
+  ],
+  "schema": "iot-ai.minimum-change-paired-benchmark-protocol.v1",
+  "secondary_endpoints": [
+    "files_added_modified_deleted",
+    "tokens_input_output_reasoning",
+    "provider_cost",
+    "wall_clock_seconds",
+    "repair_iterations",
+    "test_count",
+    "review_findings",
+    "change_surface_budget_variance",
+    "timeout_rate",
+    "blocked_rate"
+  ],
+  "source_parent": {
+    "commit": "117d0489047b434a2710c57a83c4a7fe53eb7c5d",
+    "feature": "Minimum Necessary Change Gate",
+    "repository": "IoTAiTech/MC-GPT"
+  },
+  "version": "1.0.0"
+}

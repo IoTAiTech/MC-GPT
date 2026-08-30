@@ -62,7 +62,7 @@ jobs:
           python benchmarks/minimum-change-v2/benchmark.py validate > "$OUT/validation.json"
           python benchmarks/minimum-change-v2/benchmark.py schedule --providers openai-codex --output "$OUT/schedule.json"
           python benchmarks/minimum-change-v2/benchmark.py selftest --output-dir "$OUT/selftest" > "$OUT/selftest-output.json"
-          python -c 'import json,os,pathlib; p=pathlib.Path(os.environ["RUNNER_TEMP"])/("minimum-change-v2-"+os.environ["MATRIX_PYTHON"])/"selftest"/"analysis.json"; d=json.loads(p.read_text()); assert d["decision"]=="pass" and d["any_savings_claim_allowed"] is False' 
+          python -c 'import json,os,pathlib; p=pathlib.Path(os.environ["RUNNER_TEMP"])/("minimum-change-v2-"+os.environ["MATRIX_PYTHON"])/"selftest"/"analysis.json"; d=json.loads(p.read_text()); assert d["decision"]=="pass" and d["any_savings_claim_allowed"] is False'
         env:
           MATRIX_PYTHON: ${{ matrix.python }}
 
@@ -82,7 +82,7 @@ jobs:
       CI: "1"
       DO_NOT_TRACK: "1"
       OPENWIKI_DEV: "1"
-      OPENWIKI_CONFIG_DIR: ${{ runner.temp }}/openwiki-config
+      OPENWIKI_CONFIG_DIR: /tmp/openwiki-config
       NODE_OPTIONS: "--max-old-space-size=4096"
     steps:
       - name: Check out OpenWiki at reviewed revision

@@ -432,19 +432,74 @@ def atomic_bytes(path: Path,value: bytes,mode: int=0o600)->None:
     finally:
         if os.path.exists(tmp): os.unlink(tmp)
 
+def _lock_file_exists(lock_path: Path) -> bool:
+    """Return whether a lock path exists without masking a real access failure."""
+    try:
+        return os.path.lexists(lock_path)
+    except OSError:
+        return False
+
+
+def _recover_stale_lock(lock_path: Path, *, stale_seconds: float) -> bool:
+    """Remove one stale lock when its metadata is readable and it is not held."""
+    try:
+        stale = time.time() - lock_path.stat().st_mtime > stale_seconds
+    except FileNotFoundError:
+        return True
+    except PermissionError:
+        # Windows may deny metadata access while another process holds the file.
+        return False
+    if not stale:
+        return False
+    try:
+        lock_path.unlink()
+    except FileNotFoundError:
+        return True
+    except PermissionError:
+        # A still-open Windows lock is active even when its timestamp is old.
+        return False
+    return True
+
+
 @contextmanager
-def exclusive_lock(lock_path: Path,*,timeout_seconds: float=5.0,stale_seconds: float=120.0):
-    lock_path.parent.mkdir(parents=True,exist_ok=True);deadline=time.monotonic()+timeout_seconds;fd=None
+def exclusive_lock(
+    lock_path: Path,
+    *,
+    timeout_seconds: float = 5.0,
+    stale_seconds: float = 120.0,
+):
+    """Acquire a cross-platform exclusive lock file and remove it on exit.
+
+    Windows can report an existing, open lock file as ``PermissionError``
+    rather than ``FileExistsError``. Treat that specific case as contention,
+    while preserving fail-closed behaviour for genuine directory permissions.
+    """
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout_seconds
+    fd: int | None = None
     while fd is None:
-        try: fd=os.open(lock_path,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError:
-            try:
-                if time.time()-lock_path.stat().st_mtime>stale_seconds: lock_path.unlink(missing_ok=True);continue
-            except FileNotFoundError: continue
-            if time.monotonic()>=deadline: raise TimeoutError(f"timed out acquiring lock: {lock_path}")
+            if _recover_stale_lock(lock_path, stale_seconds=stale_seconds):
+                continue
+        except PermissionError:
+            if not _lock_file_exists(lock_path):
+                raise
+            if _recover_stale_lock(lock_path, stale_seconds=stale_seconds):
+                continue
+        if fd is None:
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"timed out acquiring lock: {lock_path}")
             time.sleep(0.02)
     try:
-        os.write(fd,json.dumps({"pid":os.getpid(),"created_at":utc_now()},sort_keys=True).encode());os.fsync(fd);yield
+        payload = json.dumps(
+            {"pid": os.getpid(), "created_at": utc_now()}, sort_keys=True
+        ).encode()
+        os.write(fd, payload)
+        os.fsync(fd)
+        yield
     finally:
-        if fd is not None: os.close(fd)
+        if fd is not None:
+            os.close(fd)
         lock_path.unlink(missing_ok=True)

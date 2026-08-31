@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iot-ai.tech/schemas/minimum-change-assessment-v1.schema.json",
+  "title": "MC-GPT Minimum Necessary Change Assessment Result",
+  "description": "Validated result for the evidence-bound pre-code Minimum Necessary Change assessment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "decision",
+    "errors"
+  ],
+  "properties": {
+    "schema": {
+      "const": "iot-ai.minimum-necessary-change-assessment.v1"
+    },
+    "decision": {
+      "enum": ["pass", "needs-work", "block"]
+    },
+    "contract_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "assessment_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "selected_rung": {
+      "type": ["string", "null"],
+      "enum": [
+        "necessity",
+        "existing-capability",
+        "standard-library",
+        "native-platform",
+        "existing-dependency",
+        "minimal-local-change",
+        "minimum-new-code",
+        null
+      ]
+    },
+    "errors": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "normalized": {
+      "$ref": "#/$defs/normalizedAssessment"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"decision": {"enum": ["pass", "needs-work"]}},
+        "required": ["decision"]
+      },
+      "then": {
+        "required": [
+          "contract_sha256",
+          "assessment_sha256",
+          "selected_rung",
+          "normalized"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {"decision": {"const": "pass"}},
+        "required": ["decision"]
+      },
+      "then": {
+        "properties": {
+          "errors": {"maxItems": 0}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "rungDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "reason", "evidence_refs"],
+      "properties": {
+        "decision": {
+          "enum": ["selected", "rejected", "not-applicable", "unassessed"]
+        },
+        "reason": {"type": "string"},
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "budgetException": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "evidence_refs", "acceptance_refs"],
+      "properties": {
+        "reason": {"type": "string"},
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "acceptance_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "new_dependencies",
+        "new_external_services",
+        "new_databases_or_schemas",
+        "new_agents_or_provider_routes",
+        "new_abstraction_layers"
+      ],
+      "properties": {
+        "new_dependencies": {"$ref": "#/$defs/stringList"},
+        "new_external_services": {"$ref": "#/$defs/stringList"},
+        "new_databases_or_schemas": {"$ref": "#/$defs/stringList"},
+        "new_agents_or_provider_routes": {"$ref": "#/$defs/stringList"},
+        "new_abstraction_layers": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "stringList": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "normalizedAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selected_rung",
+        "rung_assessments",
+        "acceptance_criteria_preserved",
+        "controls_preserved",
+        "rejected_alternatives",
+        "estimated_change_surface",
+        "dependency_service_schema_agent_delta",
+        "budget_exceptions",
+        "verification_plan",
+        "remaining_uncertainty"
+      ],
+      "properties": {
+        "selected_rung": {
+          "enum": [
+            "necessity",
+            "existing-capability",
+            "standard-library",
+            "native-platform",
+            "existing-dependency",
+            "minimal-local-change",
+            "minimum-new-code"
+          ]
+        },
+        "rung_assessments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "necessity",
+            "existing-capability",
+            "standard-library",
+            "native-platform",
+            "existing-dependency",
+            "minimal-local-change",
+            "minimum-new-code"
+          ],
+          "properties": {
+            "necessity": {"$ref": "#/$defs/rungDecision"},
+            "existing-capability": {"$ref": "#/$defs/rungDecision"},
+            "standard-library": {"$ref": "#/$defs/rungDecision"},
+            "native-platform": {"$ref": "#/$defs/rungDecision"},
+            "existing-dependency": {"$ref": "#/$defs/rungDecision"},
+            "minimal-local-change": {"$ref": "#/$defs/rungDecision"},
+            "minimum-new-code": {"$ref": "#/$defs/rungDecision"}
+          }
+        },
+        "acceptance_criteria_preserved": {"type": "boolean"},
+        "controls_preserved": {"$ref": "#/$defs/stringList"},
+        "rejected_alternatives": {
+          "type": "array",
+          "items": {}
+        },
+        "estimated_change_surface": {
+          "type": "object"
+        },
+        "dependency_service_schema_agent_delta": {"$ref": "#/$defs/delta"},
+        "budget_exceptions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "new_dependencies",
+            "new_external_services",
+            "new_databases_or_schemas",
+            "new_agents_or_provider_routes",
+            "new_abstraction_layers"
+          ],
+          "properties": {
+            "new_dependencies": {"$ref": "#/$defs/budgetException"},
+            "new_external_services": {"$ref": "#/$defs/budgetException"},
+            "new_databases_or_schemas": {"$ref": "#/$defs/budgetException"},
+            "new_agents_or_provider_routes": {"$ref": "#/$defs/budgetException"},
+            "new_abstraction_layers": {"$ref": "#/$defs/budgetException"}
+          }
+        },
+        "verification_plan": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "remaining_uncertainty": {
+          "type": "array",
+          "items": {}
+        }
+      }
+    }
+  }
+}

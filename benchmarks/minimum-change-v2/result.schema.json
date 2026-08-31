@@ -1,0 +1,76 @@
+{
+  "$id": "https://iot-ai.tech/schemas/minimum-change-paired-result-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "arm_id": {"minLength": 1, "type": "string"},
+    "corpus_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "data_classification": {"enum": ["real", "synthetic"]},
+    "evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "diff_sha256": {"pattern": "^[0-9a-f]{64}$", "type": ["string", "null"]},
+        "post_tree_sha256": {"pattern": "^[0-9a-f]{64}$", "type": ["string", "null"]},
+        "pre_tree_sha256": {"pattern": "^[0-9a-f]{64}$", "type": ["string", "null"]},
+        "review_evidence_sha256": {"pattern": "^[0-9a-f]{64}$", "type": ["string", "null"]},
+        "test_evidence_sha256": {"pattern": "^[0-9a-f]{64}$", "type": ["string", "null"]}
+      },
+      "required": ["pre_tree_sha256", "post_tree_sha256", "diff_sha256", "test_evidence_sha256", "review_evidence_sha256"],
+      "type": "object"
+    },
+    "fixture_revision": {"minLength": 1, "type": "string"},
+    "hard_gates": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_criteria_complete": {"type": "boolean"},
+        "independent_review_passed": {"type": "boolean"},
+        "no_secret_or_private_data_disclosure": {"type": "boolean"},
+        "no_unapproved_runtime_dependency": {"type": "boolean"},
+        "post_change_tests_passed": {"type": "boolean"},
+        "rollback_or_no_change_rationale_verified": {"type": "boolean"},
+        "security_privacy_controls_passed": {"type": "boolean"},
+        "source_change_bound_to_post_tree": {"type": "boolean"}
+      },
+      "required": ["acceptance_criteria_complete", "post_change_tests_passed", "security_privacy_controls_passed", "independent_review_passed", "source_change_bound_to_post_tree", "no_secret_or_private_data_disclosure", "no_unapproved_runtime_dependency", "rollback_or_no_change_rationale_verified"],
+      "type": "object"
+    },
+    "metrics": {
+      "additionalProperties": false,
+      "properties": {
+        "files_added": {"minimum": 0, "type": "number"},
+        "files_deleted": {"minimum": 0, "type": "number"},
+        "files_modified": {"minimum": 0, "type": "number"},
+        "new_runtime_dependencies": {"minimum": 0, "type": "number"},
+        "provider_cost": {"minimum": 0, "type": ["number", "null"]},
+        "repair_iterations": {"minimum": 0, "type": "number"},
+        "review_findings": {"minimum": 0, "type": "number"},
+        "source_lines_added": {"minimum": 0, "type": "number"},
+        "source_lines_deleted": {"minimum": 0, "type": "number"},
+        "tests_failed": {"minimum": 0, "type": "number"},
+        "tests_passed": {"minimum": 0, "type": "number"},
+        "tokens_input": {"minimum": 0, "type": ["number", "null"]},
+        "tokens_output": {"minimum": 0, "type": ["number", "null"]},
+        "tokens_reasoning": {"minimum": 0, "type": ["number", "null"]},
+        "tokens_total": {"minimum": 0, "type": ["number", "null"]},
+        "wall_clock_seconds": {"minimum": 0, "type": "number"}
+      },
+      "required": ["source_lines_added", "source_lines_deleted", "files_added", "files_modified", "files_deleted", "new_runtime_dependencies", "tokens_input", "tokens_output", "tokens_reasoning", "tokens_total", "provider_cost", "wall_clock_seconds", "repair_iterations", "tests_passed", "tests_failed", "review_findings"],
+      "type": "object"
+    },
+    "model_identity_verified": {"type": "boolean"},
+    "model_requested": {"minLength": 1, "type": "string"},
+    "model_served": {"type": ["string", "null"]},
+    "production_claim": {"const": false},
+    "protocol_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "provider_id": {"minLength": 1, "type": "string"},
+    "repetition": {"minimum": 1, "type": "integer"},
+    "run_id": {"pattern": "^run-[0-9a-f]{24}$", "type": "string"},
+    "schema": {"const": "iot-ai.minimum-change-paired-result.v1"},
+    "source_revision": {"minLength": 1, "type": "string"},
+    "task_id": {"minLength": 1, "type": "string"},
+    "terminal_state": {"enum": ["technical-complete", "needs-work", "blocked", "timeout", "cancelled", "budget-exhausted"]}
+  },
+  "required": ["schema", "run_id", "protocol_sha256", "corpus_sha256", "task_id", "arm_id", "provider_id", "repetition", "data_classification", "source_revision", "fixture_revision", "model_requested", "model_served", "model_identity_verified", "terminal_state", "hard_gates", "metrics", "evidence", "production_claim"],
+  "title": "MC-GPT Minimum Necessary Change Paired Benchmark Result",
+  "type": "object"
+}

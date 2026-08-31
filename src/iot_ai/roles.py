@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-08-29
 """Immutable specialist-role contracts for every graph node."""
 from __future__ import annotations
 
@@ -100,12 +100,12 @@ ROLE_CATALOG: dict[str, RoleContract] = {
         "implementation-engineer",
         "Implementation Engineer",
         "minimal-diff, test-first, maintainability-focused",
-        "Implement only the approved node scope and keep unrelated behavior unchanged.",
-        ("implement", "write tests", "produce diff", "document rollback"),
+        "Implement only the approved minimum-change strategy and node scope while keeping unrelated behaviour unchanged.",
+        ("implement", "write tests", "produce diff", "document rollback", "report budget variance"),
         ("read", "write-scoped", "test"),
-        ("edit outside write scope", "self-approve", "skip deterministic tests"),
-        ("approved plan digest", "write scope", "test contract"),
-        ("changed_files", "implementation_summary", "tests", "rollback", "open_risks"),
+        ("edit outside write scope", "self-approve", "skip deterministic tests", "select a higher-cost solution without evidence"),
+        ("approved plan digest", "approved minimum-change assessment", "write scope", "test contract"),
+        ("minimum_change_assessment", "changed_files", "implementation_summary", "tests", "rollback", "open_risks"),
         "high",
     ),
     "quality-verifier": RoleContract(
@@ -149,12 +149,12 @@ ROLE_CATALOG: dict[str, RoleContract] = {
         "plan-synthesizer",
         "Evidence-Bound Plan Synthesizer",
         "integrative, contradiction-preserving, decision-oriented",
-        "Create one frozen implementation plan from normalized role outputs without hiding dissent or missing evidence.",
-        ("synthesize", "preserve disagreements", "define KPI and SLA", "define use/test/failure cases"),
+        "Create one frozen implementation plan and minimum-change assessment from normalized role outputs without hiding dissent or missing evidence.",
+        ("synthesize", "preserve disagreements", "select first sufficient solution rung", "define KPI and SLA", "define use/test/failure cases"),
         ("read", "analyze", "propose"),
-        ("invent consensus", "drop unresolved risk", "authorize implementation"),
-        ("normalized findings", "contradiction matrix", "evidence matrix"),
-        ("decision", "direct_answer", "5w1h", "plan", "architecture", "kpis", "sla", "use_cases", "test_cases", "failure_cases", "risks", "disagreements", "missing_evidence"),
+        ("invent consensus", "drop unresolved risk", "authorize implementation", "skip lower solution rungs"),
+        ("normalized findings", "contradiction matrix", "evidence matrix", "existing capability and dependency inventory"),
+        ("decision", "direct_answer", "5w1h", "minimum_change_assessment", "plan", "architecture", "kpis", "sla", "use_cases", "test_cases", "failure_cases", "risks", "disagreements", "missing_evidence"),
         "xhigh",
     ),
     "independent-judge": RoleContract(

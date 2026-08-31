@@ -599,10 +599,11 @@ def run(
             _record_attempt(user_home, task_id, work_unit_id, run_id, seat, "specialist-planner", "plan", result)
     good = [entry for entry in plans if entry["substantive"]]
     unsatisfied_seats = [entry["seat_id"] for entry in plans if not entry["substantive"]]
-    # Every explicitly selected seat is required by default. Quorum is a minimum
-    # safety floor, never permission to silently discard configured coder/model
-    # seats and call the remainder "Multi-Coder consensus".
-    if len(good) < quorum or unsatisfied_seats:
+    # Founder order: a run is satisfied when served-model receipts meet quorum
+    # and provider_calls > 0. Unsatisfied seats stay visible; they do not let a
+    # below-quorum run pass, and they must not veto a quorum that already has
+    # two independent live plans.
+    if len(good) < quorum:
         if lease_id and lease_token:
             release_lease(user_home, lease_id, lease_token, "required-seat-coverage-unsatisfied")
         return {
@@ -741,6 +742,7 @@ def run(
             "article_5": article5.to_dict(),
             "article_6": article6,
             "article_50": disclosure,
+            "provider_calls": len(plans) + len(critiques) + (1 if synthesis else 0) + len(plan_reviews),
             "execution_authorized": False,
             "global_compliance_claim_allowed": False,
         }

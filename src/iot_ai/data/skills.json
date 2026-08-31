@@ -53,6 +53,7 @@
     "mesh",
     "multi-coder",
     "acceptance-scorecard",
+    "minimum-necessary-change-gate",
     "agent-capability-validation",
     "diagnostics",
     "knowledge",

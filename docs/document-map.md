@@ -1,59 +1,93 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.7.0-beta.5 | Date: 2026-08-15 -->
-# Document map
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.8.0-beta.1 | Date: 2026-08-28 -->
 
-English index of public MC-GPT documentation. Use this page, [llms.txt](../llms.txt) and the [README](../README.md) before walking the tree.
+# Public document map
 
-Operator languages: English and German. `production_claim: false`.
+Use this page, [`llms.txt`](../llms.txt) and the [`README`](../README.md) before walking the repository tree.
 
-## Start
+```text
+latest tagged download: 6.7.0-beta.6
+current main source:    6.8.0-beta.1
+operator languages:     English and German
+production_claim:       false
+```
 
-| Doc | Purpose |
+## Evaluate first
+
+| Document | Purpose |
 |---|---|
-| [README](../README.md) | Product lead, install, usage, licence |
-| [USAGE](../USAGE.md) | After-install commands and may/may-not table |
-| [llms.txt](../llms.txt) | AI crawler index |
-| [Quickstart](quickstart.md) | One-sentence operator examples |
+| [README](../README.md) | Product outcome, proof, quick installation and claim boundary |
+| [Five-minute quickstart](quickstart.md) | Tagged install, disposable fixture and plan/live run |
+| [Demo fixture](../examples/quickstart-demo/README.md) | Standard-library-only evaluation repository |
+| [Demo task](../examples/quickstart-demo/TASK.md) | Acceptance contract used by the fixture |
+| [Installation](installation.md) | Version truth, tagged wheel, verified curl installer and rollback |
+| [Current source evidence](../FINAL_TEST_SUMMARY.json) | Exact checked-in test/security/benchmark summary |
+| [Release status](status.md) | Current public limitations and external gates |
+
+## Understand the product
+
+| Document | Purpose |
+|---|---|
 | [Product guide](PRODUCT_GUIDE.md) | Human product walkthrough |
-| [Repository map](repository-map.md) | Public vs never-published paths |
-| [Company](company.md) | IoT-AI.Tech facts and LinkedIn About rewrite |
-| [Contact](../CONTACT.md) | Email, LinkedIn, headquarters |
+| [Goal-first orchestration](goal-first-orchestration.md) | Natural-language intent compilation |
+| [Autonomous closed loop](autonomous-closed-loop.md) | Task → Meeting → Multi-Coder → repair → report |
+| [Task validation](task-validation.md) | Validation and execution-authority boundary |
+| [Meeting](meeting.md) | Hybrid Meeting lifecycle |
+| [Meeting reporting](meeting-reporting.md) | Brief/full and federated reports |
+| [Multi-Coder](multi-coder.md) | Independent specialist execution and review |
+| [Local CLI seats](local-cli-seats.md) | Pin user-local Claude, Codex and Grok; blocked is exit 1 |
+| [Minimum necessary change gate](minimum-necessary-change-gate.md) | Reuse-first planning control and receipts |
+| [GitHub Packages](github-packages.md) | GHCR and npm publish on every version tag |
+| [Worktree orchestration](worktree-orchestration.md) | Parallel Git isolation and promotion |
+| [Supported coders and Ollama](supported-coders-and-ollama.md) | Provider/model seat policy |
+| [Architecture](architecture.md) | Control-plane components and ownership |
 
-## Use
+## Operate and diagnose
 
-| Doc | Purpose |
+| Document | Purpose |
 |---|---|
-| [Autonomous closed loop](autonomous-closed-loop.md) | Task → Meeting → Multi-Coder lifecycle |
-| [Meeting](meeting.md) | Hybrid meeting seats and reports |
-| [Multi-Coder](multi-coder.md) | Independent coder execution |
-| [Tasks](tasks.md) | Task store and authority |
-| [Providers](providers.md) | Claude, Codex, Gemini, Grok, Ollama |
-| [Settings](settings.md) | Portable settings |
-| [Usage](usage.md) | Pages copy of USAGE.md |
-| [GitHub analysis](github-analysis.md) | Inbound repo review: ideas only, no dependency |
-| [GitHub SEO and release](github-seo-and-release.md) | Topics, Pages, Releases, and GitHub Actions |
-| [Licensing and forks](licensing-and-forks.md) | Community vs commercial rights |
-| [Installation](installation.md) | Linux and Windows install |
-| [Setup](setup.md) | First-run wizard |
-| [Update](update.md) | Transactional update |
+| [USAGE](../USAGE.md) | Normal and expert CLI commands |
+| [Setup](setup.md) | First-run configuration |
+| [Settings](settings.md) | Portable settings and provider groups |
+| [Update](update.md) | Transactional managed updates |
+| [Upgrade/uninstall/rollback](upgrade-uninstall-rollback.md) | Lifecycle recovery |
+| [Diagnostics](diagnostics.md) | Evidence and log discovery |
 | [Troubleshooting](troubleshooting.md) | Operator diagnosis |
 
-## Compliance
+## Security, governance and compliance
 
-| Doc | Purpose |
+| Document | Purpose |
 |---|---|
-| [Compliance README](compliance/README.md) | Control index |
-| [Intended purpose](compliance/INTENDED_PURPOSE_AND_LIMITATIONS.md) | What the Suite is for |
+| [Public agent rules](../AGENTS.md) | Binding repository workflow and authority rules |
+| [Security policy](../SECURITY.md) | Reporting and security defaults |
+| [Edition boundary](../EDITION_BOUNDARY.json) | Community, Enterprise and forbidden public roots |
+| [Licence policy](../LICENSE_POLICY.json) | Community/commercial rights and inbound-code policy |
+| [Compliance index](compliance/README.md) | Technical control/evidence map |
+| [Intended purpose](compliance/INTENDED_PURPOSE_AND_LIMITATIONS.md) | Declared use and limitations |
 | [Prohibited uses](compliance/PROHIBITED_USES.md) | Article 5 screen |
-| [Transparency](compliance/AI_INTERACTION_TRANSPARENCY.md) | Article 50 first-interaction notice |
-| [Human oversight](compliance/HUMAN_OVERSIGHT.md) | HITL gates |
+| [Transparency](compliance/AI_INTERACTION_TRANSPARENCY.md) | Article 50 interaction notice |
+| [Human oversight](compliance/HUMAN_OVERSIGHT.md) | Human decision/override controls |
 
-## GitHub
+## Repository and publication
 
-| Doc | Purpose |
+| Document | Purpose |
 |---|---|
-| [GitHub SEO and release](github-seo-and-release.md) | Description, topics, Pages, AI index |
-| [Publishing runbook](github-publishing-runbook.md) | What may be pushed |
-| [Citation](../CITATION.cff) | CITATION.cff |
-| [Changelog](../CHANGELOG.md) | Version history |
+| [Repository map](repository-map.md) | Public paths and private material that must never be published |
+| [GitHub SEO and release](github-seo-and-release.md) | About metadata, topics, Pages and release hygiene |
+| [Publishing runbook](github-publishing-runbook.md) | Allowlisted GitHub publication process |
+| [GitHub analysis](github-analysis.md) | Technical/commercial/licence analysis without adding dependencies |
+| [GitHub Packages](github-packages.md) | GHCR container and npm package on every `v*` Release |
+| [OpenWiki assessment](research/openwiki-assessment.md) | Pattern-only OpenWiki review; no dependency |
+| [Citation](../CITATION.cff) | Machine-readable citation |
+| [Changelog](../CHANGELOG.md) | Version history including the 2026-08-31 main merge |
+| [Release notes](../RELEASE_NOTES.md) | Current source-preview notes |
 
-Do not treat this Developer Preview as a production, certification or legal-compliance claim.
+## Company and contact
+
+| Document | Purpose |
+|---|---|
+| [Company](company.md) | IoT-AI.Tech public company facts |
+| [Contact](../CONTACT.md) | Email, LinkedIn and headquarters |
+| [Commercial](../COMMERCIAL.md) | Commercial enquiry path |
+| [Licensing and forks](licensing-and-forks.md) | Community and commercial rights |
+
+Do not treat this Developer Preview, its technical controls or its tests as a production qualification, legal certification, customer PMD acceptance or blanket EU AI Act conformity statement.

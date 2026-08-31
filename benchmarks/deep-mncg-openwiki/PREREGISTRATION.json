@@ -1,0 +1,50 @@
+{
+  "benchmark_id": "mcgpt-mncg-openwiki-2026-01",
+  "blinding": {
+    "analysis_unsealing": "after immutable task receipts",
+    "rung_adjudicator": "efficiency results hidden",
+    "task_verifier": "arm identity hidden"
+  },
+  "exclusion_policy": {
+    "allowed": [
+      "pre-dispatch exact-model qualification failure",
+      "verified paired infrastructure outage",
+      "hidden-test contamination",
+      "corrupt fixture"
+    ],
+    "forbidden": [
+      "treatment failure",
+      "treatment timeout",
+      "large patch",
+      "unexpected cost",
+      "unfavorable result"
+    ],
+    "receipt_required": true
+  },
+  "performance_claim_allowed": false,
+  "primary_contrasts": [
+    "D_MNCG-A_BASELINE",
+    "D_MNCG-B_SIMPLE_YAGNI",
+    "D_MNCG-C_PONYTAIL_PINNED",
+    "E_OPENWIKI-A_BASELINE",
+    "F_MNCG_OPENWIKI-D_MNCG",
+    "F_MNCG_OPENWIKI-E_OPENWIKI"
+  ],
+  "primary_outcomes": [
+    "hard_gate_success_rate",
+    "source_lines_added_on_successful_pairs",
+    "total_tokens_on_successful_pairs",
+    "total_cost_including_treatment_overhead",
+    "total_wall_clock_time_including_treatment_overhead"
+  ],
+  "primary_questions": [
+    "Does MNCG preserve task success while reducing change surface, tokens, cost, or time relative to baseline?",
+    "Does MNCG outperform a simple YAGNI prompt and the pinned Ponytail treatment?",
+    "Does OpenWiki improve success or efficiency on documentation-leverage tasks?",
+    "Does MNCG plus OpenWiki provide an interaction benefit after all OpenWiki overhead is included?"
+  ],
+  "production_claim": false,
+  "provider_trials_executed": 0,
+  "schema": "iot-ai.deep-benchmark-preregistration.v1",
+  "status": "PRE_REGISTERED_BEFORE_PROVIDER_CALLS"
+}

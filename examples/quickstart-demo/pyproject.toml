@@ -1,0 +1,7 @@
+# Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Version: 1.0.0
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"

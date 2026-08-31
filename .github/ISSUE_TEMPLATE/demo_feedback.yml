@@ -1,0 +1,80 @@
+name: Demo feedback
+description: Report the five-minute evaluation result without sharing secrets or customer data.
+title: "[Demo feedback]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing MC-GPT. Use a disposable repository and sanitise all evidence. Do not paste provider tokens, credentials, private hostnames, customer data, personal paths or unrestricted logs.
+  - type: input
+    id: version
+    attributes:
+      label: MC-GPT / IOT-AI version
+      description: Paste the output of `iot-ai --version`.
+      placeholder: "IOT-AI Suite 6.7.0-beta.6 / MC-GPT 0.8.0-alpha.6"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation path
+      options:
+        - pipx tagged wheel
+        - verified curl installer
+        - virtual environment
+        - source checkout
+        - other
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version and shell. Do not include hostnames or private IP addresses.
+      placeholder: "Ubuntu 24.04, Python 3.12, bash"
+    validations:
+      required: true
+  - type: input
+    id: time
+    attributes:
+      label: Time to first meaningful result
+      placeholder: "4 minutes"
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What happened?
+      description: Summarise the plan/run, final state and sanitised test result.
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: First unclear or difficult step
+    validations:
+      required: true
+  - type: textarea
+    id: trust
+    attributes:
+      label: Where did trust increase or decrease?
+      description: Mention evidence, model identity, diff, tests or report clarity.
+    validations:
+      required: true
+  - type: textarea
+    id: improvement
+    attributes:
+      label: One improvement that would make you run it again
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Public-data confirmation
+      options:
+        - label: I used a disposable/non-customer repository.
+          required: true
+        - label: I removed secrets, private infrastructure and personal paths from this report.
+          required: true
+        - label: I understand this is a Community Developer Preview, not a production qualification.
+          required: true

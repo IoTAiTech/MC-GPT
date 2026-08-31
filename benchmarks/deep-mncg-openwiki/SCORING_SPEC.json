@@ -1,0 +1,39 @@
+{
+  "analysis_population": {
+    "all_trials": "all attempted trials including failures",
+    "rule": "efficiency claims use successful pairs and disclose all-trial success rates",
+    "success": "all hard gates pass"
+  },
+  "benchmark_id": "mcgpt-mncg-openwiki-2026-01",
+  "claim_rules": [
+    "Do not average faster failures into an efficiency claim.",
+    "Do not pool exact model versions into a single model claim.",
+    "Do not attribute Ponytail results to MC-GPT.",
+    "Do not hide OpenWiki generation overhead.",
+    "Do not publish a percentage without uncertainty and failure counts.",
+    "Do not claim production readiness from benchmark performance."
+  ],
+  "efficiency_metrics": [
+    "files_added","files_modified","files_deleted","source_lines_added","source_lines_deleted","patch_bytes","new_runtime_dependencies","new_services","new_schemas","new_agents_or_routes","new_abstraction_layers","input_tokens","cached_tokens","output_tokens","reasoning_tokens","provider_cost_usd","agent_duration_seconds","total_duration_seconds","tool_calls","provider_calls","retries","meeting_calls","repair_iterations","human_interventions","openwiki_generation_tokens","openwiki_generation_cost_usd","openwiki_generation_duration_seconds","openwiki_direct_read_tokens_estimate"
+  ],
+  "hard_gates": [
+    "official_verifier_reward","security_privacy","data_loss_rollback","accessibility","model_identity","contamination_absent","clean_patch_boundary"
+  ],
+  "noninferiority": {
+    "accessibility_margin": 0.0,
+    "correctness_absolute_margin": -0.02,
+    "data_loss_margin": 0.0,
+    "security_margin": 0.0
+  },
+  "production_claim": false,
+  "schema": "iot-ai.deep-benchmark-scoring.v1",
+  "statistics": {
+    "confidence_interval": "paired bootstrap 95 percent",
+    "dispersion": "interquartile range",
+    "location": "median paired difference",
+    "minimum_pairs_for_public_claim": 30,
+    "multiplicity": "Holm correction",
+    "primary_unit": "paired task-provider-repetition block",
+    "success_interval": "Wilson 95 percent"
+  }
+}

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.6 | Date: 2026-08-17
+# Version: 6.8.0-beta.2 | Date: 2026-08-19
 """Unified IOT-AI command surface with backward-compatible advanced commands."""
 from __future__ import annotations
 
@@ -71,6 +71,7 @@ from .privacy import SECRET_PATTERNS, sanitize
 from .report import render as render_report
 from .setup_wizard import discover as setup_discover, init_inventory, show_inventory
 from .status import unified_status
+from .task_execute import run_meeting_then_multicoder
 from .tasks import add_evidence, add_work_unit, claim_work_unit, create as task_create, heartbeat as task_heartbeat, list_all, list_closed, list_open, record_progress, release_lease, show as task_show, solve_all_plan, submit_task, workspace_status
 from .task_backends import EXECUTION_ELIGIBLE_STATES
 from .task_validation import (
@@ -89,6 +90,25 @@ from .worktrees import cleanup as worktree_cleanup, create as worktree_create, l
 PUBLIC_COMMANDS = {"help", "status", "settings", "update", "license", "run", "github-analyze"}
 ADVANCED_COMMANDS = {"setup", "privacy", "provider", "mesh", "meeting", "tasks", "multi-coder", "knowledge", "graph", "diagnostics", "compliance", "package", "report", "worktree"}
 ALL_COMMANDS = PUBLIC_COMMANDS | ADVANCED_COMMANDS
+_BLOCKING_DECISIONS = frozenset(
+    {
+        "blocked",
+        "fail",
+        "error",
+        "needs-work",
+        "requires-user-confirmation",
+    }
+)
+
+
+def _result_exit_code(result: Any) -> int:
+    """Exit 0 is not a pass. Blocked/failed governed results must be non-zero."""
+    if not isinstance(result, dict):
+        return 0
+    decision = str(result.get("decision") or "").casefold()
+    if decision in _BLOCKING_DECISIONS:
+        return 1
+    return 0
 
 SENSITIVE_KEYS = {
     "secret", "secret_env", "secret_value", "password", "passwd", "lease_token",
@@ -847,15 +867,61 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 plan = solve_all_plan(h, a.query, a.confirm_critical, a.max_tasks, require_validated=True)
                 if not a.apply or plan.get("eligible_count", 0) == 0:
-                    emit(plan)
+                    emit({**plan, "command": "tasks solve-all", "apply": False, "executed": False, "provider_calls": 0})
                 else:
                     provider_list = [c["provider"] for c in provider_candidates(h, require_live=True)] if a.providers == "auto" else _split(a.providers)
                     provider_list = list(dict.fromkeys(provider_list))
                     if not provider_list:
-                        emit({"decision": "needs-work", "reason": "no-live-ready-multi-coder-providers", "plan": plan, "results": []})
+                        emit({
+                            "decision": "needs-work",
+                            "reason": "no-live-ready-multi-coder-providers",
+                            "command": "tasks solve-all",
+                            "apply": True,
+                            "executed": False,
+                            "eligible_count": plan.get("eligible_count", 0),
+                            "selected": [task.get("id") for task in plan.get("selected") or []],
+                            "provider_calls": 0,
+                            "plan": plan,
+                            "results": [],
+                        })
                     else:
-                        results = [multicoder_run(h, task_id=task["id"], providers=provider_list, quorum=min(a.quorum, len(provider_list)), implementer=a.implementer, test_profile=Path(a.test_profile) if a.test_profile else None, cwd=Path(a.cwd), effort=a.effort) for task in plan["selected"]]
-                        emit({"decision": "pass" if results and all(r.get("decision") == "approve" for r in results) else "needs-work", "plan": plan, "results": results})
+                        results = [
+                            run_meeting_then_multicoder(
+                                h,
+                                task,
+                                providers=provider_list,
+                                quorum=min(a.quorum, len(provider_list)),
+                                implementer=a.implementer,
+                                test_profile=Path(a.test_profile) if a.test_profile else None,
+                                cwd=Path(a.cwd),
+                                effort=a.effort,
+                                risk_class=str(task.get("risk_class") or "R1"),
+                            )
+                            for task in plan["selected"]
+                        ]
+                        provider_calls = 0
+                        meeting_ids = []
+                        for row in results:
+                            if not isinstance(row, dict):
+                                continue
+                            if isinstance(row.get("provider_calls"), int):
+                                provider_calls += row["provider_calls"]
+                            if row.get("meeting_id"):
+                                meeting_ids.append(row["meeting_id"])
+                        emit({
+                            "decision": "pass" if results and all(r.get("executed") and r.get("meeting_id") for r in results) else "needs-work",
+                            "command": "tasks solve-all",
+                            "apply": True,
+                            "executed": provider_calls > 0,
+                            "eligible_count": plan.get("eligible_count", 0),
+                            "selected": [task.get("id") for task in plan.get("selected") or []],
+                            "meeting_ids": meeting_ids,
+                            "provider_calls": provider_calls,
+                            "canonical_pmd_prcs": False,
+                            "authority_basis": "iot-ai-suite-standalone-task-store",
+                            "plan": plan,
+                            "results": results,
+                        })
             return 0
         if a.cmd == "multi-coder":
             if a.task:
@@ -882,7 +948,9 @@ def main(argv: list[str] | None = None) -> int:
             elif not providers:
                 raise RuntimeError("no live-ready multi-coder providers")
             else:
-                emit(multicoder_run(h, a.task, providers, min(a.quorum, len(providers)), test_argv, Path(a.cwd), task_id=a.task_id, implementer=a.implementer, test_profile=Path(a.test_profile) if a.test_profile else None, risk_class=a.risk_class, effort=a.effort, max_repair_rounds=a.max_repair_rounds))
+                result = multicoder_run(h, a.task, providers, min(a.quorum, len(providers)), test_argv, Path(a.cwd), task_id=a.task_id, implementer=a.implementer, test_profile=Path(a.test_profile) if a.test_profile else None, risk_class=a.risk_class, effort=a.effort, max_repair_rounds=a.max_repair_rounds)
+                emit(result)
+                return _result_exit_code(result)
             return 0
         if a.cmd == "knowledge":
             if a.op == "pack":

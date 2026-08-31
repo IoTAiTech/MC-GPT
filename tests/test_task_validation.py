@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-08-29
 from __future__ import annotations
 
 import json
@@ -40,6 +40,104 @@ def _provider_for_role(role_id: str) -> str:
     return ROLE_PROVIDER.get(role_id, "ollama")
 
 
+def _minimum_change_assessment(prompt: str) -> dict:
+    """Return a contract-bound, semantically valid assessment for test providers."""
+
+    try:
+        envelope = json.loads(prompt)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        envelope = {}
+    contract = envelope.get("minimum_necessary_change") or {}
+    raw_rungs = contract.get("rungs") or []
+    rung_ids = [
+        str(row.get("id"))
+        for row in raw_rungs
+        if isinstance(row, dict) and row.get("id")
+    ]
+    if not rung_ids:
+        rung_ids = [
+            "necessity",
+            "existing-capability",
+            "standard-library",
+            "native-platform",
+            "existing-dependency",
+            "minimal-local-change",
+            "minimum-new-code",
+        ]
+    selected = "minimal-local-change"
+    selected_index = rung_ids.index(selected)
+    rung_assessments: dict[str, dict] = {}
+    for index, rung_id in enumerate(rung_ids):
+        if index < selected_index:
+            rung_assessments[rung_id] = {
+                "decision": "rejected",
+                "reason": f"Test evidence shows {rung_id} alone does not satisfy the task acceptance contract.",
+                "evidence_refs": [f"test-evidence:{rung_id}"],
+            }
+        elif index == selected_index:
+            rung_assessments[rung_id] = {
+                "decision": "selected",
+                "reason": "The existing task-validation flow needs one bounded local update and no new dependency.",
+                "evidence_refs": ["tests/test_task_validation.py:validation-contract"],
+            }
+        else:
+            rung_assessments[rung_id] = {
+                "decision": "not-applicable",
+                "reason": "A higher-cost solution is not required after the selected rung.",
+                "evidence_refs": [],
+            }
+    controls = list(contract.get("non_negotiable_controls") or ())
+    if not controls:
+        controls = [
+            "requested behavior and authoritative acceptance criteria",
+            "trust-boundary input validation",
+            "authentication, authorization, tenant isolation and secret handling",
+            "privacy, GDPR/data minimization and retention controls",
+            "data-loss prevention, transactionality, backup, restore and rollback",
+            "accessibility and operator comprehension",
+            "deterministic post-change tests and independent verification",
+            "hardware calibration, safety interlocks and operational limits when applicable",
+        ]
+    delta_keys = (
+        "new_dependencies",
+        "new_external_services",
+        "new_databases_or_schemas",
+        "new_agents_or_provider_routes",
+        "new_abstraction_layers",
+    )
+    return {
+        "selected_rung": selected,
+        "rung_assessments": rung_assessments,
+        "acceptance_criteria_preserved": True,
+        "controls_preserved": controls,
+        "rejected_alternatives": [
+            {
+                "rung": rung_id,
+                "reason": rung_assessments[rung_id]["reason"],
+                "evidence_refs": rung_assessments[rung_id]["evidence_refs"],
+            }
+            for rung_id in rung_ids[:selected_index]
+        ],
+        "estimated_change_surface": {
+            "mutation_required": True,
+            "files_added": 0,
+            "files_modified": 2,
+            "source_lines_added_max": 40,
+            "runtime_dependencies_added": 0,
+        },
+        "dependency_service_schema_agent_delta": {key: [] for key in delta_keys},
+        "budget_exceptions": {
+            key: {"reason": "", "evidence_refs": [], "acceptance_refs": []}
+            for key in delta_keys
+        },
+        "verification_plan": [
+            "Run the focused task-validation tests.",
+            "Run the full regression suite against the post-change tree.",
+        ],
+        "remaining_uncertainty": [],
+    }
+
+
 def validation_executor(node, prompt, context):
     output = {}
     for field in node.output_schema:
@@ -54,6 +152,8 @@ def validation_executor(node, prompt, context):
             except (TypeError, ValueError, json.JSONDecodeError):
                 frozen = ""
             output[field] = frozen if re.fullmatch(r"[0-9a-f]{64}", frozen) else "d" * 64
+        elif field == "minimum_change_assessment":
+            output[field] = _minimum_change_assessment(prompt)
         elif field in {"use_cases", "test_cases", "failure_cases"}:
             output[field] = [{"id": index + 1, "decision": "pass", "expected": "verified"} for index in range(10)]
         elif field == "tests":
@@ -163,6 +263,10 @@ class TaskValidationTests(IsolatedHomeTestCase):
         self.assertEqual(result["unsatisfied_provider_families"], [])
         self.assertRegex(result["proposal"]["plan_digest"], r"^[0-9a-f]{64}$")
         self.assertIn("IOT-AI VALIDATED EXECUTION CONTRACT", result["proposal"]["advanced_execution_prompt"])
+        self.assertEqual(
+            result["proposal"]["plan"]["minimum_change_assessment"]["selected_rung"],
+            "minimal-local-change",
+        )
         after = show(self.home, task_id)["task"]
         self.assertEqual(before["revision"], after["revision"])
         self.assertEqual(before["description"], after["description"])

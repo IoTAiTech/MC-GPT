@@ -20,6 +20,7 @@ REQUIRED = {
     ".github/workflows/ci.yml", ".github/workflows/security.yml",
     ".github/workflows/public-boundary.yml", ".github/workflows/release.yml",
     ".github/workflows/dependency-review.yml",
+    "Dockerfile", ".dockerignore", "docs/github-packages.md",
     ".gitattributes", ".editorconfig",
     "docs/compliance/LEGAL_BASELINE.json", "docs/compliance/AI_ACT_SYSTEM_CARD.json",
     "docs/compliance/EU_AI_ACT_COMPLIANCE_MATRIX.json", "docs/compliance/UPSTREAM_MODEL_REGISTER.json",

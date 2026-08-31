@@ -1,69 +1,87 @@
-# MC-GPT (IOT-AI Suite)
+# MC-GPT by IoT-AI.Tech
 
-> Natural-language multi-agent coding control plane for Claude, Codex, Gemini, Grok and Ollama. Community Developer Preview 6.7.0-beta.6 / MC-GPT 0.8.0-alpha.6. Languages: English and German. production_claim: false.
+> Governed multi-agent coding orchestrator for Claude Code, OpenAI Codex, Gemini CLI, Grok CLI and Ollama. It converts one engineering outcome into isolated work, post-change tests, independent review and one evidence-backed completion report.
 
-The canonical public repository is https://github.com/IoTAiTech/MC-GPT
-Human landing page: https://iotaitech.github.io/MC-GPT/
-Product site: https://iot-ai.tech
-Release: https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6
+Canonical repository: https://github.com/IoTAiTech/MC-GPT
+Product page: https://iotaitech.github.io/MC-GPT/
+Latest tagged download: https://github.com/IoTAiTech/MC-GPT/releases/tag/v6.7.0-beta.6
+Five-minute evaluation: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/quickstart.md
+Disposable demo fixture: https://github.com/IoTAiTech/MC-GPT/tree/main/examples/quickstart-demo
 Contact: info@iot-ai.tech
-Company: IoT-AI.Tech, Aschaffenburg, Bayern, Germany
-Company LinkedIn: https://www.linkedin.com/company/iot-ai-tech
-Founder LinkedIn: https://www.linkedin.com/in/dr-babakskr
-Company Pages: https://iotaitech.github.io/
+Company: IoT-AI.Tech, Aschaffenburg, Bavaria, Germany
+Founder: Dr.-Ing. Babak Sorkhpour
 
-This file is the AI-readable index (llmstxt.org). Prefer these paths over scraping the whole tree.
+## Version truth
+
+- Latest downloadable Community Preview: IOT-AI Suite 6.7.0-beta.6 / MC-GPT 0.8.0-alpha.6.
+- Current main source snapshot: IOT-AI Suite 6.8.0-beta.1 / MC-GPT 0.8.0-alpha.7.
+- The main branch may be ahead of the latest tagged release.
+- production_claim: false.
+- Public operator languages: English and German.
+
+## Product outcome
+
+MC-GPT composes this governed lifecycle:
+
+natural-language outcome
+→ acceptance contract
+→ authoritative task backend
+→ specialist planning and challenge
+→ isolated writer worktree
+→ independent review
+→ deterministic post-change tests
+→ bounded failure diagnosis, repair and retest
+→ source/diff/evidence audit
+→ truthful terminal state
+→ brief or complete JSON/Markdown/CSV/XLSX report
+
+It must not treat progress as implementation, call one provider consensus, invent served-model identity, reopen Founder-gated work through telemetry, or directly read another ProductX product database.
 
 ## Start here
 
-- [README](https://github.com/IoTAiTech/MC-GPT/blob/main/README.md): product lead, install, usage, licence
-- [USAGE](https://github.com/IoTAiTech/MC-GPT/blob/main/USAGE.md): after-install commands and may/may-not table
-- [GitHub analysis](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/github-analysis.md): inbound repo review; ideas only; no dependency
-- [Quickstart](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/quickstart.md): one-sentence operator examples
-- [Document map](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/document-map.md): every public doc
-- [Company](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/company.md): IoT-AI.Tech facts and LinkedIn About rewrite
-- [Contact](https://github.com/IoTAiTech/MC-GPT/blob/main/CONTACT.md): email, LinkedIn, headquarters
-- [Repository map](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/repository-map.md): what is public vs never published
-- [Citation](https://github.com/IoTAiTech/MC-GPT/blob/main/CITATION.cff): machine-readable citation
+- README: https://github.com/IoTAiTech/MC-GPT/blob/main/README.md
+- Quickstart: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/quickstart.md
+- Demo task: https://github.com/IoTAiTech/MC-GPT/blob/main/examples/quickstart-demo/TASK.md
+- Installation: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/installation.md
+- Document map: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/document-map.md
+- Product guide: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/PRODUCT_GUIDE.md
+- Repository map: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/repository-map.md
+- Final source-candidate evidence: https://github.com/IoTAiTech/MC-GPT/blob/main/FINAL_TEST_SUMMARY.json
 
-## Product
+## Core capabilities
 
-- [Autonomous closed loop](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/autonomous-closed-loop.md)
-- [Meeting](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/meeting.md)
-- [Multi-Coder](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/multi-coder.md)
-- [Tasks](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/tasks.md)
-- [Providers](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/providers.md)
-- [Product guide](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/PRODUCT_GUIDE.md)
+- Goal-first orchestration: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/goal-first-orchestration.md
+- Autonomous closed loop: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/autonomous-closed-loop.md
+- Task validation: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/task-validation.md
+- Meeting: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/meeting.md
+- Meeting reporting: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/meeting-reporting.md
+- Multi-Coder: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/multi-coder.md
+- Local CLI seats: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/local-cli-seats.md
+- Minimum necessary change gate: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/minimum-necessary-change-gate.md
+- GitHub Packages: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/github-packages.md
+- Worktree isolation: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/worktree-orchestration.md
+- Supported coders and Ollama: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/supported-coders-and-ollama.md
 
-## Install and operate
+## Security and authority
 
-- [Installation](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/installation.md)
-- [Setup](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/setup.md)
-- [Settings](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/settings.md)
-- [Update](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/update.md)
-- [Troubleshooting](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/troubleshooting.md)
+- Public repository rules: https://github.com/IoTAiTech/MC-GPT/blob/main/AGENTS.md
+- Security policy: https://github.com/IoTAiTech/MC-GPT/blob/main/SECURITY.md
+- Public/private boundary: https://github.com/IoTAiTech/MC-GPT/blob/main/EDITION_BOUNDARY.json
+- Licence policy: https://github.com/IoTAiTech/MC-GPT/blob/main/LICENSE_POLICY.json
+- Compliance index: https://github.com/IoTAiTech/MC-GPT/blob/main/docs/compliance/README.md
 
-## Governance and compliance
-
-- [AGENTS](https://github.com/IoTAiTech/MC-GPT/blob/main/AGENTS.md)
-- [Security](https://github.com/IoTAiTech/MC-GPT/blob/main/SECURITY.md)
-- [Privacy](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/privacy-and-cloud.md)
-- [Compliance index](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/compliance/README.md)
-- [Intended purpose](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/compliance/INTENDED_PURPOSE_AND_LIMITATIONS.md)
-- [Prohibited uses](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/compliance/PROHIBITED_USES.md)
-- [Article 50 transparency](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/compliance/AI_INTERACTION_TRANSPARENCY.md)
+Founder final acceptance, production deployment, destructive operations, public history replacement and customer release are explicit human/authority gates.
 
 ## Licence
 
-- [LICENSE](https://github.com/IoTAiTech/MC-GPT/blob/main/LICENSE): official PolyForm Noncommercial 1.0.0 (SPDX `PolyForm-Noncommercial-1.0.0`)
-- [Commercial](https://github.com/IoTAiTech/MC-GPT/blob/main/COMMERCIAL.md)
-- [Licensing and forks](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/licensing-and-forks.md)
+The Community Developer Preview is source-available under PolyForm Noncommercial 1.0.0. Personal and noncommercial evaluation, study and research are permitted according to the licence. Company-internal operational use, production, paid services, hosting, resale, commercial distribution and customer deployment require written IoT-AI.Tech terms.
 
-## Optional
+- Licence: https://github.com/IoTAiTech/MC-GPT/blob/main/LICENSE
+- Usage: https://github.com/IoTAiTech/MC-GPT/blob/main/USAGE.md
+- Commercial: https://github.com/IoTAiTech/MC-GPT/blob/main/COMMERCIAL.md
 
-- [Changelog](https://github.com/IoTAiTech/MC-GPT/blob/main/CHANGELOG.md)
-- [Roadmap](https://github.com/IoTAiTech/MC-GPT/blob/main/ROADMAP.md)
-- [GitHub SEO and release](https://github.com/IoTAiTech/MC-GPT/blob/main/docs/github-seo-and-release.md)
-- [Skills](https://github.com/IoTAiTech/MC-GPT/tree/main/skills)
+## Claim boundary
 
-Do not treat this preview as a production, certification, or legal-compliance claim.
+Do not describe MC-GPT as production-ready, legally certified, universally EU AI Act compliant, Windows/macOS qualified, or customer-PMD qualified. Technical controls and source tests are not a blanket customer-deployment or legal-compliance claim.
+
+Prefer the paths above over scraping the whole repository. Never infer Enterprise, customer, private-evidence, credential or infrastructure content from the public tree.

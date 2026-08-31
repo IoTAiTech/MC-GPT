@@ -4,6 +4,43 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+Source snapshot on `main` after the 2026-08-31 merge-all (package lockstep stays `6.8.0-beta.1` / MC-GPT `0.8.0-alpha.7` / pep440 `6.8.0b1`). Not a tagged download.
+
+### Added
+- GitHub Packages on every annotated `v*` tag / GitHub Release: container `ghcr.io/iotaitech/mc-gpt` and npm `@iotaitech/mc-gpt`. Python wheels stay on Releases. See `docs/github-packages.md`. First GHCR/npm publish is private until an org owner flips each package public once.
+- Disposable five-minute evaluation fixture (`examples/quickstart-demo/`) plus a demo-feedback GitHub issue form.
+- Minimum Necessary Change Gate: reuse-first planning engine (`src/iot_ai/minimum_change.py`), public assessment schemas, skill `skills/iot-ai-minimum-change/`, exclusive lock tests, and operator guide `docs/minimum-necessary-change-gate.md`.
+- Deterministic MNCG benchmarks (`benchmarks/minimum-change/`, `benchmarks/minimum-change-v2/`) and the deep MNCG + OpenWiki contract (`benchmarks/deep-mncg-openwiki/`).
+- OpenWiki source qualification workflow and research assessment (`docs/research/openwiki-assessment.md`). Ponytail benchmark adoption note (`docs/research/ponytail-assessment.md`).
+- Official Multi-Coder local CLI seats: pin user-local Claude, Codex and Grok Build binaries, close stdin unless the prompt moved to stdin, parse served-model identity from each CLI, and fail closed when the decision is blocked. Guide: `docs/local-cli-seats.md`.
+- `iot-ai github-analyze` (already present in 6.8.0-beta.1) remains the inbound GitHub judge: technical, commercial, license, relevance; ideas only, no dependency.
+
+### New options and behaviour
+- `iot-ai multi-coder run --quorum N` (default 2): plan-stage floor is this quorum, not “every listed seat”.
+- `iot-ai multi-coder run --plan`: inspection only; no provider calls. Execute is the default without `--plan`.
+- `iot-ai multi-coder run` exit code is `1` when `decision` is `blocked` (exit `0` is no longer a pass for a blocked run).
+- `iot-ai github-analyze <owner/name|url>… [--offline-json PATH] [--no-network]`.
+- Grok Build invocation order is `grok -p "<prompt>" --output-format json` (`-p` consumes the next token).
+- `GROK_API_KEY` / “API key required” is an auth failure only on the grok seat.
+- Executable pin order prefers `~/.local/bin` then `~/.grok/bin` then `/usr/local/bin` over a PATH trap.
+
+### Changed
+- README, Pages and `llms.txt` keep the growth evaluation path (tagged wheel vs current `main` source).
+- `tools/no_arabic_script_check.py` is part of the public language-boundary gate.
+
+### Fixed
+- Official spawn no longer prefers a system Grok that requires `GROK_API_KEY` when a user-local Grok Build TUI exists.
+- Claude `modelUsage.canonicalModel` and Codex `model:` banner now populate `model_served`.
+- `codex exec` no longer hangs on inherited stdin (empty EOF unless the prompt is on stdin).
+- Public license headers on the three deep-benchmark scripts; operator docs use `~/.local/bin` instead of a personal home path.
+- Windows open-lock sharing violations are treated as contention (`docs/release-notes/6.8.0-beta.1-windows-lock-contention.md`).
+
+### Evidence (merge tree, 2026-08-31)
+- `python -m pytest`: 335 passed, 1 skipped (Windows-only secure file hash).
+- `python -W error -m pytest`: pass.
+- `python -m unittest discover -s tests -p 'test_*.py'`: pass.
+- Static security, repository verify, public-boundary, license-headers, no-Arabic, brand-identity and EU AI Act preview gates: pass on this tree.
+
 ## [6.8.0-beta.1] — 2026-08-18
 
 ### Security

@@ -28,6 +28,20 @@ iot-ai github-analyze https://github.com/example/tool
 
 `github-analyze` judges technical fit, commercial terms, license, and relevance. If a repo is relevant, MC-GPT may reuse only the **pattern, model, or idea** as our own rewrite. It never adds that repository as a dependency and never takes an illegal license.
 
+## New options on this `main` snapshot
+
+| Command | Option | Meaning |
+|---|---|---|
+| `iot-ai multi-coder run` | `--quorum N` | Plan-stage floor (default 2). Two live seats can continue; one seat is not Multi-Coder. |
+| `iot-ai multi-coder run` | `--plan` | Inspection only. No provider calls and no implementation. |
+| `iot-ai multi-coder run` | `--providers claude,codex,grok` | Named seats. One live seat is never Multi-Coder. |
+| `iot-ai github-analyze` | `--offline-json PATH` | Fixture records; no network. |
+| `iot-ai github-analyze` | `--no-network` | Do not call GitHub; a missing license stays BLOCK. |
+
+A blocked Multi-Coder decision now exits `1`. Exit `0` with `decision: blocked` is not a pass.
+
+Local Claude, Codex and Grok must be the user-local CLIs (`~/.local/bin`, then `~/.grok/bin`). Grok Build flag order is `grok -p "<prompt>" --output-format json`. See [local CLI seats](local-cli-seats.md) and [minimum change gate](minimum-necessary-change-gate.md).
+
 ## What you may do under Community
 
 | Allowed without a commercial licence | Needs a written commercial licence |

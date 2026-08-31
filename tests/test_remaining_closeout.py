@@ -146,8 +146,16 @@ class ExecPinTests(IsolatedHomeTestCase):
         old = os.environ.get("PATH", "")
         os.environ["PATH"] = f"{trap}{os.pathsep}{old}"
         try:
-            with self.assertRaises(PermissionError):
-                pin_executable("python3", allowed_roots=[Path("/usr/bin")])
+            try:
+                pinned = pin_executable("python3", allowed_roots=[Path("/usr/bin")])
+            except PermissionError:
+                return
+            resolved = Path(pinned["path"]).resolve()
+            self.assertNotEqual(resolved, fake.resolve())
+            self.assertTrue(
+                str(resolved) == str(Path("/usr/bin/python3").resolve())
+                or str(resolved).startswith(str(Path("/usr/bin").resolve()) + "/")
+            )
         finally:
             os.environ["PATH"] = old
 

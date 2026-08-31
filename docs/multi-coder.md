@@ -14,10 +14,16 @@ Multi-Coder is automatically invoked at material planning, implementation, failu
 Advanced manual command:
 
 ```bash
-iot-ai multi-coder run --task-id <task-id> --providers auto
+iot-ai multi-coder run --task-id <task-id> --providers auto --quorum 2
 
 # explicit plan-only inspection
 iot-ai multi-coder run --task-id <task-id> --providers auto --plan
 ```
+
+`--quorum` (default 2) is the plan-stage floor. One live seat is never Multi-Coder. `--plan` is inspection only. A run without `--plan` executes.
+
+`decision: blocked` returns exit code 1. Exit 0 with a blocked decision is not a pass.
+
+Official spawn must use the user-local Claude, Codex and Grok CLIs. See [local CLI seats](local-cli-seats.md).
 
 The natural-language route is preferred because it also performs Task lifecycle, meetings, audit, checkpointing and final reporting.

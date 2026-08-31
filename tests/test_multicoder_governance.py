@@ -139,7 +139,7 @@ class MultiCoderGovernanceTests(IsolatedHomeTestCase):
             self.home,
             task="Improve a developer tool with deterministic tests",
             providers=["codex", "gemini"],
-            quorum=1,
+            quorum=2,
             test_argv=[sys.executable, "-c", "print('1 passed')"],
             cwd=self.home,
         )

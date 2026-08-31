@@ -1,0 +1,125 @@
+{
+  "arms": [
+    {
+      "arm_id": "A_BASELINE",
+      "components": [],
+      "description": "Unchanged task and repository. No reuse-first treatment."
+    },
+    {
+      "arm_id": "B_SIMPLE_YAGNI",
+      "components": [
+        "simple_yagni_prompt"
+      ],
+      "description": "Short reuse-first control prompt without MC-GPT enforcement."
+    },
+    {
+      "arm_id": "C_PONYTAIL_PINNED",
+      "components": [
+        "ponytail_pinned"
+      ],
+      "description": "Pinned upstream Ponytail treatment in an isolated agent home."
+    },
+    {
+      "arm_id": "D_MNCG",
+      "components": [
+        "mcgpt_mncg"
+      ],
+      "description": "MC-GPT Minimum Necessary Change Gate with semantic validation."
+    },
+    {
+      "arm_id": "E_OPENWIKI",
+      "components": [
+        "openwiki_pinned"
+      ],
+      "description": "Pinned OpenWiki repository knowledge without MNCG."
+    },
+    {
+      "arm_id": "F_MNCG_OPENWIKI",
+      "components": [
+        "mcgpt_mncg",
+        "openwiki_pinned"
+      ],
+      "description": "MNCG plus pinned OpenWiki knowledge with full overhead accounting."
+    }
+  ],
+  "benchmark_id": "mcgpt-mncg-openwiki-2026-01",
+  "counterbalancing": {
+    "cross_arm_context_reuse": false,
+    "fresh_worktree_per_trial": true,
+    "method": "sha256_deterministic_permutation",
+    "seed": 20260830
+  },
+  "production_claim": false,
+  "provider_slots": [
+    {
+      "family": "OpenAI Codex",
+      "slot_id": "codex"
+    },
+    {
+      "family": "Claude Code",
+      "slot_id": "claude"
+    },
+    {
+      "family": "Gemini CLI",
+      "slot_id": "gemini"
+    },
+    {
+      "family": "Grok CLI",
+      "slot_id": "grok"
+    },
+    {
+      "family": "Ollama Cloud exact-model seat",
+      "slot_id": "ollama_cloud_exact"
+    }
+  ],
+  "schema": "iot-ai.deep-benchmark-run-matrix.v1",
+  "source_freeze": {
+    "deepswe": "6db64a40f3318d8659238ff34a8cc4b491c49205",
+    "mcgpt_mncg_pr14_head": "117d0489047b434a2710c57a83c4a7fe53eb7c5d",
+    "mcgpt_public_main": "62fc203aa931a8abce2e6163881bd014f6f84159",
+    "openwiki": "58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5",
+    "ponytail": "2ed6c52c9d7e5e56942508591085fd45dea277d3"
+  },
+  "stages": {
+    "confirmatory": {
+      "arms": [
+        "A_BASELINE",
+        "B_SIMPLE_YAGNI",
+        "D_MNCG",
+        "F_MNCG_OPENWIKI"
+      ],
+      "maximum_trials": 1440,
+      "minimum_qualified_provider_slots": 4,
+      "repetitions": 3,
+      "tasks": 30
+    },
+    "pilot": {
+      "arms": [
+        "A_BASELINE",
+        "B_SIMPLE_YAGNI",
+        "C_PONYTAIL_PINNED",
+        "D_MNCG",
+        "E_OPENWIKI",
+        "F_MNCG_OPENWIKI"
+      ],
+      "maximum_trials": 540,
+      "minimum_qualified_provider_slots": 3,
+      "repetitions": 3,
+      "tasks": 10
+    },
+    "smoke": {
+      "arms": [
+        "A_BASELINE",
+        "B_SIMPLE_YAGNI",
+        "C_PONYTAIL_PINNED",
+        "D_MNCG",
+        "E_OPENWIKI",
+        "F_MNCG_OPENWIKI"
+      ],
+      "maximum_trials": 72,
+      "minimum_qualified_provider_slots": 2,
+      "repetitions": 1,
+      "tasks": 6
+    }
+  }
+}

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.2 | Date: 2026-08-21
 from __future__ import annotations
 
 import ipaddress
@@ -92,6 +92,39 @@ def _prepare_cli_invocation(
     return argv, prompt, True
 
 
+def _codex_reasoning_effort(effort: str) -> str:
+    value = str(effort or "medium").casefold()
+    if value in {"xhigh", "ultracode", "max"}:
+        return "xhigh"
+    if value in {"high"}:
+        return "high"
+    if value in {"low", "minimal"}:
+        return "low"
+    return "medium"
+
+
+def _with_cli_identity_flags(provider: str, argv: list[str], effort: str = "medium") -> list[str]:
+    """Keep local Claude/Codex/Grok CLIs machine-readable and non-blocking."""
+    if not argv:
+        return argv
+    key = str(provider or "").casefold()
+    out = list(argv)
+    if key == "claude" and "--output-format" not in out:
+        out.extend(["--output-format", "json"])
+    if key == "grok" and "--output-format" not in out:
+        out.extend(["--output-format", "json"])
+    if key == "codex":
+        insert_at = 2 if len(out) >= 2 and out[1] == "exec" else len(out)
+        extra: list[str] = []
+        if "--skip-git-repo-check" not in out:
+            extra.append("--skip-git-repo-check")
+        if "-c" not in out and "--config" not in out:
+            extra.extend(["-c", f'model_reasoning_effort="{_codex_reasoning_effort(effort)}"'])
+        if extra:
+            out[insert_at:insert_at] = extra
+    return out
+
+
 def _is_private_host(host: str) -> bool:
     try:
         return ipaddress.ip_address(host).is_private
@@ -126,7 +159,22 @@ def _extract_usage(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         return result
     result["model_served"] = payload.get("model")
-    result["request_id"] = payload.get("id") or payload.get("request_id") or payload.get("response_id")
+    if not result["model_served"]:
+        usage_models = payload.get("modelUsage")
+        if isinstance(usage_models, dict) and usage_models:
+            first_meta = next(iter(usage_models.values()))
+            if isinstance(first_meta, dict):
+                result["model_served"] = first_meta.get("canonicalModel") or first_meta.get("model")
+            if not result["model_served"]:
+                result["model_served"] = str(next(iter(usage_models))).split("[", 1)[0]
+    result["request_id"] = (
+        payload.get("id")
+        or payload.get("request_id")
+        or payload.get("requestId")
+        or payload.get("response_id")
+        or payload.get("session_id")
+        or payload.get("sessionId")
+    )
     usage = payload.get("usage") or payload.get("usageMetadata") or {}
     if isinstance(usage, dict):
         result["input_tokens"] = usage.get("input_tokens", usage.get("prompt_tokens", usage.get("promptTokenCount")))
@@ -143,8 +191,12 @@ def _extract_text(payload: Any) -> str:
         return payload
     if not isinstance(payload, dict):
         return json.dumps(payload, ensure_ascii=False)
+    if isinstance(payload.get("result"), str):
+        return payload["result"]
     if isinstance(payload.get("response"), str):
         return payload["response"]
+    if isinstance(payload.get("text"), str):
+        return payload["text"]
     message = payload.get("message")
     if isinstance(message, dict) and isinstance(message.get("content"), str):
         return message["content"]
@@ -215,6 +267,16 @@ def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int) -
         return {"payload": payload, "headers": dict(response.headers.items())}
 
 
+def _extract_cli_banner_model(text: str) -> str | None:
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("model:"):
+            value = stripped.split(":", 1)[1].strip()
+            if value and value.lower() not in {"auto", "none"}:
+                return value
+    return None
+
+
 def _parse_cli_output(text: str) -> tuple[str, dict[str, Any]]:
     stripped = text.strip()
     if not stripped:
@@ -278,12 +340,13 @@ def delegate(
                 command, _stdin_payload, _stdin_used = _prepare_cli_invocation(
                     template, safe_prompt, selected_model, str(route.get("provider") or provider)
                 )
-                command = pin_command(command)
-                child_env = provider_env(route.get("secret_env"), executable=command[0])
+                command = pin_command(command, user_home=user_home)
+                command = _with_cli_identity_flags(str(route.get("provider") or provider), command, effort=effort)
+                child_env = provider_env(route.get("secret_env"), executable=command[0], user_home=user_home)
                 try:
                     completed = subprocess.run(
                         command,
-                        input=_stdin_payload,
+                        input=_stdin_payload if _stdin_payload is not None else "",
                         capture_output=True,
                         text=True,
                         timeout=timeout,
@@ -308,11 +371,12 @@ def delegate(
                             str(route.get("provider") or provider),
                             force_stdin=True,
                         )
-                        command = pin_command(command)
+                        command = pin_command(command, user_home=user_home)
+                        command = _with_cli_identity_flags(str(route.get("provider") or provider), command, effort=effort)
                         try:
                             completed = subprocess.run(
                                 command,
-                                input=_stdin_payload,
+                                input=_stdin_payload if _stdin_payload is not None else "",
                                 capture_output=True,
                                 text=True,
                                 timeout=timeout,
@@ -335,6 +399,21 @@ def delegate(
                 exit_code = completed.returncode
                 raw_output = completed.stdout or completed.stderr
                 output, usage = _parse_cli_output(raw_output)
+                if not usage.get("model_served"):
+                    banner = _extract_cli_banner_model(
+                        (completed.stderr or "") + "\n" + (completed.stdout or "")
+                    )
+                    if banner:
+                        usage["model_served"] = banner
+                        usage["model_identity_source"] = "cli-banner"
+                low_raw = (raw_output or "").lower()
+                provider_key = str(route.get("provider") or provider).casefold()
+                # Vibe-kit grok prints this on stdout/stderr even with exit 0.
+                # Other seats may *discuss* GROK_API_KEY in a plan; that is not auth failure.
+                if provider_key == "grok" and ("api key required" in low_raw or "grok_api_key" in low_raw):
+                    failure_class = "auth"
+                    if not exit_code:
+                        exit_code = 1
                 # Ollama CLI executes the exact model supplied as an argv item.
                 # A successful non-empty `ollama run <exact-model>` call is
                 # therefore stronger evidence than a configured default and may
@@ -360,10 +439,11 @@ def delegate(
                     else:
                         usage["model_served"] = None
                         usage["model_identity_source"] = "unverified-cli-success"
-                status = "pass" if completed.returncode == 0 and output.strip() else "failed"
-                if completed.returncode != 0:
+                status = "pass" if exit_code == 0 and output.strip() else "failed"
+                if exit_code != 0:
                     low = raw_output.lower()
-                    failure_class = "quota" if "quota" in low or "usage limit" in low or "rate limit" in low else "auth" if "not signed in" in low or "login" in low or "unauthorized" in low else "process"
+                    if failure_class != "auth":
+                        failure_class = "quota" if "quota" in low or "usage limit" in low or "rate limit" in low else "auth" if "not signed in" in low or "login" in low or "unauthorized" in low or "api key required" in low else "process"
                 elif not output.strip():
                     failure_class = "empty-output"
         except subprocess.TimeoutExpired:

@@ -4,20 +4,21 @@
     "rule": "efficiency claims use successful pairs and disclose all-trial success rates",
     "success": "all hard gates pass"
   },
-  "benchmark_id": "mcgpt-mncg-openwiki-2026-01",
+  "benchmark_id": "mcgpt-mncg-openwiki-2026-02",
   "claim_rules": [
     "Do not average faster failures into an efficiency claim.",
     "Do not pool exact model versions into a single model claim.",
     "Do not attribute Ponytail results to MC-GPT.",
-    "Do not hide OpenWiki generation overhead.",
+    "Do not hide OpenWiki generation or retrieval overhead.",
+    "Do not compare different MC-GPT source trees as if the difference were only the treatment.",
     "Do not publish a percentage without uncertainty and failure counts.",
     "Do not claim production readiness from benchmark performance."
   ],
   "efficiency_metrics": [
-    "files_added","files_modified","files_deleted","source_lines_added","source_lines_deleted","patch_bytes","new_runtime_dependencies","new_services","new_schemas","new_agents_or_routes","new_abstraction_layers","input_tokens","cached_tokens","output_tokens","reasoning_tokens","provider_cost_usd","agent_duration_seconds","total_duration_seconds","tool_calls","provider_calls","retries","meeting_calls","repair_iterations","human_interventions","openwiki_generation_tokens","openwiki_generation_cost_usd","openwiki_generation_duration_seconds","openwiki_direct_read_tokens_estimate"
+    "files_added", "files_modified", "files_deleted", "source_lines_added", "source_lines_deleted", "patch_bytes", "new_runtime_dependencies", "new_services", "new_schemas", "new_agents_or_routes", "new_abstraction_layers", "input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens", "provider_cost_usd", "agent_duration_seconds", "total_duration_seconds", "tool_calls", "provider_calls", "retries", "meeting_calls", "repair_iterations", "human_interventions", "openwiki_generation_tokens", "openwiki_generation_cost_usd", "openwiki_generation_duration_seconds", "openwiki_direct_read_tokens_estimate"
   ],
   "hard_gates": [
-    "official_verifier_reward","security_privacy","data_loss_rollback","accessibility","model_identity","contamination_absent","clean_patch_boundary"
+    "official_verifier_reward", "security_privacy", "data_loss_rollback", "accessibility", "model_identity", "contamination_absent", "clean_patch_boundary", "common_source_identity", "treatment_bundle_identity"
   ],
   "noninferiority": {
     "accessibility_margin": 0.0,
@@ -26,7 +27,7 @@
     "security_margin": 0.0
   },
   "production_claim": false,
-  "schema": "iot-ai.deep-benchmark-scoring.v1",
+  "schema": "iot-ai.deep-benchmark-scoring.v2",
   "statistics": {
     "confidence_interval": "paired bootstrap 95 percent",
     "dispersion": "interquartile range",

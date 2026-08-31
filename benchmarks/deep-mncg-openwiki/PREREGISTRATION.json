@@ -1,5 +1,14 @@
 {
-  "benchmark_id": "mcgpt-mncg-openwiki-2026-01",
+  "amendment_history": [
+    {
+      "amended_before_provider_dispatch": true,
+      "date": "2026-08-31",
+      "from_benchmark_id": "mcgpt-mncg-openwiki-2026-01",
+      "record": "AMENDMENT_2026-08-31.json",
+      "reason": "MNCG and benchmark source landed on main through PR 17; all arms must now share one exact source tree."
+    }
+  ],
+  "benchmark_id": "mcgpt-mncg-openwiki-2026-02",
   "blinding": {
     "analysis_unsealing": "after immutable task receipts",
     "rung_adjudicator": "efficiency results hidden",
@@ -45,6 +54,11 @@
   ],
   "production_claim": false,
   "provider_trials_executed": 0,
-  "schema": "iot-ai.deep-benchmark-preregistration.v1",
-  "status": "PRE_REGISTERED_BEFORE_PROVIDER_CALLS"
+  "schema": "iot-ai.deep-benchmark-preregistration.v2",
+  "source_control": {
+    "common_commit": "51cb72e27d013d14ef2e3435ed84a3514b33c170",
+    "common_tree": "81e3b88bb0005cad19b58e016ac3b50b5e8443cd",
+    "rule": "Every arm uses the same source tree, fixture commit, exact model, effort, limits and verifier. Only the registered treatment bundle differs."
+  },
+  "status": "PRE_REGISTERED_AMENDMENT_BEFORE_PROVIDER_CALLS"
 }

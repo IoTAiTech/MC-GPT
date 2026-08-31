@@ -1,5 +1,5 @@
 {
-  "classification": "community-developer-preview-private-release-candidate",
+  "classification": "community-developer-preview-source-candidate",
   "community": {
     "all_eligible_exact_model_seats_attempted_at_material_gates": true,
     "cloud_default": "off-opt-in",
@@ -34,10 +34,9 @@
     ]
   },
   "external_gates": [
-    "live hosted GitHub Actions execution and provenance attestation",
-    "live GitHub Release download after Founder-approved publication",
+    "new tagged 6.8.0-beta.1 download and clean download-back qualification",
     "real Windows on-device qualification",
-    "live provider-account and exact-served-model qualification",
+    "live provider-account and exact-served-model qualification for each claimed seat",
     "Enterprise target qualification with cryptography 50.x",
     "PostgreSQL 18 forced-RLS and backup/restore customer test",
     "deployment-specific PMD/customer qualification",
@@ -71,32 +70,33 @@
   "production_or_fleet_install_authorized": false,
   "production_ready": false,
   "publication": {
+    "branch_cleanup": "only-protected-main-remains",
+    "current_main_source_version": "6.8.0-beta.1",
     "founder_publication_approval_required": true,
-    "github_live_ci": "unverified-by-available-connector",
-    "github_live_release": "unverified-by-available-connector",
-    "github_live_security": "unverified-by-available-connector",
-    "github_main_baseline_sha": "8b5f60616636e63d8310d4ace3057a28db46c1d3",
-    "local_git_simulation": "outside-source-evidence",
-    "real_beta5_branch_cleanup_performed": false,
-    "real_beta5_github_push_performed": false,
-    "real_beta5_github_release_performed": false,
-    "real_beta5_github_tag_performed": false
+    "github_codex_code_review": "pass-on-integration-snapshot",
+    "github_codex_security_review": "pass-on-integration-snapshot",
+    "github_live_checks": "18-completed-checks-with-no-failure-cancelled-or-pending-observed",
+    "github_pages": "pass-on-integration-snapshot",
+    "integration_commit_signature": "github-verified-valid",
+    "integration_snapshot_sha": "51cb72e27d013d14ef2e3435ed84a3514b33c170",
+    "integration_tree_sha": "81e3b88bb0005cad19b58e016ac3b50b5e8443cd",
+    "latest_tagged_download": "v6.7.0-beta.6",
+    "new_6_8_0_beta_1_release_performed": false,
+    "open_pull_requests_after_integration": 0
   },
-  "schema": "iot-ai.release-status.v5",
+  "schema": "iot-ai.release-status.v6",
   "suite_version": "6.8.0-beta.1",
   "tests": {
-    "artifact_and_install_qualification": "outside-source-final-verification",
-    "branch_aware_coverage": "71-percent",
-    "branch_coverage": "56-percent",
-    "focused_task_meeting_multicoder_update": "pass-44",
-    "license_headers": "pass-123-of-123",
-    "public_boundary_current_tree": "pass-zero-findings",
-    "repository_contract_and_sbom": "pass",
-    "runtime_compiler_p95": "1.1738-ms-under-10-ms-target",
-    "source_pytest": "pass-220",
-    "source_unittest": "pass-220",
-    "statement_coverage": "76-percent",
-    "static_security": "pass-zero-findings-113-files",
-    "warnings_as_errors": "pass-220"
+    "brand_identity": "pass-on-integration-snapshot",
+    "eu_ai_act_preview": "pass-on-integration-snapshot",
+    "integration_snapshot_pytest": "pass-335",
+    "integration_snapshot_skipped": 1,
+    "integration_snapshot_unittest": "pass",
+    "license_headers": "pass-on-integration-snapshot",
+    "no_arabic_script": "pass-on-integration-snapshot",
+    "public_boundary_current_tree": "pass-zero-findings-on-integration-snapshot",
+    "repository_contract_and_sbom": "pass-on-integration-snapshot",
+    "static_security": "pass-on-integration-snapshot",
+    "warnings_as_errors": "pass-on-integration-snapshot"
   }
 }

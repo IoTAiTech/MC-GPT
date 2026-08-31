@@ -1,12 +1,17 @@
 {
+  "amended_from": "mcgpt-mncg-openwiki-2026-01",
+  "amendment_record": "AMENDMENT_2026-08-31.json",
   "arms_registered": 6,
-  "benchmark_id": "mcgpt-mncg-openwiki-2026-01",
+  "benchmark_id": "mcgpt-mncg-openwiki-2026-02",
+  "common_source_commit": "51cb72e27d013d14ef2e3435ed84a3514b33c170",
+  "common_source_tree": "81e3b88bb0005cad19b58e016ac3b50b5e8443cd",
   "performance_claim_allowed": false,
   "production_claim": false,
   "protocol_written": true,
   "provider_trials_executed": 0,
-  "schema": "iot-ai.deep-benchmark-status.v1",
-  "status": "STARTED_PRE_REGISTERED",
+  "schema": "iot-ai.deep-benchmark-status.v2",
+  "status": "STARTED_PRE_REGISTERED_AMENDED_BEFORE_PROVIDER_CALLS",
   "task_catalog_pinned": true,
-  "task_count": 30
+  "task_count": 30,
+  "treatment_delivery": "isolated-arm-bundles-on-one-source-tree"
 }

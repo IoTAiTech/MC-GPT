@@ -1,0 +1,43 @@
+{
+  "benchmark_id": "mcgpt-mncg-openwiki-2026-02",
+  "common_source_commit": "51cb72e27d013d14ef2e3435ed84a3514b33c170",
+  "common_source_tree": "81e3b88bb0005cad19b58e016ac3b50b5e8443cd",
+  "production_claim": false,
+  "schema": "iot-ai.deep-benchmark-treatment-registry.v1",
+  "treatments": {
+    "A_BASELINE": {
+      "components": [],
+      "delivery": "No reuse-first instruction or repository wiki is delivered. The common source, task, provider policy, verifier and limits remain unchanged."
+    },
+    "B_SIMPLE_YAGNI": {
+      "components": ["simple_yagni_prompt"],
+      "delivery": "Before adding code, check whether the task is already satisfied or can be solved by an existing capability, the standard library, the native platform or an approved dependency. Prefer the smallest sufficient safe change."
+    },
+    "C_PONYTAIL_PINNED": {
+      "components": ["ponytail_pinned"],
+      "delivery": "Install and use the unmodified upstream Ponytail treatment in an isolated agent home. Do not add MC-GPT MNCG or OpenWiki instructions.",
+      "upstream_commit": "2ed6c52c9d7e5e56942508591085fd45dea277d3",
+      "upstream_license": "MIT"
+    },
+    "D_MNCG": {
+      "components": ["mcgpt_mncg"],
+      "contract_schema": "iot-ai.minimum-necessary-change-contract.v1",
+      "delivery": "Compile the task-bound MNCG contract from the common source and require a semantically valid assessment before implementation. Do not deliver OpenWiki knowledge."
+    },
+    "E_OPENWIKI": {
+      "components": ["openwiki_pinned"],
+      "delivery": "Generate and deliver the integrity-bound repository wiki from the pinned OpenWiki revision. Treat every claim as derived and verify it against current source. Do not deliver MNCG.",
+      "telemetry": "disabled",
+      "upstream_commit": "58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5",
+      "upstream_license": "MIT"
+    },
+    "F_MNCG_OPENWIKI": {
+      "components": ["mcgpt_mncg", "openwiki_pinned"],
+      "contract_schema": "iot-ai.minimum-necessary-change-contract.v1",
+      "delivery": "Deliver the task-bound MNCG contract and the integrity-bound pinned OpenWiki knowledge. Verify wiki claims against source and account for all generation and retrieval overhead.",
+      "telemetry": "disabled",
+      "upstream_commit": "58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5",
+      "upstream_license": "MIT"
+    }
+  }
+}

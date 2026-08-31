@@ -1,50 +1,54 @@
 {
-  "$id": "https://iot-ai.tech/schemas/deep-benchmark-trial-receipt-v1.json",
+  "$id": "https://iot-ai.tech/schemas/deep-benchmark-trial-receipt-v2.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "arm_id": {"enum": ["A_BASELINE","B_SIMPLE_YAGNI","C_PONYTAIL_PINNED","D_MNCG","E_OPENWIKI","F_MNCG_OPENWIKI"]},
+    "arm_id": {"enum": ["A_BASELINE", "B_SIMPLE_YAGNI", "C_PONYTAIL_PINNED", "D_MNCG", "E_OPENWIKI", "F_MNCG_OPENWIKI"]},
     "artifacts": {
       "additionalProperties": false,
       "properties": {
-        "environment_sha256": {"pattern": "^[0-9a-f]{64}$","type": "string"},
-        "patch_sha256": {"pattern": "^[0-9a-f]{64}$","type": "string"},
-        "usage_sha256": {"pattern": "^[0-9a-f]{64}$","type": "string"},
-        "verifier_sha256": {"pattern": "^[0-9a-f]{64}$","type": "string"}
+        "environment_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "patch_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "treatment_bundle_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "usage_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "verifier_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"}
       },
-      "required": ["patch_sha256","verifier_sha256","usage_sha256","environment_sha256"],
+      "required": ["patch_sha256", "verifier_sha256", "usage_sha256", "environment_sha256", "treatment_bundle_sha256"],
       "type": "object"
     },
-    "base_commit_sha": {"pattern": "^[0-9a-f]{40}$","type": "string"},
-    "benchmark_id": {"const": "mcgpt-mncg-openwiki-2026-01"},
+    "base_commit_sha": {"const": "51cb72e27d013d14ef2e3435ed84a3514b33c170"},
+    "base_tree_sha": {"const": "81e3b88bb0005cad19b58e016ac3b50b5e8443cd"},
+    "benchmark_id": {"const": "mcgpt-mncg-openwiki-2026-02"},
     "hard_gates": {
       "additionalProperties": false,
       "properties": {
         "accessibility_passed": {"type": "boolean"},
         "clean_patch_boundary_passed": {"type": "boolean"},
+        "common_source_identity_passed": {"type": "boolean"},
         "contamination_absent": {"type": "boolean"},
         "data_loss_rollback_passed": {"type": "boolean"},
         "model_identity_passed": {"type": "boolean"},
         "official_verifier_reward": {"type": "number"},
-        "security_privacy_passed": {"type": "boolean"}
+        "security_privacy_passed": {"type": "boolean"},
+        "treatment_bundle_identity_passed": {"type": "boolean"}
       },
-      "required": ["official_verifier_reward","security_privacy_passed","data_loss_rollback_passed","accessibility_passed","model_identity_passed","contamination_absent","clean_patch_boundary_passed"],
+      "required": ["official_verifier_reward", "security_privacy_passed", "data_loss_rollback_passed", "accessibility_passed", "model_identity_passed", "contamination_absent", "clean_patch_boundary_passed", "common_source_identity_passed", "treatment_bundle_identity_passed"],
       "type": "object"
     },
-    "metrics": {"additionalProperties": {"type": ["number","integer","null"]},"type": "object"},
-    "model_requested": {"minLength": 1,"type": "string"},
-    "model_served": {"minLength": 1,"type": "string"},
+    "metrics": {"additionalProperties": {"type": ["number", "integer", "null"]}, "type": "object"},
+    "model_requested": {"minLength": 1, "type": "string"},
+    "model_served": {"minLength": 1, "type": "string"},
     "production_claim": {"const": false},
-    "provider_slot": {"minLength": 1,"type": "string"},
-    "receipt_sha256": {"pattern": "^[0-9a-f]{64}$","type": "string"},
-    "repetition": {"minimum": 1,"type": "integer"},
-    "schema": {"const": "iot-ai.deep-benchmark-trial-receipt.v1"},
+    "provider_slot": {"minLength": 1, "type": "string"},
+    "receipt_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "repetition": {"minimum": 1, "type": "integer"},
+    "schema": {"const": "iot-ai.deep-benchmark-trial-receipt.v2"},
     "seed": {"type": "integer"},
-    "status": {"enum": ["pass","task_failed","infrastructure_failed","blocked","excluded_with_receipt"]},
-    "task_id": {"pattern": "^DSWE-[0-9]{3}$","type": "string"},
-    "trial_id": {"minLength": 8,"type": "string"}
+    "status": {"enum": ["pass", "task_failed", "infrastructure_failed", "blocked", "excluded_with_receipt"]},
+    "task_id": {"pattern": "^DSWE-[0-9]{3}$", "type": "string"},
+    "trial_id": {"minLength": 8, "type": "string"}
   },
-  "required": ["schema","trial_id","benchmark_id","arm_id","task_id","provider_slot","model_requested","model_served","repetition","seed","base_commit_sha","status","hard_gates","metrics","artifacts","receipt_sha256","production_claim"],
-  "title": "MC-GPT Deep Benchmark Trial Receipt",
+  "required": ["schema", "trial_id", "benchmark_id", "arm_id", "task_id", "provider_slot", "model_requested", "model_served", "repetition", "seed", "base_commit_sha", "base_tree_sha", "status", "hard_gates", "metrics", "artifacts", "receipt_sha256", "production_claim"],
+  "title": "MC-GPT Deep Benchmark Trial Receipt v2",
   "type": "object"
 }

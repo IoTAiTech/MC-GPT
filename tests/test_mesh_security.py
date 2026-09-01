@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 from iot_ai.mesh import _prepare_cli_invocation, _validate_endpoint, delegate
 
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_labeled_secret
 
 
 class MeshSecurityTests(IsolatedHomeTestCase):
@@ -33,7 +33,7 @@ class MeshSecurityTests(IsolatedHomeTestCase):
     def test_cloud_secret_blocks_before_process_launch(self, run_mock, eligible_mock) -> None:
         eligible_mock.return_value = [self._route()]
         with self.assertRaisesRegex(RuntimeError, "privacy gate"):
-            delegate(self.home, "test", "api_key=" + "A" * 30, model="model-a")
+            delegate(self.home, "test", synthetic_labeled_secret(), model="model-a")
         run_mock.assert_not_called()
 
     @patch("iot_ai.mesh.save_receipt")

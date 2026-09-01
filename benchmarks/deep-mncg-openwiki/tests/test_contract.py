@@ -73,6 +73,23 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(len(set(digests.values())), 6)
         self.assertTrue(all(len(value) == 64 for value in digests.values()))
 
+    def test_treatments_are_classified_experimental_arms(self) -> None:
+        registry = json.loads((ROOT / "TREATMENTS.json").read_text())
+        runtime = json.loads((ROOT / "CODER_RUNTIME.json").read_text())
+        self.assertEqual(runtime["user_facing_coder_runtime_count"], 1)
+        self.assertIs(runtime["benchmark_treatments_are_not_products"], True)
+        for arm_id, row in registry["treatments"].items():
+            self.assertIn("kind", row, arm_id)
+            self.assertIn("runtime_component", row, arm_id)
+            self.assertIn("dependency_policy", row, arm_id)
+            self.assertIs(row["production_eligibility"], False, arm_id)
+            self.assertNotIn("components", row, arm_id)
+            self.assertIn("treatment_bundle", row, arm_id)
+        matrix = json.loads((ROOT / "RUN_MATRIX.json").read_text())
+        for arm in matrix["arms"]:
+            self.assertNotIn("components", arm, arm["arm_id"])
+            self.assertEqual(arm["treatment_bundle"], registry["treatments"][arm["arm_id"]]["treatment_bundle"], arm["arm_id"])
+
     def test_claim_boundary(self) -> None:
         for name in ("STATUS.json", "RUN_MATRIX.json", "TASK_SUITE.json", "SCORING_SPEC.json", "PREREGISTRATION.json", "MODELS.example.json"):
             payload = json.loads((ROOT / name).read_text())

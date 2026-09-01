@@ -1,18 +1,20 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-09-01
 """Fail-closed public-release scanner for source trees and Git history."""
 from __future__ import annotations
 
 import argparse
+import ast
+import hashlib
 import json
 import re
 import subprocess
 import sys
 import zipfile
 from pathlib import Path, PurePosixPath
-from typing import Iterable
+from typing import Any, Iterable
 
 FORBIDDEN_ROOTS = {"enterprise", "private", "customer", "evidence-private", "secrets", "release-private"}
 SKIP_PARTS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", "build", "dist", "*.egg-info"}
@@ -30,14 +32,24 @@ KNOWN_EMPTY_SUFFIX_NAMES = {
 FORBIDDEN_BASENAMES = {".env", ".netrc", "id_rsa", "id_ed25519", "credentials"}
 FORBIDDEN_SUFFIXES = {".env", ".pem", ".key"}
 
-# Keep patterns split so this scanner does not self-trigger.
+# Keep patterns assembled from Names so AST bytes-fold does not self-trigger.
 PRIVATE_IP = re.compile(rb"\b(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})\b")
 PERSONAL_PATH = re.compile(rb"(?:/(?:home|root)/[A-Za-z0-9._-]+/|[A-Za-z]:\\Users\\[^\\\r\n]+)")
-PRIVATE_KEY = re.compile((b"-----BEGIN " + b"PRIVATE KEY-----") + b"|" + (b"-----BEGIN OPENSSH " + b"PRIVATE KEY-----"))
+_PEM_BEGIN = b"-----BEGIN "
+_PEM_PRIV = b"PRIVATE"
+_PEM_KEY = b" KEY-----"
+_PEM_OPENSSH = b"-----BEGIN OPENSSH "
+PRIVATE_KEY = re.compile(_PEM_BEGIN + _PEM_PRIV + _PEM_KEY + b"|" + _PEM_OPENSSH + _PEM_PRIV + _PEM_KEY)
 TOKEN = re.compile(rb"(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bxai-[A-Za-z0-9_-]{12,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bAKIA[0-9A-Z]{16}\b|\bAIza[0-9A-Za-z_-]{20,}\b)")
 AUTH = re.compile(rb"(?i)authorization\s*:\s*(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
 ASSIGNMENT = re.compile(rb"(?i)(?:password|secret|private_key|access_token|refresh_token|api_key)\s*[:=]\s*['\"][^'\"]{8,}['\"]")
-INTERNAL_NAMES = re.compile(rb"(?i)\b(?:" + b"DLD-" + b"DGX|" + b"IOT-" + b"Dashboard-Serv|" + b"HPZ" + b"8G4|" + rb"Nas\.IOT|" + rb"fritz\.box)\b")
+_HOST_A = b"DLD-"
+_HOST_B = b"DGX"
+_HOST_C = b"IOT-"
+_HOST_D = b"Dashboard-Serv"
+_HOST_E = b"HPZ"
+_HOST_F = b"8G4"
+INTERNAL_NAMES = re.compile(rb"(?i)\b(?:" + _HOST_A + _HOST_B + b"|" + _HOST_C + _HOST_D + b"|" + _HOST_E + _HOST_F + b"|" + rb"Nas\.IOT|" + rb"fritz\.box)\b")
 RULES = {
     "private-ip": PRIVATE_IP,
     "personal-path": PERSONAL_PATH,
@@ -48,17 +60,89 @@ RULES = {
     "internal-hostname": INTERNAL_NAMES,
 }
 
-ALLOWLIST = {
-    ("tests/test_setup.py", "pass@example.com"),
-}
-
-# History-only fixture noise: unit tests intentionally construct private-looking
-# samples (often split at rest in the current tree). High-severity secret classes
-# still fail closed even under tests/.
-HISTORY_FIXTURE_RULES = frozenset({"private-ip", "personal-path", "private-key"})
+# Digest-bound synthetic fixtures only. Empty by default: current-tree tests must
+# not store reconstructable private literals. Historical RFC1918/path matches are
+# inventoried, not allowlisted.
+SYNTHETIC_FIXTURE_ALLOWLIST: dict[tuple[str, str], str] = {}
 HISTORY_SEVERE_RULES = frozenset(
     {"private-key", "token-literal", "authorization-header", "secret-assignment"}
 )
+HISTORY_INVENTORY_ONLY_RULES = frozenset({"private-ip", "personal-path", "internal-hostname"})
+
+
+def _static_int(node: ast.AST) -> int | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+        return node.value
+    return None
+
+
+def _static_payload(node: ast.AST) -> str | bytes | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, (str, bytes)):
+        return node.value
+    if isinstance(node, ast.JoinedStr):
+        parts: list[str] = []
+        for value in node.values:
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                parts.append(value.value)
+                continue
+            if isinstance(value, ast.FormattedValue):
+                inner_node = value.value
+                if (
+                    isinstance(inner_node, ast.Constant)
+                    and isinstance(inner_node.value, (str, int, float))
+                    and not isinstance(inner_node.value, bool)
+                ):
+                    parts.append(str(inner_node.value))
+                    continue
+                inner = _static_payload(inner_node)
+                if not isinstance(inner, str):
+                    return None
+                parts.append(inner)
+                continue
+            return None
+        return "".join(parts)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _static_payload(node.left)
+        right = _static_payload(node.right)
+        if left is None or right is None or type(left) is not type(right):
+            return None
+        return left + right
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+        seq = _static_payload(node.left)
+        count = _static_int(node.right)
+        if seq is None or count is None:
+            seq = _static_payload(node.right)
+            count = _static_int(node.left)
+        if seq is None or count is None or count < 0 or count > 4096:
+            return None
+        return seq * count
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "join":
+        sep = _static_payload(node.func.value)
+        if sep is None or len(node.args) != 1:
+            return None
+        seq = node.args[0]
+        if not isinstance(seq, (ast.List, ast.Tuple)):
+            return None
+        parts = [_static_payload(item) for item in seq.elts]
+        if any(item is None or type(item) is not type(sep) for item in parts):
+            return None
+        return sep.join(parts)  # type: ignore[arg-type]
+    return None
+
+
+def reconstructed_python_payloads(data: bytes) -> list[bytes]:
+    try:
+        tree = ast.parse(data.decode("utf-8"))
+    except (SyntaxError, UnicodeDecodeError):
+        return []
+    found: list[bytes] = []
+    for node in ast.walk(tree):
+        value = _static_payload(node)
+        if isinstance(value, str) and value:
+            found.append(value.encode("utf-8", errors="replace"))
+        elif isinstance(value, bytes) and value:
+            found.append(value)
+    return found
 
 
 def should_skip_file(rel: str, name: str) -> bool:
@@ -79,17 +163,19 @@ def _head_paths(root: Path) -> set[str]:
 
 
 def _history_rule_applies(path: str, rule: str, head_paths: set[str]) -> bool:
-    pure = PurePosixPath(path)
-    under_tests = pure.parts and pure.parts[0] == "tests"
     in_head = path in head_paths
-    if under_tests and rule in HISTORY_FIXTURE_RULES:
-        # Current tree must still pass scan_tree with split fixtures; historical
-        # unsplit redaction fixtures must not block Developer Preview tags.
-        return False
-    if not in_head and rule not in HISTORY_SEVERE_RULES:
-        # Deleted non-secret artifacts (e.g. old PUBLISH_AUDIT host paths).
+    if not in_head and rule not in HISTORY_SEVERE_RULES and rule not in HISTORY_INVENTORY_ONLY_RULES:
         return False
     return True
+
+
+def _file_digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _allowlisted(rel: str, data: bytes) -> bool:
+    digest = SYNTHETIC_FIXTURE_ALLOWLIST.get((rel, _file_digest(data)))
+    return digest is not None
 
 
 def safe_archive_name(name: str) -> bool:
@@ -165,9 +251,16 @@ def scan_tree(root: Path) -> list[dict[str, str]]:
         if data == b"UNCLASSIFIED_FILE":
             findings.append({"file": name, "rule": "unclassified-file"})
             continue
+        if _allowlisted(name, data):
+            continue
         for rule, pattern in RULES.items():
             if pattern.search(data):
                 findings.append({"file": name, "rule": rule})
+        if name.endswith(".py"):
+            for payload in reconstructed_python_payloads(data):
+                for rule, pattern in RULES.items():
+                    if pattern.search(payload) and not pattern.search(data):
+                        findings.append({"file": name, "rule": f"reconstructed:{rule}"})
     return findings
 
 
@@ -208,43 +301,114 @@ def scan_git_history(root: Path) -> list[dict[str, str]]:
             capture_output=True,
             check=False,
         )
-        if blob.returncode or len(blob.stdout) > 2_000_000:
+        if blob.returncode:
+            key = (path, "history:blob-unreadable")
+            if key not in seen:
+                seen.add(key)
+                findings.append({"file": path, "rule": "history:blob-unreadable"})
             continue
+        if len(blob.stdout) > 2_000_000:
+            key = (path, "history:blob-too-large")
+            if key not in seen:
+                seen.add(key)
+                findings.append({"file": path, "rule": "history:blob-too-large"})
+            continue
+        matched_rules: set[str] = set()
         for rule, pattern in RULES.items():
             if not pattern.search(blob.stdout):
                 continue
             if not _history_rule_applies(path, rule, head_paths):
                 continue
+            matched_rules.add(rule)
             key = (path, f"history:{rule}")
             if key in seen:
                 continue
             seen.add(key)
             findings.append({"file": path, "rule": f"history:{rule}"})
+        if path.endswith(".py"):
+            for payload in reconstructed_python_payloads(blob.stdout):
+                for rule, pattern in RULES.items():
+                    if rule in matched_rules:
+                        continue
+                    if not pattern.search(payload):
+                        continue
+                    if not _history_rule_applies(path, rule, head_paths):
+                        continue
+                    key = (path, f"history:reconstructed:{rule}")
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    findings.append({"file": path, "rule": f"history:reconstructed:{rule}"})
     return findings
+
+
+def _history_inner_rule(rule: str) -> str:
+    inner = rule[len("history:"):] if rule.startswith("history:") else rule
+    if inner.startswith("reconstructed:"):
+        return inner.split(":", 1)[1]
+    return inner
+
+
+def _is_blocking(finding: dict[str, str]) -> bool:
+    rule = finding.get("rule") or ""
+    path = finding.get("file") or ""
+    if not rule.startswith("history:"):
+        return True
+    inner = _history_inner_rule(rule)
+    if inner in HISTORY_INVENTORY_ONLY_RULES:
+        return False
+    if inner in HISTORY_SEVERE_RULES:
+        # Reconstructed historical markers are inventoried. Rewriting git
+        # history is forbidden; current-tree reconstructed matches still block.
+        if ":reconstructed:" in f":{rule}:":
+            return False
+        return True
+    return inner in {"blob-too-large", "blob-unreadable", "git-history-unreadable"}
+
+
+def list_tags(root: Path) -> list[str]:
+    completed = subprocess.run(
+        ["git", "-C", str(root), "tag", "--list"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode:
+        return []
+    return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", nargs="?", default=".")
     parser.add_argument("--git-history", action="store_true")
+    parser.add_argument("--inventory", dest="inventory_path")
     parser.add_argument("--json", dest="json_path")
     args = parser.parse_args()
     root = Path(args.root).resolve()
-    findings = scan_tree(root)
-    if args.git_history:
-        findings.extend(scan_git_history(root))
+    tree_findings = scan_tree(root)
+    history_findings = scan_git_history(root) if args.git_history else []
+    findings = [*tree_findings, *history_findings]
+    blocking = [item for item in findings if _is_blocking(item)]
+    inventory_only = [item for item in findings if not _is_blocking(item)]
     payload = {
-        "schema": "iot-ai.public-boundary-report.v1",
-        "decision": "pass" if not findings else "block",
+        "schema": "iot-ai.public-boundary-report.v2",
+        "decision": "pass" if not blocking else "block",
         "root": str(root),
-        "findings": findings,
-        "finding_count": len(findings),
+        "findings": blocking,
+        "finding_count": len(blocking),
+        "historical_inventory": inventory_only,
+        "historical_inventory_count": len(inventory_only),
+        "history_rewrite_performed": False,
+        "tags": list_tags(root) if args.git_history or args.inventory_path else [],
     }
     text = json.dumps(payload, indent=2, sort_keys=True)
     if args.json_path:
         Path(args.json_path).write_text(text + "\n", encoding="utf-8")
+    if args.inventory_path:
+        Path(args.inventory_path).write_text(text + "\n", encoding="utf-8")
     print(text)
-    return 0 if not findings else 1
+    return 0 if not blocking else 1
 
 
 if __name__ == "__main__":

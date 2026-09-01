@@ -243,6 +243,7 @@ def build_schedule(
     return {
         "schema": SCHEDULE_SCHEMA,
         "version": "1.0.0",
+        "decision": "pass",
         "protocol_sha256": protocol_sha,
         "corpus_sha256": corpus_sha,
         "providers": selected_providers,

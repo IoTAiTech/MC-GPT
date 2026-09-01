@@ -14,6 +14,20 @@ iot-ai-update     the single transactional update authority
 
 Meeting, Mesh, Multi-Coder, tasks, graph, knowledge and diagnostics remain advanced subcommands or internal engines behind `iot-ai`.
 
+There is one user-facing coder runtime. Benchmark treatments A–F are experimental arms used only by the benchmark runner. They are not six products, services, commands, or installable modules.
+
+```text
+coder command
+→ intake and normalization
+→ reuse / YAGNI precheck
+→ optional knowledge-context adapter behind policy and feature flag
+→ native MNCG decision
+→ plan or execute
+→ deterministic verification and evidence
+```
+
+MNCG is the native authoritative change gate. OpenWiki, when present, is an optional default-off context adapter without task authority and without direct product-database access.
+
 ## Application-owned runtime
 
 Every material model turn owns and records four parts: **prompt, context, tools/provider selection and control flow**. The exact prompt and context are hash-bound; route eligibility distinguishes installation from live readiness; continuation and persistence decisions are deterministic; checkpoints support pause/resume/replay. Meeting and Multi-Coder advanced commands use the same owned runtime through `owned_delegate.py`.

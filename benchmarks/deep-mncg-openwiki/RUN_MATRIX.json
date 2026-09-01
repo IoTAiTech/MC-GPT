@@ -2,32 +2,32 @@
   "arms": [
     {
       "arm_id": "A_BASELINE",
-      "components": [],
+      "treatment_bundle": [],
       "description": "Common source tree with no reuse-first treatment bundle."
     },
     {
       "arm_id": "B_SIMPLE_YAGNI",
-      "components": ["simple_yagni_prompt"],
+      "treatment_bundle": ["simple_yagni_prompt"],
       "description": "Common source tree plus a short reuse-first control prompt."
     },
     {
       "arm_id": "C_PONYTAIL_PINNED",
-      "components": ["ponytail_pinned"],
+      "treatment_bundle": ["ponytail_pinned"],
       "description": "Common source tree plus the pinned upstream Ponytail treatment in an isolated agent home."
     },
     {
       "arm_id": "D_MNCG",
-      "components": ["mcgpt_mncg"],
+      "treatment_bundle": ["mcgpt_mncg"],
       "description": "Common source tree plus the native MC-GPT Minimum Necessary Change contract and semantic gate."
     },
     {
       "arm_id": "E_OPENWIKI",
-      "components": ["openwiki_pinned"],
+      "treatment_bundle": ["openwiki_pinned"],
       "description": "Common source tree plus pinned OpenWiki repository knowledge without MNCG."
     },
     {
       "arm_id": "F_MNCG_OPENWIKI",
-      "components": ["mcgpt_mncg", "openwiki_pinned"],
+      "treatment_bundle": ["mcgpt_mncg", "openwiki_pinned"],
       "description": "Common source tree plus MNCG and pinned OpenWiki knowledge with full overhead accounting."
     }
   ],

@@ -23,9 +23,19 @@ REQUIRED = [
     "PREREGISTRATION.json",
     "MODELS.example.json",
     "TREATMENTS.json",
+    "CODER_RUNTIME.json",
     "AMENDMENT_2026-08-31.json",
     "schemas/trial-receipt.schema.json",
 ]
+REQUIRED_TREATMENT_FIELDS = ("kind", "runtime_component", "dependency_policy", "production_eligibility", "treatment_bundle")
+REQUIRED_KINDS = {
+    "A_BASELINE": "benchmark_control",
+    "B_SIMPLE_YAGNI": "benchmark_ablation",
+    "C_PONYTAIL_PINNED": "external_comparator",
+    "D_MNCG": "native_runtime_gate",
+    "E_OPENWIKI": "optional_context_adapter_benchmark",
+    "F_MNCG_OPENWIKI": "integration_benchmark_profile",
+}
 
 
 def main() -> int:
@@ -87,6 +97,51 @@ def main() -> int:
     treatment_ids = set((treatments.get("treatments") or {}).keys())
     if arm_ids != treatment_ids:
         errors.append("treatment-arm-set")
+    runtime = data.get("CODER_RUNTIME.json", {})
+    if runtime.get("user_facing_coder_runtime") != "iot-ai":
+        errors.append("coder-runtime-identity")
+    if runtime.get("user_facing_coder_runtime_count") != 1:
+        errors.append("coder-runtime-count")
+    if runtime.get("benchmark_treatments_are_not_products") is not True:
+        errors.append("treatments-must-not-be-products")
+    if runtime.get("native_mncg_authoritative") is not True:
+        errors.append("native-mncg-not-authoritative")
+    if runtime.get("openwiki_default_off") is not True:
+        errors.append("openwiki-not-default-off")
+    if "optional_knowledge_context_adapter" not in (runtime.get("pipeline") or []):
+        errors.append("coder-runtime-pipeline")
+    for arm_id, expected_kind in REQUIRED_KINDS.items():
+        row = (treatments.get("treatments") or {}).get(arm_id) or {}
+        for field in REQUIRED_TREATMENT_FIELDS:
+            if field not in row:
+                errors.append(f"treatment-field:{arm_id}:{field}")
+        if row.get("kind") != expected_kind:
+            errors.append(f"treatment-kind:{arm_id}")
+        if row.get("production_eligibility") is not False:
+            errors.append(f"treatment-production:{arm_id}")
+        if "components" in row:
+            errors.append(f"treatment-architecture-component-key:{arm_id}")
+    for arm in matrix.get("arms") or []:
+        arm_id = arm.get("arm_id")
+        if "components" in arm:
+            errors.append(f"run-matrix-architecture-component-key:{arm_id}")
+        bundle = arm.get("treatment_bundle")
+        expected_bundle = ((treatments.get("treatments") or {}).get(arm_id) or {}).get("treatment_bundle")
+        if "treatment_bundle" not in arm:
+            errors.append(f"run-matrix-treatment-bundle:{arm_id}")
+        elif bundle != expected_bundle:
+            errors.append(f"run-matrix-treatment-bundle-mismatch:{arm_id}")
+    d_mncg = (treatments.get("treatments") or {}).get("D_MNCG") or {}
+    if d_mncg.get("runtime_component") is not True or d_mncg.get("authoritative") is not True:
+        errors.append("native-mncg-classification")
+    e_openwiki = (treatments.get("treatments") or {}).get("E_OPENWIKI") or {}
+    if e_openwiki.get("runtime_component") is not False or e_openwiki.get("default_enabled") is not False:
+        errors.append("openwiki-classification")
+    if e_openwiki.get("task_authority") is not False or e_openwiki.get("direct_product_db_access") is not False:
+        errors.append("openwiki-authority")
+    f_combo = (treatments.get("treatments") or {}).get("F_MNCG_OPENWIKI") or {}
+    if f_combo.get("runtime_component") is not False or f_combo.get("composition") != ["D_MNCG", "E_OPENWIKI"]:
+        errors.append("combo-classification")
     common_commit = (matrix.get("source_freeze") or {}).get("mcgpt_common_source")
     common_tree = (matrix.get("source_freeze") or {}).get("mcgpt_common_tree")
     if status.get("common_source_commit") != common_commit:

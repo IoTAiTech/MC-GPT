@@ -25,6 +25,8 @@ Only the registered treatment bundle may differ. Each trial receipt must bind th
 
 ## Treatment integrity
 
+A–F are experimental treatments selected only by the benchmark runner. They are not user-facing coder products, services, commands, or installable modules.
+
 `A_BASELINE` receives only the unchanged task and common source. `B_SIMPLE_YAGNI` receives the registered short control. `C_PONYTAIL_PINNED` receives only the pinned upstream treatment. `D_MNCG` receives the task-bound MNCG contract. `E_OPENWIKI` receives the pinned generated wiki and managed instruction block. `F_MNCG_OPENWIKI` receives both MNCG and OpenWiki.
 
 The baseline harness must suppress MNCG treatment delivery without changing source code, fixtures, tests, verifier, or provider policy. No arm may receive an arm-specific hint about the expected solution.

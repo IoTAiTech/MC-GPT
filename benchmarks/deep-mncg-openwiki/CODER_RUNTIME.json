@@ -1,0 +1,17 @@
+{
+  "benchmark_treatments_are_not_products": true,
+  "native_mncg_authoritative": true,
+  "openwiki_default_off": true,
+  "pipeline": [
+    "intake_and_normalization",
+    "reuse_yagni_precheck",
+    "optional_knowledge_context_adapter",
+    "native_mncg_decision",
+    "plan_or_execute",
+    "deterministic_verification_and_evidence"
+  ],
+  "production_claim": false,
+  "schema": "iot-ai.coder-runtime-topology.v1",
+  "user_facing_coder_runtime": "iot-ai",
+  "user_facing_coder_runtime_count": 1
+}

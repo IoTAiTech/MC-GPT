@@ -143,11 +143,7 @@ def _private_endpoint(url: str) -> bool:
         address = ipaddress.ip_address(parsed.hostname)
     except ValueError:
         return False
-    private_networks = tuple(
-        ipaddress.ip_network(value)
-        for value in ("10." + "0.0.0/8", "172." + "16.0.0/12", "192." + "168.0.0/16")
-    )
-    allowed = address.is_loopback or any(address in network for network in private_networks)
+    allowed = address.is_loopback or address.is_private
     return bool(allowed and not address.is_link_local and not address.is_multicast and not address.is_reserved and (parsed.scheme == "https" or address.is_loopback))
 
 def delegate_agent_seat(

@@ -27,8 +27,12 @@ Source snapshot on `main` after the 2026-08-31 merge-all (package lockstep stays
 ### Changed
 - README, Pages and `llms.txt` keep the growth evaluation path (tagged wheel vs current `main` source).
 - `tools/no_arabic_script_check.py` is part of the public language-boundary gate.
+- Deep-benchmark A–F IDs are classified as experimental treatments, not user-facing coder products. Machine-readable topology: `benchmarks/deep-mncg-openwiki/CODER_RUNTIME.json` and `TREATMENTS.json` (`kind`, `runtime_component`, `dependency_policy`, `production_eligibility`, `treatment_bundle`). `RUN_MATRIX.json` uses `treatment_bundle` (not `components`).
+- Public-boundary scanner constant-folds adjacent Python string literals, `+` concatenation, static f-strings, simple `join` calls, and `str * int`, and rejects reconstructed private values. Historical RFC1918/path matches are inventoried; severe history secrets still block.
+- RFC1918 allow/deny in agent seats uses `ipaddress.is_private` instead of split CIDR string literals.
 
 ### Fixed
+- `benchmarks/minimum-change-v2` `schedule` JSON now includes `decision: pass` so a valid generated schedule exits 0 under `set -e`.
 - Official spawn no longer prefers a system Grok that requires `GROK_API_KEY` when a user-local Grok Build TUI exists.
 - Claude `modelUsage.canonicalModel` and Codex `model:` banner now populate `model_served`.
 - `codex exec` no longer hangs on inherited stdin (empty EOF unless the prompt is on stdin).

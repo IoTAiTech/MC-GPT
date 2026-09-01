@@ -15,6 +15,7 @@ from iot_ai.paths import data_root, install_state_path
 from iot_ai.status import unified_status
 from iot_ai.suite_package import archive_old_active_versions, clean_package_store
 from iot_ai.util import atomic_json, sha256_file
+from tests.common import synthetic_bearer_header, synthetic_xai_token
 
 
 class LoggingAndCleanInstallTests(unittest.TestCase):
@@ -23,9 +24,9 @@ class LoggingAndCleanInstallTests(unittest.TestCase):
             home = Path(tmp).resolve()
             locations = log_locations(home)
             self.assertTrue(locations["logs_root"].startswith(str(home)))
-            secret_value = "".join(("x", "ai", "-", "secret", "-", "value", "-", "12345678"))
-            bearer_value = "".join(("abc", "def", "ghi", "jkl", "mnop"))
-            auth_header = "".join(("Author", "ization", ": ", "Bear", "er", " ", bearer_value))
+            secret_value = synthetic_xai_token()
+            auth_header = synthetic_bearer_header()
+            bearer_value = auth_header.split()[-1]
             event = append_event(
                 home,
                 "test.event",

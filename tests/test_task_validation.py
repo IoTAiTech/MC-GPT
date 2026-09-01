@@ -19,7 +19,7 @@ from iot_ai.tasks import add_work_unit, claim_work_unit, create, show
 from iot_ai.paths import db_path
 from iot_ai.workspace import connect_read, excel_path
 
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_labeled_secret
 
 
 ROLE_PROVIDER = {
@@ -330,7 +330,7 @@ class TaskValidationTests(IsolatedHomeTestCase):
     def test_secret_context_blocks_before_provider_calls(self):
         task_id, _ = self.make_task()
         secret = self.home / "secret.log"
-        secret.write_text("api_" + "key=" + "xai" + "-" + "THIS_IS_A_REALISTIC_SECRET_VALUE_123456", encoding="utf-8")
+        secret.write_text(synthetic_labeled_secret(), encoding="utf-8")
         with self.assertRaises(PermissionError):
             review(self.home, task_id, context_files=[secret], provider_executor=validation_executor)
         self.assertEqual(status(self.home, task_id)["count"], 0)

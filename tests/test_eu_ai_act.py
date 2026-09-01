@@ -37,7 +37,7 @@ from iot_ai.paths import article5_screens_path, disclosure_receipts_path
 from iot_ai.roles import select_roles
 from iot_ai.transparency import DISCLOSURES, mark_file, record_disclosure, runtime_output_provenance, verify_file
 
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_labeled_secret, synthetic_personal_path, synthetic_rfc1918_host
 
 # 1x1 transparent PNG.
 PNG_1X1 = base64.b64decode(
@@ -208,17 +208,19 @@ class EuAiActTests(IsolatedHomeTestCase):
         self.assertNotIn("person-1", json.dumps(first))
 
     def test_evidence_chain_redacts_private_metadata(self) -> None:
+        host = synthetic_rfc1918_host()
+        path = synthetic_personal_path()
         result = record_incident(self.home, {
             "system_id": "suite",
             "system_version": "6.6.0-beta.3",
             "severity": "low",
             "discovered_at": "2026-08-06T00:00:00Z",
-            "summary": "Observed on " + ".".join(("192", "168", "50", "40")) + " under /" + "/".join(("home", "iot", "private")),
+            "summary": f"Observed on {host} under {path}",
             "reportability": "not-assessed",
         })
         encoded = json.dumps(result)
-        self.assertNotIn(".".join(("192", "168", "50", "40")), encoded)
-        self.assertNotIn("/" + "/".join(("home", "iot")), encoded)
+        self.assertNotIn(host, encoded)
+        self.assertNotIn(path, encoded)
         self.assertIn("[PRIVATE_IP]", encoded)
 
     def test_evidence_chain_rejects_tampered_history(self) -> None:
@@ -270,7 +272,7 @@ class EuAiActTests(IsolatedHomeTestCase):
         }
         entry = register_model_dossier(self.home, dossier)
         self.assertEqual(entry["provider"], "example-provider")
-        bad = {**dossier, "model_id": "model-b", "limitations": ["api" + "_key=" + "A" * 26]}
+        bad = {**dossier, "model_id": "model-b", "limitations": [synthetic_labeled_secret()]}
         with self.assertRaises(ValueError):
             register_model_dossier(self.home, bad)
 

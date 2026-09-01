@@ -33,12 +33,14 @@ Only the registered treatment bundle may differ within a paired block. Git histo
 
 ## Experimental arms
 
-- `A_BASELINE`
-- `B_SIMPLE_YAGNI`
-- `C_PONYTAIL_PINNED`
-- `D_MNCG`
-- `E_OPENWIKI`
-- `F_MNCG_OPENWIKI`
+These IDs are benchmark treatments, not architecture components and not six coder products. The user-facing product remains one `iot-ai` coder runtime with a native MNCG gate and an optional, default-off context adapter.
+
+- `A_BASELINE` — experimental control
+- `B_SIMPLE_YAGNI` — experimental ablation of the reuse-first precheck
+- `C_PONYTAIL_PINNED` — pinned external comparator, not a production dependency
+- `D_MNCG` — experimental arm that exercises the native MNCG gate
+- `E_OPENWIKI` — optional context-adapter benchmark, default off, no task authority
+- `F_MNCG_OPENWIKI` — integration benchmark profile of D + E
 
 ## Contract validation
 

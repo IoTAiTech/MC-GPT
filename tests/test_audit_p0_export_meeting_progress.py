@@ -15,7 +15,7 @@ from iot_ai.meeting import _requested_seats, show as show_meeting, start
 from iot_ai.projection import export_workspace
 from iot_ai.tasks import create, record_progress, show as show_task
 from iot_ai.workspace import connect_write
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_rfc1918_host
 
 
 class ExportGateFailClosedTests(unittest.TestCase):
@@ -31,7 +31,7 @@ class ExportGateFailClosedTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "sheet.xlsx"
             wb = Workbook()
-            wb.active["A1"] = "host " + "192" + ".168.77.88"
+            wb.active["A1"] = "host " + synthetic_rfc1918_host()
             wb.save(path)
             result = assert_export_safe(path, public=True, allowed_roots=[Path(tmp)])
             self.assertEqual(result["decision"], "block")
@@ -41,7 +41,7 @@ class ExportGateFailClosedTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "formula.xlsx"
             wb = Workbook()
-            wb.active["A1"] = '="' + "192" + ".168.77.88" + '"'
+            wb.active["A1"] = '="' + synthetic_rfc1918_host() + '"'
             wb.save(path)
             result = assert_export_safe(path, public=True, allowed_roots=[Path(tmp)])
             self.assertEqual(result["decision"], "block")

@@ -133,7 +133,7 @@ class MinimumChangeBenchmarkV2Tests(unittest.TestCase):
                 )
             self.assertEqual(rc, 0)
             payload = json.loads(output.read_text(encoding="utf-8"))
-            self.assertNotIn("decision", payload)
+            self.assertEqual(payload.get("decision"), "pass")
             self.assertEqual(payload["run_count"], 24 * 5 * 3)
 
 

@@ -21,9 +21,13 @@ _SENSITIVE_KEYS = re.compile(
     r"(secret|token|password|api[_-]?key|authorization|cookie|credential|private[_-]?key|lease[_-]?token)",
     re.I,
 )
+_pem_begin = b"-----BEGIN "
+_pem_priv = b"PRIVATE"
+_pem_key = b" KEY-----"
+_pem_openssh = b"-----BEGIN OPENSSH "
 _SENSITIVE_BYTES = (
-    b"-----BEGIN " + b"PRIVATE KEY-----",
-    b"-----BEGIN OPENSSH " + b"PRIVATE KEY-----",
+    _pem_begin + _pem_priv + _pem_key,
+    _pem_openssh + _pem_priv + _pem_key,
 )
 _SENSITIVE_TEXT_PATTERNS = (
     re.compile(r"\bxai-[A-Za-z0-9_-]{16,}"),

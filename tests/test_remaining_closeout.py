@@ -21,7 +21,7 @@ from iot_ai.meeting import approve, run as meeting_run, start
 from iot_ai.multicoder import run as multicoder_run
 from iot_ai.owned_delegate import _node_id
 from iot_ai.privacy_class import authoritative_privacy_class, deny_downgrade, max_privacy_class
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_openai_token
 
 
 def _digest(prompt: str) -> str:
@@ -161,7 +161,7 @@ class ExecPinTests(IsolatedHomeTestCase):
 
     def test_test_env_drops_secrets(self) -> None:
         os.environ["IOT_AI_FOUNDER_AUTHORITY_KEY"] = "x" * 40
-        os.environ["OPENAI_API_KEY"] = "sk-" + "test-not-for-child"
+        os.environ["OPENAI_API_KEY"] = synthetic_openai_token()
         env = build_test_env()
         self.assertNotIn("OPENAI_API_KEY", env)
         self.assertNotIn("IOT_AI_FOUNDER_AUTHORITY_KEY", env)

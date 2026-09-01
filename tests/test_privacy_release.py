@@ -4,7 +4,6 @@
 # Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
-import ipaddress
 import os
 import tempfile
 import unittest
@@ -39,7 +38,7 @@ class PrivacyReleaseTests(IsolatedHomeTestCase):
     def test_release_scanner_detects_private_ip(self) -> None:
         root = self.home / "scan"
         root.mkdir()
-        (root / "bad.txt").write_text("endpoint=" + str(ipaddress.IPv4Address(0x0A141E28)), encoding="utf-8")
+        (root / "bad.txt").write_text("endpoint=" + synthetic_rfc1918_host(), encoding="utf-8")
         self.assertTrue(scan(root))
 
     def test_release_scanner_clean_tree(self) -> None:

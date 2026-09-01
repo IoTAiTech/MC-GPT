@@ -78,6 +78,17 @@ class BenchmarkTreatmentClassificationTests(unittest.TestCase):
         self.assertEqual(treatments["F_MNCG_OPENWIKI"]["composition"], ["D_MNCG", "E_OPENWIKI"])
         self.assertIs(treatments["F_MNCG_OPENWIKI"]["runtime_component"], False)
 
+    def test_all_treatments_classified(self) -> None:
+        self.test_every_treatment_is_classified_and_not_a_product()
+
+    def test_benchmark_arms_exposed_as_products_is_false(self) -> None:
+        runtime = json.loads((BENCH / "CODER_RUNTIME.json").read_text(encoding="utf-8"))
+        self.assertIs(runtime["benchmark_treatments_are_not_products"], True)
+
+    def test_openwiki_default_enabled_is_false(self) -> None:
+        runtime = json.loads((BENCH / "CODER_RUNTIME.json").read_text(encoding="utf-8"))
+        self.assertIs(runtime["openwiki_default_off"], True)
+
     def test_docs_call_them_experimental_arms(self) -> None:
         readme = (BENCH / "README.md").read_text(encoding="utf-8")
         protocol = (BENCH / "BENCHMARK_PROTOCOL.md").read_text(encoding="utf-8")

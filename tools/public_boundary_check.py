@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import ipaddress
 import json
 import re
 import subprocess
@@ -63,10 +64,16 @@ RULES = {
     "secret-assignment": ASSIGNMENT,
 }
 
-# Digest-bound synthetic fixtures only. Empty by default: current-tree tests must
-# not store reconstructable private literals. Historical RFC1918/path matches are
-# inventoried, not allowlisted.
-SYNTHETIC_FIXTURE_ALLOWLIST: dict[tuple[str, str], str] = {}
+# Digest-bound synthetic fixtures only. Empty by default except textbook RFC1918
+# integers in tests/common.py. Historical RFC1918/path matches are inventoried,
+# not allowlisted. Tuple is (path, sha256, rule).
+SYNTHETIC_FIXTURE_ALLOWLIST: dict[tuple[str, str, str], str] = {
+    (
+        "tests/common.py",
+        "ed46750f1de815d513efcad58e326765ecdde34d43c754750a295590a3b60d8b",
+        "reconstructed:private-ip",
+    ): "textbook-rfc1918-ipv4address-int",
+}
 HISTORY_SEVERE_RULES = frozenset(
     {"private-key", "token-literal", "authorization-header", "secret-assignment"}
 )
@@ -130,6 +137,22 @@ def _static_payload(node: ast.AST) -> str | bytes | None:
         if any(item is None or type(item) is not type(sep) for item in parts):
             return None
         return sep.join(parts)  # type: ignore[arg-type]
+    if isinstance(node, ast.Call) and not node.keywords and len(node.args) == 1:
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
+        arg = node.args[0]
+        if name == "chr":
+            code = _static_int(arg)
+            if code is not None and 0 <= code <= 0x10FFFF:
+                return chr(code)
+        if name == "IPv4Address":
+            packed = _static_int(arg)
+            if packed is not None and 0 <= packed <= 0xFFFFFFFF:
+                return str(ipaddress.IPv4Address(packed))
+        if name == "str":
+            inner = _static_payload(arg)
+            if inner is not None:
+                return str(inner)
     return None
 
 
@@ -176,9 +199,8 @@ def _file_digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _allowlisted(rel: str, data: bytes) -> bool:
-    digest = SYNTHETIC_FIXTURE_ALLOWLIST.get((rel, _file_digest(data)))
-    return digest is not None
+def _allowlisted(rel: str, data: bytes, rule: str) -> bool:
+    return (rel, _file_digest(data), rule) in SYNTHETIC_FIXTURE_ALLOWLIST
 
 
 def internal_hostname_hit(data: bytes) -> bool:
@@ -273,16 +295,15 @@ def scan_tree(root: Path) -> list[dict[str, str]]:
         if data == b"UNCLASSIFIED_FILE":
             findings.append({"file": name, "rule": "unclassified-file"})
             continue
-        if _allowlisted(name, data):
-            continue
         for rule in SCAN_RULES:
-            if rule_hit(rule, data):
+            if rule_hit(rule, data) and not _allowlisted(name, data, rule):
                 findings.append({"file": name, "rule": rule})
         if name.endswith(".py"):
             for payload in reconstructed_python_payloads(data):
                 for rule in SCAN_RULES:
-                    if rule_hit(rule, payload) and not rule_hit(rule, data):
-                        findings.append({"file": name, "rule": f"reconstructed:{rule}"})
+                    rec = f"reconstructed:{rule}"
+                    if rule_hit(rule, payload) and not rule_hit(rule, data) and not _allowlisted(name, data, rec):
+                        findings.append({"file": name, "rule": rec})
     return findings
 
 

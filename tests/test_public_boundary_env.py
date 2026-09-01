@@ -90,6 +90,18 @@ class PublicBoundaryEnvTests(unittest.TestCase):
         rules = {item["rule"] for item in findings}
         self.assertIn("reconstructed:token-literal", rules)
 
+    def test_ipv4address_int_reconstruction_is_rejected(self) -> None:
+        tools = Path(__file__).resolve().parents[1] / "tools"
+        boundary = _load("iot_ai_public_boundary", tools / "public_boundary_check.py")
+        # Keep the Call out of this module's AST so the test file itself is clean.
+        line = "HOST = str(ipaddress.IPv4Address(" + "0x0A000002" + "))\n"
+        with tempfile.TemporaryDirectory(prefix="iot-ai-boundary-ipv4-") as temporary:
+            root = Path(temporary)
+            (root / "src").mkdir()
+            (root / "src" / "encoded.py").write_text("import ipaddress\n" + line, encoding="utf-8")
+            findings = boundary.scan_tree(root)
+        self.assertTrue(any(item["rule"] == "reconstructed:private-ip" for item in findings))
+
 
 if __name__ == "__main__":
     unittest.main()

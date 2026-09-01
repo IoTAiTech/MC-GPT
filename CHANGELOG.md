@@ -34,6 +34,7 @@ Source snapshot on `main` after the 2026-08-31 merge-all (package lockstep stays
 
 ### Fixed
 - Task-validation privacy fixture no longer stores a CodeQL-modeled secret via `Path.write_text` of a `*secret*` helper. The privacy gate still blocks a labeled `oauth-` assignment.
+- Public-boundary scanner reconstructs `IPv4Address(int)` and `chr(int)`. Textbook RFC1918 helpers in `tests/common.py` are path- and digest-bound; a non-allowlisted encoded address still fails.
 - Public test RFC1918 helpers use textbook documentation addresses. Unique internal hostnames in `public_boundary_check.py` are digest-bound.
 - `benchmarks/minimum-change-v2` `schedule` JSON now includes `decision: pass` so a valid generated schedule exits 0 under `set -e`.
 - Official spawn no longer prefers a system Grok that requires `GROK_API_KEY` when a user-local Grok Build TUI exists.

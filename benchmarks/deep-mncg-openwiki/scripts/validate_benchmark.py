@@ -120,7 +120,8 @@ def main() -> int:
         errors.append("openwiki-not-default-off")
     if runtime.get("benchmark_runner_selects_treatments") is not True:
         errors.append("benchmark-runner-must-select-treatments")
-    if "optional_knowledge_context_adapter" not in (runtime.get("pipeline") or []):
+    pipeline = runtime.get("pipeline") or []
+    if "optional_knowledge_context_adapter" not in pipeline or "reuse_first_precheck" not in pipeline:
         errors.append("coder-runtime-pipeline")
     for arm_id, expected_kind in REQUIRED_KINDS.items():
         row = (treatments.get("treatments") or {}).get(arm_id) or {}

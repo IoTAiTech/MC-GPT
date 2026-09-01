@@ -76,7 +76,8 @@ jobs:
           python benchmarks/minimum-change-v2/benchmark.py validate > "$OUT/validation.json"
           python benchmarks/minimum-change-v2/benchmark.py schedule \
             --providers openai-codex \
-            --output "$OUT/schedule.json"
+            --output "$OUT/schedule.json" \
+            > "$OUT/schedule-stdout.json"
           python benchmarks/minimum-change-v2/benchmark.py selftest \
             --output-dir "$OUT/selftest" > "$OUT/selftest-output.json"
           python - <<'PY'
@@ -108,7 +109,6 @@ jobs:
       DO_NOT_TRACK: "1"
       OPENWIKI_TELEMETRY_DISABLED: "1"
       OPENWIKI_DEV: "1"
-      OPENWIKI_CONFIG_DIR: /tmp/openwiki-config
       NODE_OPTIONS: "--max-old-space-size=4096"
     steps:
       - name: Check out MC-GPT contract source
@@ -170,6 +170,8 @@ jobs:
 
       - name: Provider-free CLI smoke
         working-directory: openwiki-upstream
+        env:
+          OPENWIKI_CONFIG_DIR: /tmp/openwiki-config
         run: |
           set -euo pipefail
           node dist/cli/cli.js --help > "${RUNNER_TEMP}/openwiki-help.txt"

@@ -1,7 +1,10 @@
 {
+  "benchmark_runner_selects_treatments": true,
   "benchmark_treatments_are_not_products": true,
   "native_mncg_authoritative": true,
+  "native_mncg_production_eligible": true,
   "openwiki_default_off": true,
+  "openwiki_production_eligible": "conditional",
   "pipeline": [
     "intake_and_normalization",
     "reuse_yagni_precheck",

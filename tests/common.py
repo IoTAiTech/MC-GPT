@@ -22,12 +22,12 @@ def synthetic_rfc1918_host_alt() -> str:
 
 
 def synthetic_home_operator(*parts: str) -> str:
-    """Runtime-only personal path under a synthetic operator home."""
+    """Runtime-only POSIX personal path. Always use '/' so Windows CI redacts it."""
     home = "".join(chr(c) for c in (104, 111, 109, 101))
-    root = os.sep + home + os.sep + "operator"
+    root = "/" + home + "/" + "operator"
     if not parts:
         return root
-    return root + os.sep + os.sep.join(parts)
+    return root + "/" + "/".join(parts)
 
 
 def synthetic_personal_path() -> str:

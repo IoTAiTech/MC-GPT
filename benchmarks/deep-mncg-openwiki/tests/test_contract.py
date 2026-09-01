@@ -82,7 +82,7 @@ class ContractTests(unittest.TestCase):
             self.assertIn("kind", row, arm_id)
             self.assertIn("runtime_component", row, arm_id)
             self.assertIn("dependency_policy", row, arm_id)
-            self.assertIs(row["production_eligibility"], False, arm_id)
+            self.assertIn("production_eligibility", row, arm_id)
             self.assertNotIn("components", row, arm_id)
             self.assertIn("treatment_bundle", row, arm_id)
         matrix = json.loads((ROOT / "RUN_MATRIX.json").read_text())

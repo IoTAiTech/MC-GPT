@@ -28,7 +28,10 @@ class BenchmarkTreatmentClassificationTests(unittest.TestCase):
         self.assertEqual(runtime["user_facing_coder_runtime_count"], 1)
         self.assertIs(runtime["benchmark_treatments_are_not_products"], True)
         self.assertIs(runtime["native_mncg_authoritative"], True)
+        self.assertIs(runtime["native_mncg_production_eligible"], True)
         self.assertIs(runtime["openwiki_default_off"], True)
+        self.assertEqual(runtime["openwiki_production_eligible"], "conditional")
+        self.assertIs(runtime["benchmark_runner_selects_treatments"], True)
         self.assertIs(runtime["production_claim"], False)
         self.assertEqual(
             runtime["pipeline"],
@@ -51,8 +54,14 @@ class BenchmarkTreatmentClassificationTests(unittest.TestCase):
             for field in REQUIRED_FIELDS:
                 self.assertIn(field, row, arm_id)
             self.assertEqual(row["kind"], expected_kind, arm_id)
-            self.assertIs(row["production_eligibility"], False, arm_id)
             self.assertNotIn("components", row, arm_id)
+        self.assertIs(treatments["A_BASELINE"]["production_eligibility"], False)
+        self.assertIs(treatments["B_SIMPLE_YAGNI"]["production_eligibility"], False)
+        self.assertEqual(treatments["B_SIMPLE_YAGNI"]["folded_into"]["function"], "reuse_first_precheck")
+        self.assertIs(treatments["C_PONYTAIL_PINNED"]["production_eligibility"], False)
+        self.assertIs(treatments["D_MNCG"]["production_eligibility"], True)
+        self.assertEqual(treatments["E_OPENWIKI"]["production_eligibility"], "conditional")
+        self.assertIs(treatments["F_MNCG_OPENWIKI"]["production_eligibility"], False)
         matrix = json.loads((BENCH / "RUN_MATRIX.json").read_text(encoding="utf-8"))
         for arm in matrix["arms"]:
             self.assertNotIn("components", arm, arm["arm_id"])
@@ -63,6 +72,7 @@ class BenchmarkTreatmentClassificationTests(unittest.TestCase):
         self.assertIs(treatments["E_OPENWIKI"]["default_enabled"], False)
         self.assertIs(treatments["E_OPENWIKI"]["task_authority"], False)
         self.assertIs(treatments["E_OPENWIKI"]["direct_product_db_access"], False)
+        self.assertIs(treatments["E_OPENWIKI"]["direct_golden_write"], False)
         self.assertEqual(treatments["F_MNCG_OPENWIKI"]["composition"], ["D_MNCG", "E_OPENWIKI"])
         self.assertIs(treatments["F_MNCG_OPENWIKI"]["runtime_component"], False)
 

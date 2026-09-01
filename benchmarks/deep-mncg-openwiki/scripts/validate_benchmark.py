@@ -28,6 +28,14 @@ REQUIRED = [
     "schemas/trial-receipt.schema.json",
 ]
 REQUIRED_TREATMENT_FIELDS = ("kind", "runtime_component", "dependency_policy", "production_eligibility", "treatment_bundle")
+REQUIRED_ELIGIBILITY = {
+    "A_BASELINE": False,
+    "B_SIMPLE_YAGNI": False,
+    "C_PONYTAIL_PINNED": False,
+    "D_MNCG": True,
+    "E_OPENWIKI": "conditional",
+    "F_MNCG_OPENWIKI": False,
+}
 REQUIRED_KINDS = {
     "A_BASELINE": "benchmark_control",
     "B_SIMPLE_YAGNI": "benchmark_ablation",
@@ -106,8 +114,12 @@ def main() -> int:
         errors.append("treatments-must-not-be-products")
     if runtime.get("native_mncg_authoritative") is not True:
         errors.append("native-mncg-not-authoritative")
+    if runtime.get("native_mncg_production_eligible") is not True:
+        errors.append("native-mncg-not-production-eligible")
     if runtime.get("openwiki_default_off") is not True:
         errors.append("openwiki-not-default-off")
+    if runtime.get("benchmark_runner_selects_treatments") is not True:
+        errors.append("benchmark-runner-must-select-treatments")
     if "optional_knowledge_context_adapter" not in (runtime.get("pipeline") or []):
         errors.append("coder-runtime-pipeline")
     for arm_id, expected_kind in REQUIRED_KINDS.items():
@@ -117,7 +129,7 @@ def main() -> int:
                 errors.append(f"treatment-field:{arm_id}:{field}")
         if row.get("kind") != expected_kind:
             errors.append(f"treatment-kind:{arm_id}")
-        if row.get("production_eligibility") is not False:
+        if row.get("production_eligibility") != REQUIRED_ELIGIBILITY.get(arm_id):
             errors.append(f"treatment-production:{arm_id}")
         if "components" in row:
             errors.append(f"treatment-architecture-component-key:{arm_id}")
@@ -134,6 +146,12 @@ def main() -> int:
     d_mncg = (treatments.get("treatments") or {}).get("D_MNCG") or {}
     if d_mncg.get("runtime_component") is not True or d_mncg.get("authoritative") is not True:
         errors.append("native-mncg-classification")
+    if d_mncg.get("production_eligibility") is not True:
+        errors.append("native-mncg-eligibility")
+    b_yagni = (treatments.get("treatments") or {}).get("B_SIMPLE_YAGNI") or {}
+    folded = b_yagni.get("folded_into") or {}
+    if folded.get("component") != "native_mncg" or folded.get("function") != "reuse_first_precheck":
+        errors.append("yagni-not-folded-into-mncg")
     e_openwiki = (treatments.get("treatments") or {}).get("E_OPENWIKI") or {}
     if e_openwiki.get("runtime_component") is not False or e_openwiki.get("default_enabled") is not False:
         errors.append("openwiki-classification")

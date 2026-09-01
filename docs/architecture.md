@@ -26,7 +26,7 @@ coder command
 → deterministic verification and evidence
 ```
 
-MNCG is the native authoritative change gate. OpenWiki, when present, is an optional default-off context adapter without task authority and without direct product-database access.
+MNCG is the native authoritative change gate and is production-eligible as that internal gate. OpenWiki, when present, is an optional default-off context adapter without task authority and without direct product-database access; it is production-eligible only when policy-gated. Ponytail is an external comparator only. Overall `production_claim` remains false until founder acceptance. Only the benchmark runner may select treatments A–F.
 
 ## Application-owned runtime
 

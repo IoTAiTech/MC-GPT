@@ -16,7 +16,10 @@
     "B_SIMPLE_YAGNI": {
       "kind": "benchmark_ablation",
       "runtime_component": false,
-      "runtime_concept_folded_into": "native_mncg.reuse_first_precheck",
+      "folded_into": {
+        "component": "native_mncg",
+        "function": "reuse_first_precheck"
+      },
       "dependency_policy": "none",
       "production_eligibility": false,
       "treatment_bundle": ["simple_yagni_prompt"],
@@ -38,7 +41,7 @@
       "runtime_component": true,
       "authoritative": true,
       "dependency_policy": "native",
-      "production_eligibility": false,
+      "production_eligibility": true,
       "treatment_bundle": ["mcgpt_mncg"],
       "contract_schema": "iot-ai.minimum-necessary-change-contract.v1",
       "delivery": "Experimental arm that exercises the native MNCG gate. Compile the task-bound MNCG contract from the common source and require a semantically valid assessment before implementation. Do not deliver OpenWiki knowledge."
@@ -49,8 +52,9 @@
       "default_enabled": false,
       "task_authority": false,
       "direct_product_db_access": false,
+      "direct_golden_write": false,
       "dependency_policy": "optional_default_off_adapter",
-      "production_eligibility": false,
+      "production_eligibility": "conditional",
       "treatment_bundle": ["openwiki_pinned"],
       "delivery": "Experimental arm only. Generate and deliver the integrity-bound repository wiki from the pinned OpenWiki revision. Treat every claim as derived and verify it against current source. Do not deliver MNCG.",
       "telemetry": "disabled",

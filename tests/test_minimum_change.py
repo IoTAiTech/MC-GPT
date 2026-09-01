@@ -9,12 +9,14 @@ import unittest
 
 from iot_ai.minimum_change import (
     NON_NEGOTIABLE_CONTROLS,
+    REUSE_FIRST_RUNG_IDS,
     RUNG_DEFINITIONS,
     ZERO_DEFAULT_BUDGETS,
     assess_strategy,
     build_receipt,
     compile_contract,
     render_prompt,
+    reuse_first_precheck,
     validate_contract,
 )
 
@@ -81,6 +83,17 @@ class MinimumChangeContractTests(unittest.TestCase):
         changed = compile_contract({**task(), "revision": 8}, context_manifest=context)
         self.assertNotEqual(first["contract_sha256"], changed["contract_sha256"])
         self.assertEqual(first["context_manifest_sha256"], "a" * 64)
+
+    def test_reuse_first_precheck_is_the_yagni_fold(self) -> None:
+        contract = compile_contract(task(), context_manifest={"sha256": "a" * 64})
+        self.assertEqual(validate_contract(contract)["decision"], "pass")
+        precheck = reuse_first_precheck()
+        self.assertEqual(precheck["function"], "reuse_first_precheck")
+        self.assertEqual(precheck["component"], "native_mncg")
+        self.assertEqual(tuple(precheck["rung_ids"]), REUSE_FIRST_RUNG_IDS)
+        self.assertEqual(contract["reuse_first_precheck"], precheck)
+        self.assertEqual(REUSE_FIRST_RUNG_IDS, tuple(item["id"] for item in RUNG_DEFINITIONS[:5]))
+        self.assertIn("Reuse-first / YAGNI precheck", render_prompt(contract))
 
     def test_acceptance_list_is_preserved_as_text(self) -> None:
         contract = compile_contract(task(acceptance=["A passes", "B passes"]))

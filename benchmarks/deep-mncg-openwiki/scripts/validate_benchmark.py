@@ -157,6 +157,11 @@ def main() -> int:
         errors.append("openwiki-classification")
     if e_openwiki.get("task_authority") is not False or e_openwiki.get("direct_product_db_access") is not False:
         errors.append("openwiki-authority")
+    if e_openwiki.get("direct_golden_write") is not False:
+        errors.append("openwiki-golden-write")
+    c_pony = (treatments.get("treatments") or {}).get("C_PONYTAIL_PINNED") or {}
+    if c_pony.get("production_dependency") is not False:
+        errors.append("ponytail-production-dependency")
     f_combo = (treatments.get("treatments") or {}).get("F_MNCG_OPENWIKI") or {}
     if f_combo.get("runtime_component") is not False or f_combo.get("composition") != ["D_MNCG", "E_OPENWIKI"]:
         errors.append("combo-classification")

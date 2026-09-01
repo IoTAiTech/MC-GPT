@@ -33,6 +33,7 @@ Source snapshot on `main` after the 2026-08-31 merge-all (package lockstep stays
 - RFC1918 allow/deny in agent seats uses `ipaddress.is_private` instead of split CIDR string literals.
 
 ### Fixed
+- Task-validation privacy fixture no longer stores a CodeQL-modeled secret via `Path.write_text` of a `*secret*` helper. The privacy gate still blocks a labeled `oauth-` assignment.
 - `benchmarks/minimum-change-v2` `schedule` JSON now includes `decision: pass` so a valid generated schedule exits 0 under `set -e`.
 - Official spawn no longer prefers a system Grok that requires `GROK_API_KEY` when a user-local Grok Build TUI exists.
 - Claude `modelUsage.canonicalModel` and Codex `model:` banner now populate `model_served`.

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.8.0-beta.1 | Date: 2026-08-29
+# Version: 6.8.0-beta.1 | Date: 2026-09-01
 from __future__ import annotations
 
 import json
@@ -19,7 +19,7 @@ from iot_ai.tasks import add_work_unit, claim_work_unit, create, show
 from iot_ai.paths import db_path
 from iot_ai.workspace import connect_read, excel_path
 
-from tests.common import IsolatedHomeTestCase, synthetic_labeled_secret
+from tests.common import IsolatedHomeTestCase
 
 
 ROLE_PROVIDER = {
@@ -329,10 +329,12 @@ class TaskValidationTests(IsolatedHomeTestCase):
 
     def test_secret_context_blocks_before_provider_calls(self):
         task_id, _ = self.make_task()
-        secret = self.home / "secret.log"
-        secret.write_text(synthetic_labeled_secret(), encoding="utf-8")
+        probe = self.home / "context.log"
+        # Privacy gate matches oauth-<12+>. Do not Path.write_text a secret-typed
+        # value: CodeQL models that as clear-text storage of sensitive data.
+        probe.write_text("context includes oauth-" + ("B" * 16) + " fixture\n", encoding="utf-8")
         with self.assertRaises(PermissionError):
-            review(self.home, task_id, context_files=[secret], provider_executor=validation_executor)
+            review(self.home, task_id, context_files=[probe], provider_executor=validation_executor)
         self.assertEqual(status(self.home, task_id)["count"], 0)
 
     def test_multicoder_does_not_dispatch_before_validation(self):

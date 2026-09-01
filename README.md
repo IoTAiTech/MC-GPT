@@ -65,6 +65,19 @@ natural-language outcome
 
 A zero-eligible run is `noop`, one successful provider is never called consensus, progress telemetry cannot manufacture completion, and Founder Accept/Reject/Rework remains human-only.
 
+There is one user-facing coder runtime (`iot-ai`). Benchmark treatments A–F are experimental arms selected only by the benchmark runner; they are not six products, services, commands, or engines.
+
+```text
+coder command
+→ intake and normalization
+→ reuse / YAGNI precheck
+→ optional policy-gated context adapter
+→ native MNCG decision
+→ plan or execute
+→ deterministic verification
+→ evidence receipt
+```
+
 <p align="center">
   <img src="assets/brand/MC-GPT-Control-Plane-Infographic.webp" alt="MC-GPT Task, Meeting and Multi-Coder control-plane flow" width="100%" />
 </p>

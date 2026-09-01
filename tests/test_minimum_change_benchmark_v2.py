@@ -124,7 +124,7 @@ class MinimumChangeBenchmarkV2Tests(unittest.TestCase):
             self.module.write_jsonl(output / "results.jsonl", results)
             self.assertEqual(self.module.read_jsonl(output / "results.jsonl"), results)
 
-    def test_schedule_cli_exits_zero_without_a_decision_field(self) -> None:
+    def test_schedule_cli_exits_zero_with_decision_pass(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "schedule.json"
             with redirect_stdout(io.StringIO()):

@@ -85,11 +85,12 @@ jobs:
           import os
           from pathlib import Path
 
-          analysis = json.loads(
-              (Path(os.environ["RUNNER_TEMP"]) / "minimum-change-v2" / "selftest" / "analysis.json").read_text()
-          )
+          out = Path(os.environ["RUNNER_TEMP"]) / "minimum-change-v2"
+          analysis = json.loads((out / "selftest" / "analysis.json").read_text())
+          schedule = json.loads((out / "schedule.json").read_text())
           assert analysis["decision"] == "pass"
           assert analysis["any_savings_claim_allowed"] is False
+          assert schedule["decision"] == "pass"
           PY
 
       - name: Upload benchmark evidence

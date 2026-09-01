@@ -2,7 +2,8 @@
 
 **Author:** Dr.-Ing. Babak Sorkhpour, with AI assistance  
 **Reviewed repository:** `langchain-ai/openwiki`  
-**Reviewed revision:** `05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe`  
+**Reviewed revision (historical pass):** `05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe`  
+**Current benchmark/CI pin:** `58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5`  
 **Reviewed package version:** `0.4.3`  
 **Licence:** MIT  
 **Production claim:** false
@@ -184,6 +185,6 @@ OpenWiki is MIT-licensed. This document analyses public behaviour and architectu
 
 ## Later pinned revision (MNCG benchmark arm)
 
-A later benchmark arm reviewed OpenWiki at `58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5` (package `0.4.3`, Node.js >=22). That arm keeps the same decision: optional read-only knowledge adapter, not task authority, not a PMD client, not a mandatory runtime dependency. Pin either `05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe` or `58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5` (or an immutable package digest) for a disposable public-tree pilot. Set `OPENWIKI_TELEMETRY_DISABLED=1` and `DO_NOT_TRACK=1`. Disable LangSmith and connectors. Never auto-merge generated documentation.
+A later benchmark arm reviewed OpenWiki at `58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5` (package `0.4.3`, Node.js >=22). That arm keeps the same decision: optional read-only knowledge adapter, not task authority, not a PMD client, not a mandatory runtime dependency. Pin only `58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5` (or an immutable package digest) for a disposable public-tree pilot. The earlier research revision `05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe` is historical and is not a current pin. Set `OPENWIKI_TELEMETRY_DISABLED=1` and `DO_NOT_TRACK=1`. Disable LangSmith and connectors. Never auto-merge generated documentation.
 
 `production_claim: false`

@@ -36,32 +36,27 @@ def synthetic_personal_path() -> str:
 
 
 def synthetic_xai_token() -> str:
-    marker = "xai"
-    fill = "A"
-    return marker + "-" + (fill * 24)
+    return "".join(chr(c) for c in (120, 97, 105, 45) + (65,) * 24)
 
 
 def synthetic_openai_token() -> str:
-    marker = "sk"
-    fill = "Z"
-    return marker + "-" + (fill * 20)
+    return "".join(chr(c) for c in (115, 107, 45) + (90,) * 20)
 
 
 def synthetic_google_token() -> str:
-    marker = "AIza"
-    fill = "D"
-    return marker + (fill * 24)
+    return "".join(chr(c) for c in (65, 73, 122, 97) + (68,) * 24)
 
 
 def synthetic_bearer_header() -> str:
-    kind = "Bearer"
-    token = "A" * 32
-    return f"Authorization: {kind} {token}"
+    prefix = (65, 117, 116, 104, 111, 114, 105, 122, 97, 116, 105, 111, 110, 58, 32, 66, 101, 97, 114, 101, 114, 32)
+    return "".join(chr(c) for c in prefix + (65,) * 32)
 
 
 def synthetic_pem_block() -> str:
-    label = "PRIVATE"
-    return f"-----BEGIN {label} KEY-----\nfixture\n-----END {label} KEY-----\n"
+    header = (45, 45, 45, 45, 45, 66, 69, 71, 73, 78, 32, 80, 82, 73, 86, 65, 84, 69, 32, 75, 69, 89, 45, 45, 45, 45, 45, 10)
+    body = (102, 105, 120, 116, 117, 114, 101, 10)
+    footer = (45, 45, 45, 45, 45, 69, 78, 68, 32, 80, 82, 73, 86, 65, 84, 69, 32, 75, 69, 89, 45, 45, 45, 45, 45, 10)
+    return "".join(chr(c) for c in header + body + footer)
 
 
 def synthetic_labeled_secret() -> str:

@@ -102,6 +102,39 @@ class PublicBoundaryEnvTests(unittest.TestCase):
             findings = boundary.scan_tree(root)
         self.assertTrue(any(item["rule"] == "reconstructed:private-ip" for item in findings))
 
+    def test_name_bound_concat_is_rejected(self) -> None:
+        tools = Path(__file__).resolve().parents[1] / "tools"
+        boundary = _load("iot_ai_public_boundary", tools / "public_boundary_check.py")
+        q = chr(34)
+        lines = (
+            "a = " + q + chr(49) + chr(48) + chr(46) + q + "\n"
+            "b = " + q + chr(48) + chr(46) + chr(48) + chr(46) + chr(49) + q + "\n"
+            "HOST = a + b\n"
+        )
+        with tempfile.TemporaryDirectory(prefix="iot-ai-boundary-name-") as temporary:
+            root = Path(temporary)
+            (root / "src").mkdir()
+            (root / "src" / "names.py").write_text(lines, encoding="utf-8")
+            findings = boundary.scan_tree(root)
+        self.assertTrue(any(item["rule"] == "reconstructed:private-ip" for item in findings))
+
+    def test_join_of_chr_list_is_rejected(self) -> None:
+        tools = Path(__file__).resolve().parents[1] / "tools"
+        boundary = _load("iot_ai_public_boundary", tools / "public_boundary_check.py")
+        q = chr(34)
+        line = (
+            "HOST = "
+            + q
+            + q
+            + ".join([chr(49), chr(48), chr(46), chr(48), chr(46), chr(48), chr(46), chr(49)])\n"
+        )
+        with tempfile.TemporaryDirectory(prefix="iot-ai-boundary-chrjoin-") as temporary:
+            root = Path(temporary)
+            (root / "src").mkdir()
+            (root / "src" / "chrjoin.py").write_text(line, encoding="utf-8")
+            findings = boundary.scan_tree(root)
+        self.assertTrue(any(item["rule"] == "reconstructed:private-ip" for item in findings))
+
 
 if __name__ == "__main__":
     unittest.main()

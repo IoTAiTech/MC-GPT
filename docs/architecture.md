@@ -18,12 +18,12 @@ There is one user-facing coder runtime. Benchmark treatments A–F are experimen
 
 ```text
 coder command
-→ intake and normalization
-→ reuse / YAGNI precheck
-→ optional knowledge-context adapter behind policy and feature flag
-→ native MNCG decision
-→ plan or execute
-→ deterministic verification and evidence
+→ intake_and_normalization
+→ reuse_first_precheck
+→ optional_knowledge_context_adapter
+→ native_mncg_decision
+→ plan_or_execute
+→ deterministic_verification_and_evidence
 ```
 
 MNCG is the native authoritative change gate and is production-eligible as that internal gate. OpenWiki, when present, is an optional default-off context adapter without task authority and without direct product-database access; it is production-eligible only when policy-gated. Ponytail is an external comparator only. Overall `production_claim` remains false until founder acceptance. Only the benchmark runner may select treatments A–F.

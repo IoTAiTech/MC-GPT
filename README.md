@@ -69,13 +69,12 @@ There is one user-facing coder runtime (`iot-ai`). Benchmark treatments A–F ar
 
 ```text
 coder command
-→ intake and normalization
-→ reuse / YAGNI precheck
-→ optional policy-gated context adapter
-→ native MNCG decision
-→ plan or execute
-→ deterministic verification
-→ evidence receipt
+→ intake_and_normalization
+→ reuse_first_precheck
+→ optional_knowledge_context_adapter
+→ native_mncg_decision
+→ plan_or_execute
+→ deterministic_verification_and_evidence
 ```
 
 <p align="center">

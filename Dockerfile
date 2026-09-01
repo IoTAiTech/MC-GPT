@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.source="https://github.com/IoTAiTech/MC-GPT" \
       org.opencontainers.image.title="MC-GPT / IOT-AI Coder Suite" \
       org.opencontainers.image.description="Natural-language governed multi-agent coding control plane"
 
-RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin iotai
+RUN useradd --create-home --home-dir /var/lib/iotai --uid 10001 --shell /usr/sbin/nologin iotai
 
 WORKDIR /src
 COPY pyproject.toml LICENSE LICENSE-COMMERCIAL.md LICENSE_POLICY.json NOTICE README.md MANIFEST.in ./
@@ -30,6 +30,6 @@ RUN pip install --no-cache-dir . \
     && rm -rf /src/src /src/build /src/*.egg-info
 
 USER 10001
-WORKDIR /home/iotai
+WORKDIR /var/lib/iotai
 ENTRYPOINT ["iot-ai"]
 CMD ["help"]

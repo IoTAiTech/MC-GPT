@@ -10,16 +10,15 @@ The public Git repository contains this tree only:
 src/                 Community runtime
 schemas/             public contracts
 installers/          Linux and Windows clean installers
-wheels/              hash-bound offline installation dependencies when included
-assets/brand/         canonical MC-GPT brand asset
-examples/             secret-free examples
-scripts/              user-safe helper scripts
-workflows/            agentic workflow templates
-roles/                immutable specialist-role definitions
-docs/                 public product, install, use and compliance documentation
-tests/                public deterministic tests
-tools/                public release/security verifiers
-.github/               CI, issue and pull-request templates
+skills/              public iot-ai skills
+benchmarks/          MNCG and OpenWiki contract (treatments, not products)
+assets/brand/        canonical MC-GPT brand asset
+examples/            secret-free examples
+scripts/             user-safe helper scripts
+docs/                public product, install, use and compliance documentation
+tests/               public deterministic tests
+tools/               public release/security verifiers
+.github/             CI, issue and pull-request templates
 ```
 
 ## Never publish from the private delivery

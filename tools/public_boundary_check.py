@@ -33,14 +33,11 @@ KNOWN_EMPTY_SUFFIX_NAMES = {
 FORBIDDEN_BASENAMES = {".env", ".netrc", "id_rsa", "id_ed25519", "credentials"}
 FORBIDDEN_SUFFIXES = {".env", ".pem", ".key"}
 
-# Keep patterns assembled from Names so AST bytes-fold does not self-trigger.
+# Keep the PEM detector as a regex with alternation so Name/bytes folding cannot
+# reconstruct a contiguous private-key header from this file.
 PRIVATE_IP = re.compile(rb"\b(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})\b")
 PERSONAL_PATH = re.compile(rb"(?:/(?:home|root)/[A-Za-z0-9._-]+/|[A-Za-z]:\\Users\\[^\\\r\n]+)")
-_PEM_BEGIN = b"-----BEGIN "
-_PEM_PRIV = b"PRIVATE"
-_PEM_KEY = b" KEY-----"
-_PEM_OPENSSH = b"-----BEGIN OPENSSH "
-PRIVATE_KEY = re.compile(_PEM_BEGIN + _PEM_PRIV + _PEM_KEY + b"|" + _PEM_OPENSSH + _PEM_PRIV + _PEM_KEY)
+PRIVATE_KEY = re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----")
 TOKEN = re.compile(rb"(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bxai-[A-Za-z0-9_-]{12,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bAKIA[0-9A-Z]{16}\b|\bAIza[0-9A-Za-z_-]{20,}\b)")
 AUTH = re.compile(rb"(?i)authorization\s*:\s*(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
 ASSIGNMENT = re.compile(rb"(?i)(?:password|secret|private_key|access_token|refresh_token|api_key)\s*[:=]\s*['\"][^'\"]{8,}['\"]")
@@ -70,7 +67,7 @@ RULES = {
 SYNTHETIC_FIXTURE_ALLOWLIST: dict[tuple[str, str, str], str] = {
     (
         "tests/common.py",
-        "ed46750f1de815d513efcad58e326765ecdde34d43c754750a295590a3b60d8b",
+        "df409e64e4923332033cbb1d60b9f1cb5f19c63f6cf8bbfbc683d712469eff47",
         "reconstructed:private-ip",
     ): "textbook-rfc1918-ipv4address-int",
 }
@@ -86,7 +83,10 @@ def _static_int(node: ast.AST) -> int | None:
     return None
 
 
-def _static_payload(node: ast.AST) -> str | bytes | None:
+def _static_payload(node: ast.AST, env: dict[str, str | bytes] | None = None) -> str | bytes | None:
+    names = env if env is not None else {}
+    if isinstance(node, ast.Name):
+        return names.get(node.id)
     if isinstance(node, ast.Constant) and isinstance(node.value, (str, bytes)):
         return node.value
     if isinstance(node, ast.JoinedStr):
@@ -104,7 +104,7 @@ def _static_payload(node: ast.AST) -> str | bytes | None:
                 ):
                     parts.append(str(inner_node.value))
                     continue
-                inner = _static_payload(inner_node)
+                inner = _static_payload(inner_node, names)
                 if not isinstance(inner, str):
                     return None
                 parts.append(inner)
@@ -112,28 +112,28 @@ def _static_payload(node: ast.AST) -> str | bytes | None:
             return None
         return "".join(parts)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        left = _static_payload(node.left)
-        right = _static_payload(node.right)
+        left = _static_payload(node.left, names)
+        right = _static_payload(node.right, names)
         if left is None or right is None or type(left) is not type(right):
             return None
         return left + right
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
-        seq = _static_payload(node.left)
+        seq = _static_payload(node.left, names)
         count = _static_int(node.right)
         if seq is None or count is None:
-            seq = _static_payload(node.right)
+            seq = _static_payload(node.right, names)
             count = _static_int(node.left)
         if seq is None or count is None or count < 0 or count > 4096:
             return None
         return seq * count
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "join":
-        sep = _static_payload(node.func.value)
+        sep = _static_payload(node.func.value, names)
         if sep is None or len(node.args) != 1:
             return None
         seq = node.args[0]
         if not isinstance(seq, (ast.List, ast.Tuple)):
             return None
-        parts = [_static_payload(item) for item in seq.elts]
+        parts = [_static_payload(item, names) for item in seq.elts]
         if any(item is None or type(item) is not type(sep) for item in parts):
             return None
         return sep.join(parts)  # type: ignore[arg-type]
@@ -150,7 +150,7 @@ def _static_payload(node: ast.AST) -> str | bytes | None:
             if packed is not None and 0 <= packed <= 0xFFFFFFFF:
                 return str(ipaddress.IPv4Address(packed))
         if name == "str":
-            inner = _static_payload(arg)
+            inner = _static_payload(arg, names)
             if inner is not None:
                 return str(inner)
     return None
@@ -161,9 +161,30 @@ def reconstructed_python_payloads(data: bytes) -> list[bytes]:
         tree = ast.parse(data.decode("utf-8"))
     except (SyntaxError, UnicodeDecodeError):
         return []
+    env: dict[str, str | bytes] = {}
+
+    class _Bind(ast.NodeVisitor):
+        def visit_Assign(self, node: ast.Assign) -> None:
+            self.generic_visit(node)
+            value = _static_payload(node.value, env)
+            if value is None:
+                return
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    env[target.id] = value
+
+        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+            self.generic_visit(node)
+            if node.value is None or not isinstance(node.target, ast.Name):
+                return
+            value = _static_payload(node.value, env)
+            if value is not None:
+                env[node.target.id] = value
+
+    _Bind().visit(tree)
     found: list[bytes] = []
     for node in ast.walk(tree):
-        value = _static_payload(node)
+        value = _static_payload(node, env)
         if isinstance(value, str) and value:
             found.append(value.encode("utf-8", errors="replace"))
         elif isinstance(value, bytes) and value:

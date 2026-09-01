@@ -29,12 +29,14 @@ Source snapshot on `main` after the 2026-08-31 merge-all (package lockstep stays
 - `tools/no_arabic_script_check.py` is part of the public language-boundary gate.
 - Deep-benchmark A–F IDs are classified as experimental treatments, not user-facing coder products. Machine-readable topology: `benchmarks/deep-mncg-openwiki/CODER_RUNTIME.json` and `TREATMENTS.json`. Native MNCG is production-eligible as the internal gate; OpenWiki is conditional/default-off; B_SIMPLE_YAGNI is folded into `reuse_first_precheck`. `RUN_MATRIX.json` uses `treatment_bundle` (not `components`).
 - Public evidence uses symbolic scopes `HOST_A` / `HOST_B` / `PRIVILEGED_USER` / `SERVICE_USER` (`docs/public-scope-symbols.md`).
-- Public-boundary scanner constant-folds adjacent Python string literals, `+` concatenation, static f-strings, simple `join` calls, and `str * int`, and rejects reconstructed private values. Historical RFC1918/path matches are inventoried; severe history secrets still block.
+- Public-boundary scanner constant-folds adjacent Python string literals, `+` concatenation, Name-bound `+`, static f-strings, simple `join` calls including `chr` lists, and `str * int`, and rejects reconstructed private values. Historical RFC1918/path matches are inventoried; severe history secrets still block.
 - RFC1918 allow/deny in agent seats uses `ipaddress.is_private` instead of split CIDR string literals.
 
 ### Fixed
-- Task-validation privacy fixture no longer stores a CodeQL-modeled secret via `Path.write_text` of a `*secret*` helper. The privacy gate still blocks a labeled `oauth-` assignment.
-- Public-boundary scanner reconstructs `IPv4Address(int)` and `chr(int)`. Textbook RFC1918 helpers in `tests/common.py` are path- and digest-bound; a non-allowlisted encoded address still fails.
+- Public-boundary scanner reconstructs `IPv4Address(int)`, `chr(int)`, Name-bound `+` concatenation, and `join` of a `chr` list. Textbook RFC1918 helpers in `tests/common.py` are path- and digest-bound; a non-allowlisted encoded address still fails. Token/PEM test helpers use generator `chr` joins so Name folding cannot reconstruct them in source.
+- README and `docs/architecture.md` lock the six `CODER_RUNTIME.json` pipeline tokens. Deep-benchmark CI asserts D_MNCG/E_OPENWIKI eligibility fields. Minimum-change CI asserts `schedule.json` `decision: pass`. OpenWiki assessment pins only `58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5`.
+- Task-validation privacy fixture no longer stores a CodeQL-modeled secret via `Path.write_text` of a `*secret*` helper. The privacy gate still blocks a labeled `oauth-` assignment. Secure-hash and export-gate tests no longer write a `secret.txt` / `*pem*` helper into `write_text`.
+- Container home is `/var/lib/iotai` instead of `/home/iotai`.
 - Public test RFC1918 helpers use textbook documentation addresses. Unique internal hostnames in `public_boundary_check.py` are digest-bound.
 - `benchmarks/minimum-change-v2` `schedule` JSON now includes `decision: pass` so a valid generated schedule exits 0 under `set -e`.
 - Official spawn no longer prefers a system Grok that requires `GROK_API_KEY` when a user-local Grok Build TUI exists.

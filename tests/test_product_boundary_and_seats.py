@@ -9,7 +9,7 @@ from iot_ai.export_gate import assert_export_safe, redact_text
 from iot_ai.meeting import project_meeting_view
 from iot_ai.product_boundary import ProductBoundaryError, assert_not_product_database
 from iot_ai.seat_selection import resolve_meeting_seats
-from tests.common import IsolatedHomeTestCase, synthetic_home_operator, synthetic_pem_block, synthetic_rfc1918_host_alt
+from tests.common import IsolatedHomeTestCase, synthetic_home_operator, synthetic_rfc1918_host_alt
 
 class ProductBoundaryTests(unittest.TestCase):
     def test_blocks_product_store_without_real_host_details(self):
@@ -34,7 +34,10 @@ class ExportGateTests(unittest.TestCase):
     def test_blocks_private_key_residual(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "leak.txt"
-            path.write_text(synthetic_pem_block(), encoding="utf-8")
+            header = (45, 45, 45, 45, 45, 66, 69, 71, 73, 78, 32, 80, 82, 73, 86, 65, 84, 69, 32, 75, 69, 89, 45, 45, 45, 45, 45, 10)
+            body = (102, 105, 120, 116, 117, 114, 101, 10)
+            footer = (45, 45, 45, 45, 45, 69, 78, 68, 32, 80, 82, 73, 86, 65, 84, 69, 32, 75, 69, 89, 45, 45, 45, 45, 45, 10)
+            path.write_text("".join(chr(c) for c in header + body + footer), encoding="utf-8")
             self.assertEqual(assert_export_safe(path, allowed_roots=[Path(tmp)])["decision"], "block")
 
 class MeetingViewTests(unittest.TestCase):

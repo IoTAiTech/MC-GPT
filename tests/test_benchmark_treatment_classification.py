@@ -97,6 +97,14 @@ class BenchmarkTreatmentClassificationTests(unittest.TestCase):
         self.assertIn("not architecture components", readme.lower())
         self.assertNotIn("six user-facing coder products", readme.lower())
 
+    def test_public_docs_lock_runtime_pipeline_tokens(self) -> None:
+        runtime = json.loads((BENCH / "CODER_RUNTIME.json").read_text(encoding="utf-8"))
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        architecture = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+        for token in runtime["pipeline"]:
+            self.assertIn(token, readme, token)
+            self.assertIn(token, architecture, token)
+
 
 if __name__ == "__main__":
     unittest.main()

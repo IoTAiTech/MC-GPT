@@ -50,4 +50,20 @@ jobs:
           assert status["performance_claim_allowed"] is False
           assert status["production_claim"] is False
           assert status["benchmark_id"] == "mcgpt-mncg-openwiki-2026-02"
+          treatments = json.loads(
+              Path("benchmarks/deep-mncg-openwiki/TREATMENTS.json").read_text(
+                  encoding="utf-8"
+              )
+          )["treatments"]
+          d_mncg = treatments["D_MNCG"]
+          e_openwiki = treatments["E_OPENWIKI"]
+          assert d_mncg["runtime_component"] is True
+          assert d_mncg["production_eligibility"] is True
+          assert d_mncg["authoritative"] is True
+          assert e_openwiki["runtime_component"] is False
+          assert e_openwiki["default_enabled"] is False
+          assert e_openwiki["production_eligibility"] == "conditional"
+          assert e_openwiki["task_authority"] is False
+          assert e_openwiki["direct_product_db_access"] is False
+          assert e_openwiki["direct_golden_write"] is False
           PY

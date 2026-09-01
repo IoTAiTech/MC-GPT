@@ -11,7 +11,7 @@ Source snapshot on `main` after the 2026-08-31 merge-all (package lockstep stays
 - Disposable five-minute evaluation fixture (`examples/quickstart-demo/`) plus a demo-feedback GitHub issue form.
 - Minimum Necessary Change Gate: reuse-first planning engine (`src/iot_ai/minimum_change.py`), public assessment schemas, skill `skills/iot-ai-minimum-change/`, exclusive lock tests, and operator guide `docs/minimum-necessary-change-gate.md`.
 - Deterministic MNCG benchmarks (`benchmarks/minimum-change/`, `benchmarks/minimum-change-v2/`) and the deep MNCG + OpenWiki contract (`benchmarks/deep-mncg-openwiki/`).
-- OpenWiki source qualification workflow and research assessment (`docs/research/openwiki-assessment.md`). Ponytail benchmark adoption note (`docs/research/ponytail-assessment.md`).
+- OpenWiki source qualification workflow and research assessment (`docs/research/openwiki-assessment.md`). Ponytail external-comparator research note (`docs/research/ponytail-assessment.md`).
 - Official Multi-Coder local CLI seats: pin user-local Claude, Codex and Grok Build binaries, close stdin unless the prompt moved to stdin, parse served-model identity from each CLI, and fail closed when the decision is blocked. Guide: `docs/local-cli-seats.md`.
 - `iot-ai github-analyze` (already present in 6.8.0-beta.1) remains the inbound GitHub judge: technical, commercial, license, relevance; ideas only, no dependency.
 
@@ -34,6 +34,7 @@ Source snapshot on `main` after the 2026-08-31 merge-all (package lockstep stays
 
 ### Fixed
 - Task-validation privacy fixture no longer stores a CodeQL-modeled secret via `Path.write_text` of a `*secret*` helper. The privacy gate still blocks a labeled `oauth-` assignment.
+- Public test RFC1918 helpers use textbook documentation addresses. Unique internal hostnames in `public_boundary_check.py` are digest-bound.
 - `benchmarks/minimum-change-v2` `schedule` JSON now includes `decision: pass` so a valid generated schedule exits 0 under `set -e`.
 - Official spawn no longer prefers a system Grok that requires `GROK_API_KEY` when a user-local Grok Build TUI exists.
 - Claude `modelUsage.canonicalModel` and Codex `model:` banner now populate `model_served`.

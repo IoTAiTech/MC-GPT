@@ -13,12 +13,12 @@ from pathlib import Path
 
 def synthetic_rfc1918_host() -> str:
     """Runtime-only RFC1918 example. Do not store the dotted form in source."""
-    return str(ipaddress.IPv4Address(0xC0A83228))
+    return str(ipaddress.IPv4Address(0x0A000001))
 
 
 def synthetic_rfc1918_host_alt() -> str:
     """Second runtime-only RFC1918 example. Distinct from synthetic_rfc1918_host()."""
-    return str(ipaddress.IPv4Address(0xC0A84D58))
+    return str(ipaddress.IPv4Address(0xAC100001))
 
 
 def synthetic_home_operator(*parts: str) -> str:

@@ -117,13 +117,13 @@ The gate can challenge new RAG pipelines, vector stores, agents and prompts when
 
 Prefer the central IdP, OIDC/WebAuthn/LDAP capabilities and existing role mapping instead of per-dashboard authentication code.
 
-## Recommended adoption model
+## Recommended external-comparator model
 
-Do not install Ponytail indiscriminately into production coder sessions and assume the problem is solved.
+Do not install Ponytail into production coder sessions or treat it as a product path.
 
 Recommended:
 
-1. Keep Ponytail available as an optional external reviewer in disposable experiments.
+1. Keep Ponytail available as a pinned external comparator in disposable experiments.
 2. Implement MC-GPT’s own evidence-bound Minimum Necessary Change Gate.
 3. Preserve the upstream MIT attribution in research documentation.
 4. Benchmark MC-GPT with and without the gate across multiple providers.

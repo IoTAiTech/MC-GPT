@@ -43,13 +43,17 @@ PRIVATE_KEY = re.compile(_PEM_BEGIN + _PEM_PRIV + _PEM_KEY + b"|" + _PEM_OPENSSH
 TOKEN = re.compile(rb"(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bxai-[A-Za-z0-9_-]{12,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bAKIA[0-9A-Z]{16}\b|\bAIza[0-9A-Za-z_-]{20,}\b)")
 AUTH = re.compile(rb"(?i)authorization\s*:\s*(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
 ASSIGNMENT = re.compile(rb"(?i)(?:password|secret|private_key|access_token|refresh_token|api_key)\s*[:=]\s*['\"][^'\"]{8,}['\"]")
-_HOST_A = b"DLD-"
-_HOST_B = b"DGX"
-_HOST_C = b"IOT-"
-_HOST_D = b"Dashboard-Serv"
-_HOST_E = b"HPZ"
-_HOST_F = b"8G4"
-INTERNAL_NAMES = re.compile(rb"(?i)\b(?:" + _HOST_A + _HOST_B + b"|" + _HOST_C + _HOST_D + b"|" + _HOST_E + _HOST_F + b"|" + rb"Nas\.IOT|" + rb"fritz\.box)\b")
+GENERIC_INTERNAL = re.compile(rb"(?i)\bfritz\.box\b")
+_HOST_TOKEN = re.compile(rb"[A-Za-z0-9][A-Za-z0-9._-]{2,64}")
+# Unique fleet hostnames are digest-bound. Mapping stays in private evidence.
+FORBIDDEN_NAME_DIGESTS = frozenset(
+    {
+        "d03c663474f34a0f8d78e8306855d96d3a445b450e8b51e29dd3ee857b90397e",
+        "4f2547c9b9690cc6a4a409c8129b467415cb7fd60df21682399206f05c7bfcc5",
+        "53237a0c8c9dc2ef16203d165c6ec3fcfc09177491521ce859e317a11857e097",
+        "4bd9bc54910bac918cf6281ae4afdc7de9d4bcc094422c537dac6c9ad0fba764",
+    }
+)
 RULES = {
     "private-ip": PRIVATE_IP,
     "personal-path": PERSONAL_PATH,
@@ -57,7 +61,6 @@ RULES = {
     "token-literal": TOKEN,
     "authorization-header": AUTH,
     "secret-assignment": ASSIGNMENT,
-    "internal-hostname": INTERNAL_NAMES,
 }
 
 # Digest-bound synthetic fixtures only. Empty by default: current-tree tests must
@@ -178,6 +181,25 @@ def _allowlisted(rel: str, data: bytes) -> bool:
     return digest is not None
 
 
+def internal_hostname_hit(data: bytes) -> bool:
+    if GENERIC_INTERNAL.search(data):
+        return True
+    for token in _HOST_TOKEN.findall(data):
+        if hashlib.sha256(token.lower()).hexdigest() in FORBIDDEN_NAME_DIGESTS:
+            return True
+    return False
+
+
+def rule_hit(rule: str, data: bytes) -> bool:
+    if rule == "internal-hostname":
+        return internal_hostname_hit(data)
+    pattern = RULES.get(rule)
+    return bool(pattern is not None and pattern.search(data))
+
+
+SCAN_RULES = tuple(list(RULES) + ["internal-hostname"])
+
+
 def safe_archive_name(name: str) -> bool:
     pure = PurePosixPath(name)
     return bool(name) and not pure.is_absolute() and ".." not in pure.parts and "\\" not in name
@@ -253,13 +275,13 @@ def scan_tree(root: Path) -> list[dict[str, str]]:
             continue
         if _allowlisted(name, data):
             continue
-        for rule, pattern in RULES.items():
-            if pattern.search(data):
+        for rule in SCAN_RULES:
+            if rule_hit(rule, data):
                 findings.append({"file": name, "rule": rule})
         if name.endswith(".py"):
             for payload in reconstructed_python_payloads(data):
-                for rule, pattern in RULES.items():
-                    if pattern.search(payload) and not pattern.search(data):
+                for rule in SCAN_RULES:
+                    if rule_hit(rule, payload) and not rule_hit(rule, data):
                         findings.append({"file": name, "rule": f"reconstructed:{rule}"})
     return findings
 
@@ -314,8 +336,8 @@ def scan_git_history(root: Path) -> list[dict[str, str]]:
                 findings.append({"file": path, "rule": "history:blob-too-large"})
             continue
         matched_rules: set[str] = set()
-        for rule, pattern in RULES.items():
-            if not pattern.search(blob.stdout):
+        for rule in SCAN_RULES:
+            if not rule_hit(rule, blob.stdout):
                 continue
             if not _history_rule_applies(path, rule, head_paths):
                 continue
@@ -327,10 +349,10 @@ def scan_git_history(root: Path) -> list[dict[str, str]]:
             findings.append({"file": path, "rule": f"history:{rule}"})
         if path.endswith(".py"):
             for payload in reconstructed_python_payloads(blob.stdout):
-                for rule, pattern in RULES.items():
+                for rule in SCAN_RULES:
                     if rule in matched_rules:
                         continue
-                    if not pattern.search(payload):
+                    if not rule_hit(rule, payload):
                         continue
                     if not _history_rule_applies(path, rule, head_paths):
                         continue

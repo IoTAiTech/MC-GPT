@@ -37,7 +37,7 @@ class BenchmarkTreatmentClassificationTests(unittest.TestCase):
             runtime["pipeline"],
             [
                 "intake_and_normalization",
-                "reuse_yagni_precheck",
+                "reuse_first_precheck",
                 "optional_knowledge_context_adapter",
                 "native_mncg_decision",
                 "plan_or_execute",

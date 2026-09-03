@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iot-ai.tech/schemas/iot-ai-settings-v2.schema.json",
+  "title": "iot-ai.settings.v2",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "enum": ["iot-ai.settings.v1", "iot-ai.settings.v2"]
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "active_preset": { "type": "string" },
+        "provider_order": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "max_distinct_models": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "max_candidates_per_role": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "require_provider_diversity": { "type": "boolean" },
+        "model_allowlist": { "type": "array", "items": { "type": "string" } },
+        "model_denylist": { "type": "array", "items": { "type": "string" } },
+        "role_bindings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "preferred_providers": { "type": "array", "items": { "type": "string" } },
+              "permitted_providers": { "type": "array", "items": { "type": "string" } },
+              "denied_providers": { "type": "array", "items": { "type": "string" } },
+              "preferred_models": { "type": "array", "items": { "type": "string" } },
+              "permitted_models": { "type": "array", "items": { "type": "string" } },
+              "fallback_sequence": { "type": "array", "items": { "type": "string" } },
+              "required_provider_family": { "type": ["string", "null"] },
+              "effort": { "type": ["string", "null"], "enum": ["low", "medium", "high", "xhigh", null] },
+              "minimum_effort": { "type": ["string", "null"], "enum": ["low", "medium", "high", "xhigh", null] },
+              "allow_reuse": { "type": "boolean" }
+            }
+          }
+        },
+        "effort": {
+          "type": "object",
+          "properties": {
+            "default": { "type": "string", "enum": ["low", "medium", "high", "xhigh"] },
+            "by_role": { "type": "object", "additionalProperties": { "type": "string" } },
+            "by_provider": { "type": "object", "additionalProperties": { "type": "string" } },
+            "by_model": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        },
+        "ollama": {
+          "type": "object",
+          "properties": {
+            "local_policy": { "type": "string", "enum": ["never", "fallback", "prefer", "required", "only"] },
+            "cloud_policy": { "type": "string", "enum": ["never", "fallback", "prefer", "required", "only"] }
+          }
+        }
+      }
+    },
+    "skills": {
+      "type": "object",
+      "properties": {
+        "auto_discover": { "type": "boolean" },
+        "max_selected": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "silent_user_responses": { "type": "boolean" },
+        "execution_mode_default": { "type": "string", "enum": ["reference-only", "host-native"] },
+        "design_policy": { "type": "string", "enum": ["off", "auto-visual-only"] }
+      }
+    },
+    "api_profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "endpoint": { "type": ["string", "null"] },
+          "endpoint_env": { "type": ["string", "null"] },
+          "protocol": { "type": "string" },
+          "provider": { "type": "string" },
+          "secret_env": { "type": ["string", "null"] },
+          "priority": { "type": "integer" },
+          "classification": { "type": "string" },
+          "enabled": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

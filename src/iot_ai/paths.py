@@ -103,6 +103,14 @@ def settings_path(user_home: Path) -> Path:
     return config_root(user_home) / "settings.json"
 
 
+def project_settings_path(project_root: Path) -> Path:
+    return Path(project_root) / ".iot-ai" / "settings.json"
+
+
+def settings_backup_root(user_home: Path) -> Path:
+    return config_root(user_home) / "settings-backups"
+
+
 def routes_path(user_home: Path) -> Path:
     return config_root(user_home) / "providers.json"
 

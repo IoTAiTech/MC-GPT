@@ -402,11 +402,29 @@ def parser() -> argparse.ArgumentParser:
 
     settings = commands.add_parser("settings", help="Platform-independent settings")
     ops = settings.add_subparsers(dest="op", required=True)
-    ops.add_parser("show")
+    show_p = ops.add_parser("show"); show_p.add_argument("--effective", action="store_true")
     ss = ops.add_parser("set"); ss.add_argument("key"); ss.add_argument("value")
     sg = ops.add_parser("group"); sg.add_argument("group"); sg.add_argument("state", choices=("on", "off"))
     sp = ops.add_parser("profile"); sp.add_argument("name", choices=("economy", "balanced", "ultracode")); sp.add_argument("--session-only", action="store_true")
     sm = ops.add_parser("migrate-brand"); sm.add_argument("--apply", action="store_true"); sm.add_argument("--rollback", action="store_true")
+    ops.add_parser("validate")
+    preset_p = ops.add_parser("preset")
+    preset_p.add_argument("preset_op", choices=("list", "show", "diff", "apply"))
+    preset_p.add_argument("preset_name", nargs="?")
+    preset_p.add_argument("--apply", action="store_true")
+    migv = ops.add_parser("migrate"); migv.add_argument("--apply", action="store_true")
+    rbp = ops.add_parser("rollback"); rbp.add_argument("receipt_id"); rbp.add_argument("--apply", action="store_true")
+    rolep = ops.add_parser("role")
+    rolep.add_argument("role_op", choices=("set", "show"))
+    rolep.add_argument("role_id")
+    rolep.add_argument("--preferred-providers")
+    rolep.add_argument("--effort")
+    rolep.add_argument("--minimum-effort")
+    skp = ops.add_parser("skills")
+    skp.add_argument("skills_op", choices=("list", "discover", "explain"))
+    skp.add_argument("skill_id", nargs="?")
+    skp.add_argument("--goal")
+    skp.add_argument("--role")
 
     update = commands.add_parser("update", help="Single public update authority")
     uops = update.add_subparsers(dest="op", required=True)
@@ -638,17 +656,60 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "setup": emit(setup_discover() if a.op == "discover" else show_inventory(h) if a.op == "show" else init_inventory(h, a.project_root, a.server, a.apply)); return 0
         if a.cmd == "settings":
             value = settings_mod.load(h)
-            if a.op == "show": emit(value)
+            if a.op == "show":
+                emit(settings_mod.effective_settings(h, value) if getattr(a, "effective", False) else value)
             elif a.op == "set": settings_mod.set_value(value, a.key, a.value); settings_mod.save(h, value); emit({"decision": "pass", "key": a.key})
             elif a.op == "group": settings_mod.toggle_group(value, a.group, a.state == "on"); settings_mod.save(h, value); emit({"decision": "pass", "group": a.group, "enabled": a.state == "on"})
             elif a.op == "profile":
                 value["orchestration"]["active_profile"] = a.name
                 if not a.session_only: settings_mod.save(h, value)
                 emit({"decision": "pass", "profile": a.name, "session_only": a.session_only, "settings": value["orchestration"]["profiles"][a.name]})
-            else:
+            elif a.op == "validate":
+                emit(settings_mod.validate_settings(h, value))
+            elif a.op == "preset":
+                from .settings_v2 import preset_diff, preset_document, preset_names
+                if a.preset_op == "list":
+                    emit({"presets": preset_names()})
+                elif a.preset_op == "show":
+                    emit(preset_document(a.preset_name))
+                elif a.preset_op == "diff":
+                    emit(preset_diff(value, a.preset_name))
+                else:
+                    emit(settings_mod.apply_preset(h, a.preset_name, apply=a.apply))
+            elif a.op == "migrate":
+                emit(settings_mod.migrate_v1_to_v2(h, apply=a.apply))
+            elif a.op == "rollback":
+                emit(settings_mod.rollback_settings(h, a.receipt_id, apply=a.apply))
+            elif a.op == "role":
+                if a.role_op == "show":
+                    emit((value.get("routing") or {}).get("role_bindings", {}).get(a.role_id) or {})
+                else:
+                    settings_mod.set_role_binding(
+                        value,
+                        a.role_id,
+                        preferred_providers=a.preferred_providers,
+                        effort=a.effort,
+                        minimum_effort=a.minimum_effort,
+                    )
+                    settings_mod.save(h, value)
+                    emit({"decision": "pass", "role_id": a.role_id, "binding": value["routing"]["role_bindings"][a.role_id]})
+            elif a.op == "skills":
+                from .skill_registry import discover
+                from .skill_router import select_skills
+                if a.skills_op == "explain":
+                    found = discover(user_home=h)["skills"].get(a.skill_id or "")
+                    emit({"skill": {k: found[k] for k in found if k != "body"}} if found else {"decision": "block", "error": "unknown skill"})
+                elif a.skills_op == "discover":
+                    payload = discover(user_home=h)
+                    emit({"count": payload["count"], "ids": sorted(payload["skills"]), "rejected": payload["rejected"]})
+                else:
+                    emit(select_skills(h, goal=a.goal or "", role_id=a.role)["receipt"])
+            elif a.op == "migrate-brand":
                 if a.apply and a.rollback:
                     raise ValueError("choose either --apply or --rollback")
                 emit(identity_rollback(h) if a.rollback else identity_apply(h) if a.apply else identity_status(h))
+            else:
+                raise ValueError(f"unknown settings operation: {a.op}")
             return 0
         if a.cmd == "privacy":
             result = sanitize(a.text, a.mode); emit({"decision": result.decision, "text": result.text, "findings": result.findings}); return 0 if result.decision != "block" else 3

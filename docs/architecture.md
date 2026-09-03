@@ -1,4 +1,4 @@
-<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.6.0-beta.3 | Date: 2026-08-06 -->
+<!-- Author: Dr.-Ing. Babak Sorkhpour, with AI assistance | Version: 6.8.0-beta.1 | Date: 2026-09-01 -->
 
 # Architecture
 
@@ -13,6 +13,20 @@ iot-ai-update     the single transactional update authority
 ```
 
 Meeting, Mesh, Multi-Coder, tasks, graph, knowledge and diagnostics remain advanced subcommands or internal engines behind `iot-ai`.
+
+There is one user-facing coder runtime. Benchmark treatments A–F are experimental arms used only by the benchmark runner. They are not six products, services, commands, or installable modules.
+
+```text
+coder command
+→ intake_and_normalization
+→ reuse_first_precheck
+→ optional_knowledge_context_adapter
+→ native_mncg_decision
+→ plan_or_execute
+→ deterministic_verification_and_evidence
+```
+
+MNCG is the native authoritative change gate and is production-eligible as that internal gate. OpenWiki, when present, is an optional default-off context adapter without task authority and without direct product-database access; it is production-eligible only when policy-gated. Ponytail is an external comparator only. Overall `production_claim` remains false until founder acceptance. Only the benchmark runner may select treatments A–F.
 
 ## Application-owned runtime
 

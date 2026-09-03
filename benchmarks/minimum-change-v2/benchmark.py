@@ -243,6 +243,7 @@ def build_schedule(
     return {
         "schema": SCHEDULE_SCHEMA,
         "version": "1.0.0",
+        "decision": "pass",
         "protocol_sha256": protocol_sha,
         "corpus_sha256": corpus_sha,
         "providers": selected_providers,
@@ -646,7 +647,12 @@ def cli(argv: Sequence[str] | None = None) -> int:
         write_json(out / "selftest.json", payload)
 
     print(json.dumps(payload, indent=2, sort_keys=True))
-    return 0 if payload.get("decision") == "pass" else 1
+    # schedule/analyse payloads have no decision field; missing must not
+    # become exit 1 under `set -e` in CI.
+    decision = payload.get("decision")
+    if decision in (None, "pass"):
+        return 0
+    return 1
 
 
 if __name__ == "__main__":

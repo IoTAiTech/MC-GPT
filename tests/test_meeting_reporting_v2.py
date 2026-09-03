@@ -17,7 +17,7 @@ from pathlib import Path
 from iot_ai.meeting_reporting import collect, write_report, write_report_bundle
 from iot_ai.projection import export_workspace
 from iot_ai.util import PathSecurityError
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_personal_path, synthetic_rfc1918_host
 
 
 SCHEMA = """
@@ -48,7 +48,7 @@ class MeetingReportingV2Tests(IsolatedHomeTestCase):
     def make_legacy(self, path: Path, *, privacy: str = "D2") -> Path:
         conn = sqlite3.connect(path)
         conn.executescript(SCHEMA)
-        topic = "Review host " + "192.168." + "50.40 and path " + "/home/" + "iot/private"
+        topic = "Review host " + synthetic_rfc1918_host() + " and path " + synthetic_personal_path()
         final = "\x1b[31mDECISION: needs-work\x1b[0m\nSynthesis with unresolved evidence."
         conn.execute(
             "INSERT INTO meetings VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -112,8 +112,8 @@ class MeetingReportingV2Tests(IsolatedHomeTestCase):
         )
         text = json.dumps(payload)
         self.assertEqual(payload["classification"], "PUBLIC-SANITIZED")
-        self.assertNotIn("192.168.", text)
-        self.assertNotIn("/home/iot", text)
+        self.assertNotIn(synthetic_rfc1918_host(), text)
+        self.assertNotIn(synthetic_personal_path(), text)
         self.assertNotIn("synthesis_summary", text)
         self.assertNotIn("path", json.dumps(payload["source_manifest"]))
 

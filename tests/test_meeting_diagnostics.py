@@ -14,7 +14,7 @@ from iot_ai.diagnostics import collect, compare, explain, record_event, validate
 from iot_ai.founder_authority import issue_founder_receipt, persist_founder_key
 from iot_ai.meeting import approve, create_task_from_meeting, run, show, start
 
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_bearer_header, synthetic_personal_path, synthetic_rfc1918_host
 
 
 def substantive_delegate(user_home, seat, prompt, stage, **kwargs):
@@ -93,7 +93,7 @@ class MeetingDiagnosticsTests(IsolatedHomeTestCase):
         record_event(self.home, correlation, {
             "status": "failed",
             "failure_class": "auth",
-            "message": "Bearer " + "S" * 40 + " on 192.168." + "7.8 under /home/" + "example/private",
+            "message": synthetic_bearer_header() + " on " + synthetic_rfc1918_host() + " under " + synthetic_personal_path(),
         })
         output = self.home / "diagnostics.zip"
         result = collect(self.home, correlation, output)
@@ -101,9 +101,9 @@ class MeetingDiagnosticsTests(IsolatedHomeTestCase):
         self.assertEqual(validate(output)["decision"], "pass")
         with zipfile.ZipFile(output) as archive:
             joined = b"\n".join(archive.read(name) for name in archive.namelist() if not name.endswith("/"))
-        self.assertNotIn(b"S" * 40, joined)
-        self.assertNotIn(b"192.168.", joined)
-        self.assertNotIn(b"/home/example", joined)
+        self.assertNotIn(synthetic_bearer_header().split()[-1].encode(), joined)
+        self.assertNotIn(synthetic_rfc1918_host().encode(), joined)
+        self.assertNotIn(synthetic_personal_path().encode(), joined)
 
     def test_diagnostics_compare(self) -> None:
         for suffix in ("a", "b"):

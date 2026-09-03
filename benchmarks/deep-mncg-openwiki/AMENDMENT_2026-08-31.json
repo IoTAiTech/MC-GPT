@@ -1,0 +1,18 @@
+{
+  "amended_benchmark_id": "mcgpt-mncg-openwiki-2026-02",
+  "amended_before_provider_dispatch": true,
+  "amendment_date": "2026-08-31",
+  "changes": [
+    "Use one exact MC-GPT source tree for every experimental arm.",
+    "Deliver MNCG, OpenWiki, Ponytail and simple-YAGNI as isolated treatment bundles instead of different MC-GPT source revisions.",
+    "Retarget permanent benchmark workflows to protected main and pull requests targeting main.",
+    "Use the reviewed OpenWiki sparse-claim-reconciliation revision consistently."
+  ],
+  "original_benchmark_id": "mcgpt-mncg-openwiki-2026-01",
+  "original_provider_trials_executed": 0,
+  "reason": "PR 17 integrated MNCG and benchmark work into main. Comparing the old main commit with the former PR 14 head would confound treatment effects with unrelated source drift.",
+  "schema": "iot-ai.deep-benchmark-amendment.v1",
+  "source_common_commit": "51cb72e27d013d14ef2e3435ed84a3514b33c170",
+  "source_common_tree": "81e3b88bb0005cad19b58e016ac3b50b5e8443cd",
+  "production_claim": false
+}

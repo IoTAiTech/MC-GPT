@@ -1,18 +1,21 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-09-01
 """Fail-closed public-release scanner for source trees and Git history."""
 from __future__ import annotations
 
 import argparse
+import ast
+import hashlib
+import ipaddress
 import json
 import re
 import subprocess
 import sys
 import zipfile
 from pathlib import Path, PurePosixPath
-from typing import Iterable
+from typing import Any, Iterable
 
 FORBIDDEN_ROOTS = {"enterprise", "private", "customer", "evidence-private", "secrets", "release-private"}
 SKIP_PARTS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", "build", "dist", "*.egg-info"}
@@ -30,14 +33,25 @@ KNOWN_EMPTY_SUFFIX_NAMES = {
 FORBIDDEN_BASENAMES = {".env", ".netrc", "id_rsa", "id_ed25519", "credentials"}
 FORBIDDEN_SUFFIXES = {".env", ".pem", ".key"}
 
-# Keep patterns split so this scanner does not self-trigger.
+# Keep the PEM detector as a regex with alternation so Name/bytes folding cannot
+# reconstruct a contiguous private-key header from this file.
 PRIVATE_IP = re.compile(rb"\b(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})\b")
 PERSONAL_PATH = re.compile(rb"(?:/(?:home|root)/[A-Za-z0-9._-]+/|[A-Za-z]:\\Users\\[^\\\r\n]+)")
-PRIVATE_KEY = re.compile((b"-----BEGIN " + b"PRIVATE KEY-----") + b"|" + (b"-----BEGIN OPENSSH " + b"PRIVATE KEY-----"))
+PRIVATE_KEY = re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----")
 TOKEN = re.compile(rb"(?:\bsk-[A-Za-z0-9_-]{12,}\b|\bxai-[A-Za-z0-9_-]{12,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bAKIA[0-9A-Z]{16}\b|\bAIza[0-9A-Za-z_-]{20,}\b)")
 AUTH = re.compile(rb"(?i)authorization\s*:\s*(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
 ASSIGNMENT = re.compile(rb"(?i)(?:password|secret|private_key|access_token|refresh_token|api_key)\s*[:=]\s*['\"][^'\"]{8,}['\"]")
-INTERNAL_NAMES = re.compile(rb"(?i)\b(?:" + b"DLD-" + b"DGX|" + b"IOT-" + b"Dashboard-Serv|" + b"HPZ" + b"8G4|" + rb"Nas\.IOT|" + rb"fritz\.box)\b")
+GENERIC_INTERNAL = re.compile(rb"(?i)\bfritz\.box\b")
+_HOST_TOKEN = re.compile(rb"[A-Za-z0-9][A-Za-z0-9._-]{2,64}")
+# Unique fleet hostnames are digest-bound. Mapping stays in private evidence.
+FORBIDDEN_NAME_DIGESTS = frozenset(
+    {
+        "d03c663474f34a0f8d78e8306855d96d3a445b450e8b51e29dd3ee857b90397e",
+        "4f2547c9b9690cc6a4a409c8129b467415cb7fd60df21682399206f05c7bfcc5",
+        "53237a0c8c9dc2ef16203d165c6ec3fcfc09177491521ce859e317a11857e097",
+        "4bd9bc54910bac918cf6281ae4afdc7de9d4bcc094422c537dac6c9ad0fba764",
+    }
+)
 RULES = {
     "private-ip": PRIVATE_IP,
     "personal-path": PERSONAL_PATH,
@@ -45,20 +59,137 @@ RULES = {
     "token-literal": TOKEN,
     "authorization-header": AUTH,
     "secret-assignment": ASSIGNMENT,
-    "internal-hostname": INTERNAL_NAMES,
 }
 
-ALLOWLIST = {
-    ("tests/test_setup.py", "pass@example.com"),
+# Digest-bound synthetic fixtures only. Empty by default except textbook RFC1918
+# integers in tests/common.py. Historical RFC1918/path matches are inventoried,
+# not allowlisted. Tuple is (path, sha256, rule).
+SYNTHETIC_FIXTURE_ALLOWLIST: dict[tuple[str, str, str], str] = {
+    (
+        "tests/common.py",
+        "df409e64e4923332033cbb1d60b9f1cb5f19c63f6cf8bbfbc683d712469eff47",
+        "reconstructed:private-ip",
+    ): "textbook-rfc1918-ipv4address-int",
 }
-
-# History-only fixture noise: unit tests intentionally construct private-looking
-# samples (often split at rest in the current tree). High-severity secret classes
-# still fail closed even under tests/.
-HISTORY_FIXTURE_RULES = frozenset({"private-ip", "personal-path", "private-key"})
 HISTORY_SEVERE_RULES = frozenset(
     {"private-key", "token-literal", "authorization-header", "secret-assignment"}
 )
+HISTORY_INVENTORY_ONLY_RULES = frozenset({"private-ip", "personal-path", "internal-hostname"})
+
+
+def _static_int(node: ast.AST) -> int | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+        return node.value
+    return None
+
+
+def _static_payload(node: ast.AST, env: dict[str, str | bytes] | None = None) -> str | bytes | None:
+    names = env if env is not None else {}
+    if isinstance(node, ast.Name):
+        return names.get(node.id)
+    if isinstance(node, ast.Constant) and isinstance(node.value, (str, bytes)):
+        return node.value
+    if isinstance(node, ast.JoinedStr):
+        parts: list[str] = []
+        for value in node.values:
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                parts.append(value.value)
+                continue
+            if isinstance(value, ast.FormattedValue):
+                inner_node = value.value
+                if (
+                    isinstance(inner_node, ast.Constant)
+                    and isinstance(inner_node.value, (str, int, float))
+                    and not isinstance(inner_node.value, bool)
+                ):
+                    parts.append(str(inner_node.value))
+                    continue
+                inner = _static_payload(inner_node, names)
+                if not isinstance(inner, str):
+                    return None
+                parts.append(inner)
+                continue
+            return None
+        return "".join(parts)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _static_payload(node.left, names)
+        right = _static_payload(node.right, names)
+        if left is None or right is None or type(left) is not type(right):
+            return None
+        return left + right
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+        seq = _static_payload(node.left, names)
+        count = _static_int(node.right)
+        if seq is None or count is None:
+            seq = _static_payload(node.right, names)
+            count = _static_int(node.left)
+        if seq is None or count is None or count < 0 or count > 4096:
+            return None
+        return seq * count
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "join":
+        sep = _static_payload(node.func.value, names)
+        if sep is None or len(node.args) != 1:
+            return None
+        seq = node.args[0]
+        if not isinstance(seq, (ast.List, ast.Tuple)):
+            return None
+        parts = [_static_payload(item, names) for item in seq.elts]
+        if any(item is None or type(item) is not type(sep) for item in parts):
+            return None
+        return sep.join(parts)  # type: ignore[arg-type]
+    if isinstance(node, ast.Call) and not node.keywords and len(node.args) == 1:
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
+        arg = node.args[0]
+        if name == "chr":
+            code = _static_int(arg)
+            if code is not None and 0 <= code <= 0x10FFFF:
+                return chr(code)
+        if name == "IPv4Address":
+            packed = _static_int(arg)
+            if packed is not None and 0 <= packed <= 0xFFFFFFFF:
+                return str(ipaddress.IPv4Address(packed))
+        if name == "str":
+            inner = _static_payload(arg, names)
+            if inner is not None:
+                return str(inner)
+    return None
+
+
+def reconstructed_python_payloads(data: bytes) -> list[bytes]:
+    try:
+        tree = ast.parse(data.decode("utf-8"))
+    except (SyntaxError, UnicodeDecodeError):
+        return []
+    env: dict[str, str | bytes] = {}
+
+    class _Bind(ast.NodeVisitor):
+        def visit_Assign(self, node: ast.Assign) -> None:
+            self.generic_visit(node)
+            value = _static_payload(node.value, env)
+            if value is None:
+                return
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    env[target.id] = value
+
+        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+            self.generic_visit(node)
+            if node.value is None or not isinstance(node.target, ast.Name):
+                return
+            value = _static_payload(node.value, env)
+            if value is not None:
+                env[node.target.id] = value
+
+    _Bind().visit(tree)
+    found: list[bytes] = []
+    for node in ast.walk(tree):
+        value = _static_payload(node, env)
+        if isinstance(value, str) and value:
+            found.append(value.encode("utf-8", errors="replace"))
+        elif isinstance(value, bytes) and value:
+            found.append(value)
+    return found
 
 
 def should_skip_file(rel: str, name: str) -> bool:
@@ -79,17 +210,37 @@ def _head_paths(root: Path) -> set[str]:
 
 
 def _history_rule_applies(path: str, rule: str, head_paths: set[str]) -> bool:
-    pure = PurePosixPath(path)
-    under_tests = pure.parts and pure.parts[0] == "tests"
     in_head = path in head_paths
-    if under_tests and rule in HISTORY_FIXTURE_RULES:
-        # Current tree must still pass scan_tree with split fixtures; historical
-        # unsplit redaction fixtures must not block Developer Preview tags.
-        return False
-    if not in_head and rule not in HISTORY_SEVERE_RULES:
-        # Deleted non-secret artifacts (e.g. old PUBLISH_AUDIT host paths).
+    if not in_head and rule not in HISTORY_SEVERE_RULES and rule not in HISTORY_INVENTORY_ONLY_RULES:
         return False
     return True
+
+
+def _file_digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _allowlisted(rel: str, data: bytes, rule: str) -> bool:
+    return (rel, _file_digest(data), rule) in SYNTHETIC_FIXTURE_ALLOWLIST
+
+
+def internal_hostname_hit(data: bytes) -> bool:
+    if GENERIC_INTERNAL.search(data):
+        return True
+    for token in _HOST_TOKEN.findall(data):
+        if hashlib.sha256(token.lower()).hexdigest() in FORBIDDEN_NAME_DIGESTS:
+            return True
+    return False
+
+
+def rule_hit(rule: str, data: bytes) -> bool:
+    if rule == "internal-hostname":
+        return internal_hostname_hit(data)
+    pattern = RULES.get(rule)
+    return bool(pattern is not None and pattern.search(data))
+
+
+SCAN_RULES = tuple(list(RULES) + ["internal-hostname"])
 
 
 def safe_archive_name(name: str) -> bool:
@@ -165,9 +316,15 @@ def scan_tree(root: Path) -> list[dict[str, str]]:
         if data == b"UNCLASSIFIED_FILE":
             findings.append({"file": name, "rule": "unclassified-file"})
             continue
-        for rule, pattern in RULES.items():
-            if pattern.search(data):
+        for rule in SCAN_RULES:
+            if rule_hit(rule, data) and not _allowlisted(name, data, rule):
                 findings.append({"file": name, "rule": rule})
+        if name.endswith(".py"):
+            for payload in reconstructed_python_payloads(data):
+                for rule in SCAN_RULES:
+                    rec = f"reconstructed:{rule}"
+                    if rule_hit(rule, payload) and not rule_hit(rule, data) and not _allowlisted(name, data, rec):
+                        findings.append({"file": name, "rule": rec})
     return findings
 
 
@@ -208,43 +365,114 @@ def scan_git_history(root: Path) -> list[dict[str, str]]:
             capture_output=True,
             check=False,
         )
-        if blob.returncode or len(blob.stdout) > 2_000_000:
+        if blob.returncode:
+            key = (path, "history:blob-unreadable")
+            if key not in seen:
+                seen.add(key)
+                findings.append({"file": path, "rule": "history:blob-unreadable"})
             continue
-        for rule, pattern in RULES.items():
-            if not pattern.search(blob.stdout):
+        if len(blob.stdout) > 2_000_000:
+            key = (path, "history:blob-too-large")
+            if key not in seen:
+                seen.add(key)
+                findings.append({"file": path, "rule": "history:blob-too-large"})
+            continue
+        matched_rules: set[str] = set()
+        for rule in SCAN_RULES:
+            if not rule_hit(rule, blob.stdout):
                 continue
             if not _history_rule_applies(path, rule, head_paths):
                 continue
+            matched_rules.add(rule)
             key = (path, f"history:{rule}")
             if key in seen:
                 continue
             seen.add(key)
             findings.append({"file": path, "rule": f"history:{rule}"})
+        if path.endswith(".py"):
+            for payload in reconstructed_python_payloads(blob.stdout):
+                for rule in SCAN_RULES:
+                    if rule in matched_rules:
+                        continue
+                    if not rule_hit(rule, payload):
+                        continue
+                    if not _history_rule_applies(path, rule, head_paths):
+                        continue
+                    key = (path, f"history:reconstructed:{rule}")
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    findings.append({"file": path, "rule": f"history:reconstructed:{rule}"})
     return findings
+
+
+def _history_inner_rule(rule: str) -> str:
+    inner = rule[len("history:"):] if rule.startswith("history:") else rule
+    if inner.startswith("reconstructed:"):
+        return inner.split(":", 1)[1]
+    return inner
+
+
+def _is_blocking(finding: dict[str, str]) -> bool:
+    rule = finding.get("rule") or ""
+    path = finding.get("file") or ""
+    if not rule.startswith("history:"):
+        return True
+    inner = _history_inner_rule(rule)
+    if inner in HISTORY_INVENTORY_ONLY_RULES:
+        return False
+    if inner in HISTORY_SEVERE_RULES:
+        # Reconstructed historical markers are inventoried. Rewriting git
+        # history is forbidden; current-tree reconstructed matches still block.
+        if ":reconstructed:" in f":{rule}:":
+            return False
+        return True
+    return inner in {"blob-too-large", "blob-unreadable", "git-history-unreadable"}
+
+
+def list_tags(root: Path) -> list[str]:
+    completed = subprocess.run(
+        ["git", "-C", str(root), "tag", "--list"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode:
+        return []
+    return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", nargs="?", default=".")
     parser.add_argument("--git-history", action="store_true")
+    parser.add_argument("--inventory", dest="inventory_path")
     parser.add_argument("--json", dest="json_path")
     args = parser.parse_args()
     root = Path(args.root).resolve()
-    findings = scan_tree(root)
-    if args.git_history:
-        findings.extend(scan_git_history(root))
+    tree_findings = scan_tree(root)
+    history_findings = scan_git_history(root) if args.git_history else []
+    findings = [*tree_findings, *history_findings]
+    blocking = [item for item in findings if _is_blocking(item)]
+    inventory_only = [item for item in findings if not _is_blocking(item)]
     payload = {
-        "schema": "iot-ai.public-boundary-report.v1",
-        "decision": "pass" if not findings else "block",
+        "schema": "iot-ai.public-boundary-report.v2",
+        "decision": "pass" if not blocking else "block",
         "root": str(root),
-        "findings": findings,
-        "finding_count": len(findings),
+        "findings": blocking,
+        "finding_count": len(blocking),
+        "historical_inventory": inventory_only,
+        "historical_inventory_count": len(inventory_only),
+        "history_rewrite_performed": False,
+        "tags": list_tags(root) if args.git_history or args.inventory_path else [],
     }
     text = json.dumps(payload, indent=2, sort_keys=True)
     if args.json_path:
         Path(args.json_path).write_text(text + "\n", encoding="utf-8")
+    if args.inventory_path:
+        Path(args.inventory_path).write_text(text + "\n", encoding="utf-8")
     print(text)
-    return 0 if not findings else 1
+    return 0 if not blocking else 1
 
 
 if __name__ == "__main__":

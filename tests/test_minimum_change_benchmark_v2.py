@@ -6,9 +6,11 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from types import ModuleType
 
@@ -121,6 +123,18 @@ class MinimumChangeBenchmarkV2Tests(unittest.TestCase):
             self.module.write_json(output / "schedule.json", schedule)
             self.module.write_jsonl(output / "results.jsonl", results)
             self.assertEqual(self.module.read_jsonl(output / "results.jsonl"), results)
+
+    def test_schedule_cli_exits_zero_with_decision_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "schedule.json"
+            with redirect_stdout(io.StringIO()):
+                rc = self.module.cli(
+                    ["schedule", "--providers", "openai-codex", "--output", str(output)]
+                )
+            self.assertEqual(rc, 0)
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("decision"), "pass")
+            self.assertEqual(payload["run_count"], 24 * 5 * 3)
 
 
 if __name__ == "__main__":

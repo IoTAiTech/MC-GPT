@@ -45,14 +45,14 @@ class SecureFileHashTests(unittest.TestCase):
   resolved=resolve_within_allowed_roots(target,self.root,must_exist=False)
   self.assertEqual(resolved.resolve(), (self.root/'report.json').resolve())
  def test_confined_write_rejects_symlink(self):
-  outside=Path(tempfile.mkdtemp())/'secret.txt';outside.write_text('secret')
+  outside=Path(tempfile.mkdtemp())/'outside.txt';outside.write_text('keep')
   link=self.root/'out.txt'
   try: link.symlink_to(outside)
   except (OSError,NotImplementedError):
    outside.unlink();outside.parent.rmdir();self.skipTest('symlink unavailable')
   try:
    with self.assertRaises(PathSecurityError): confined_text_write(link,'pwn',[self.root])
-   self.assertEqual(outside.read_text(),'secret')
+   self.assertEqual(outside.read_text(),'keep')
   finally:
    link.unlink(missing_ok=True);outside.unlink();outside.parent.rmdir()
  def test_intermediate_symlink_cannot_escape(self):

@@ -21,10 +21,7 @@ _SENSITIVE_KEYS = re.compile(
     r"(secret|token|password|api[_-]?key|authorization|cookie|credential|private[_-]?key|lease[_-]?token)",
     re.I,
 )
-_SENSITIVE_BYTES = (
-    b"-----BEGIN " + b"PRIVATE KEY-----",
-    b"-----BEGIN OPENSSH " + b"PRIVATE KEY-----",
-)
+_SENSITIVE_PEM = re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----")
 _SENSITIVE_TEXT_PATTERNS = (
     re.compile(r"\bxai-[A-Za-z0-9_-]{16,}"),
     re.compile(r"\bghp_[A-Za-z0-9]{20,}"),
@@ -366,9 +363,8 @@ def validate(bundle: Path) -> dict[str, Any]:
                 if name not in checksums:
                     errors.append(f"unsealed member {name}")
             joined = b"\n".join(archive.read(name) for name in names if not name.endswith("/"))
-            for marker in _SENSITIVE_BYTES:
-                if marker in joined:
-                    errors.append(f"sensitive marker found: {marker.decode(errors='ignore')}")
+            if _SENSITIVE_PEM.search(joined):
+                errors.append("sensitive marker found: PEM private-key header")
             decoded = joined.decode("utf-8", errors="ignore")
             for pattern in _SENSITIVE_TEXT_PATTERNS:
                 if pattern.search(decoded):

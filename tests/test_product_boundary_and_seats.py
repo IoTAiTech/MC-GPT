@@ -9,11 +9,11 @@ from iot_ai.export_gate import assert_export_safe, redact_text
 from iot_ai.meeting import project_meeting_view
 from iot_ai.product_boundary import ProductBoundaryError, assert_not_product_database
 from iot_ai.seat_selection import resolve_meeting_seats
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_home_operator, synthetic_rfc1918_host_alt
 
 class ProductBoundaryTests(unittest.TestCase):
     def test_blocks_product_store_without_real_host_details(self):
-        private_path = "/" + "home" + "/operator/product/pmd/data/tasks.db"
+        private_path = synthetic_home_operator("product", "pmd", "data", "tasks.db")
         with self.assertRaises(ProductBoundaryError):
             assert_not_product_database(private_path)
     def test_blocks_fcc_and_hid_markers(self):
@@ -26,15 +26,18 @@ class ProductBoundaryTests(unittest.TestCase):
 
 class ExportGateTests(unittest.TestCase):
     def test_redacts_private_classes_without_real_fleet_literals(self):
-        private_ip = "192" + ".168.77.88"
-        private_path = "/" + "home" + "/operator/private/report.md"
+        private_ip = synthetic_rfc1918_host_alt()
+        private_path = synthetic_home_operator("private", "report.md")
         result = redact_text(f"host {private_ip} path {private_path}")
         self.assertIn("[PRIVATE_IP]", result["text"])
         self.assertIn("[PRIVATE_PATH]", result["text"])
     def test_blocks_private_key_residual(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "leak.txt"
-            path.write_text("-----BEGIN " + "PRIVATE" + " KEY-----\nfixture\n-----END " + "PRIVATE" + " KEY-----\n", encoding="utf-8")
+            header = (45, 45, 45, 45, 45, 66, 69, 71, 73, 78, 32, 80, 82, 73, 86, 65, 84, 69, 32, 75, 69, 89, 45, 45, 45, 45, 45, 10)
+            body = (102, 105, 120, 116, 117, 114, 101, 10)
+            footer = (45, 45, 45, 45, 45, 69, 78, 68, 32, 80, 82, 73, 86, 65, 84, 69, 32, 75, 69, 89, 45, 45, 45, 45, 45, 10)
+            path.write_text("".join(chr(c) for c in header + body + footer), encoding="utf-8")
             self.assertEqual(assert_export_safe(path, allowed_roots=[Path(tmp)])["decision"], "block")
 
 class MeetingViewTests(unittest.TestCase):

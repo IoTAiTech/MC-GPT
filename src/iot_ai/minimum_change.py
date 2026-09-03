@@ -24,6 +24,16 @@ _DECISIONS = {"selected", "rejected", "not-applicable", "unassessed"}
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _METRIC_KEYS = ("source_lines_added", "tokens", "cost", "wall_clock_seconds")
 
+# First five rungs are the production reuse/YAGNI precheck. Benchmark arm
+# B_SIMPLE_YAGNI is an ablation of this function, not a second coder product.
+REUSE_FIRST_RUNG_IDS: tuple[str, ...] = (
+    "necessity",
+    "existing-capability",
+    "standard-library",
+    "native-platform",
+    "existing-dependency",
+)
+
 RUNG_DEFINITIONS: tuple[dict[str, Any], ...] = (
     {
         "id": "necessity",
@@ -238,6 +248,7 @@ def compile_contract(
             "failed and an authoritative acceptance criterion requires the addition."
         ),
         "non_negotiable_controls": list(NON_NEGOTIABLE_CONTROLS),
+        "reuse_first_precheck": reuse_first_precheck(),
         "required_assessment_fields": list(_REQUIRED_ASSESSMENT_FIELDS),
         "metrics": [
             "files_added_modified_deleted",
@@ -307,6 +318,9 @@ def validate_contract(contract: Mapping[str, Any]) -> dict[str, Any]:
     claim = contract.get("claim_boundary") or {}
     if claim.get("production_claim") is not False:
         errors.append("production-claim")
+    precheck = contract.get("reuse_first_precheck")
+    if precheck is not None and precheck != reuse_first_precheck():
+        errors.append("reuse-first-precheck")
     supplied = str(contract.get("contract_sha256") or "")
     unsigned = {key: value for key, value in contract.items() if key != "contract_sha256"}
     if supplied != _digest(unsigned):
@@ -316,6 +330,19 @@ def validate_contract(contract: Mapping[str, Any]) -> dict[str, Any]:
         "schema": CONTRACT_SCHEMA,
         "contract_sha256": supplied or None,
         "errors": sorted(set(errors)),
+    }
+
+
+def reuse_first_precheck() -> dict[str, Any]:
+    """Named YAGNI fold inside native MNCG. Not a separate runtime component."""
+
+    return {
+        "component": "native_mncg",
+        "function": "reuse_first_precheck",
+        "folded_from_benchmark_treatment": "B_SIMPLE_YAGNI",
+        "rung_ids": list(REUSE_FIRST_RUNG_IDS),
+        "stops_before": "minimal-local-change",
+        "authoritative": True,
     }
 
 
@@ -334,6 +361,9 @@ MODE: {contract['mode']}
 
 Evaluate these rungs in order and stop at the first one supported by current evidence:
 {rungs}
+
+Reuse-first / YAGNI precheck (native MNCG, not a separate coder product):
+{', '.join(contract['reuse_first_precheck']['rung_ids'])}
 
 Rules:
 - Acceptance criteria and task authority outrank code reduction.

@@ -3,10 +3,20 @@ name: Minimum change benchmark and OpenWiki qualification
 on:
   push:
     branches:
-      - benchmark/minimum-change-openwiki-v1
+      - main
+    paths:
+      - "benchmarks/minimum-change-v2/**"
+      - "benchmarks/deep-mncg-openwiki/**"
+      - "docs/research/openwiki-assessment.md"
+      - ".github/workflows/benchmark-minimum-change-openwiki.yml"
   pull_request:
     branches:
-      - feature/minimum-necessary-change-gate-v1
+      - main
+    paths:
+      - "benchmarks/minimum-change-v2/**"
+      - "benchmarks/deep-mncg-openwiki/**"
+      - "docs/research/openwiki-assessment.md"
+      - ".github/workflows/benchmark-minimum-change-openwiki.yml"
   workflow_dispatch:
 
 permissions:
@@ -15,6 +25,10 @@ permissions:
 concurrency:
   group: minimum-change-openwiki-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  OPENWIKI_COMMIT: 58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5
+  PNPM_VERSION: 10.33.2
 
 jobs:
   benchmark-protocol:
@@ -62,7 +76,8 @@ jobs:
           python benchmarks/minimum-change-v2/benchmark.py validate > "$OUT/validation.json"
           python benchmarks/minimum-change-v2/benchmark.py schedule \
             --providers openai-codex \
-            --output "$OUT/schedule.json"
+            --output "$OUT/schedule.json" \
+            > "$OUT/schedule-stdout.json"
           python benchmarks/minimum-change-v2/benchmark.py selftest \
             --output-dir "$OUT/selftest" > "$OUT/selftest-output.json"
           python - <<'PY'
@@ -70,11 +85,12 @@ jobs:
           import os
           from pathlib import Path
 
-          analysis = json.loads(
-              (Path(os.environ["RUNNER_TEMP"]) / "minimum-change-v2" / "selftest" / "analysis.json").read_text()
-          )
+          out = Path(os.environ["RUNNER_TEMP"]) / "minimum-change-v2"
+          analysis = json.loads((out / "selftest" / "analysis.json").read_text())
+          schedule = json.loads((out / "schedule.json").read_text())
           assert analysis["decision"] == "pass"
           assert analysis["any_savings_claim_allowed"] is False
+          assert schedule["decision"] == "pass"
           PY
 
       - name: Upload benchmark evidence
@@ -92,22 +108,35 @@ jobs:
     env:
       CI: "1"
       DO_NOT_TRACK: "1"
+      OPENWIKI_TELEMETRY_DISABLED: "1"
       OPENWIKI_DEV: "1"
-      OPENWIKI_CONFIG_DIR: /tmp/openwiki-config
       NODE_OPTIONS: "--max-old-space-size=4096"
     steps:
+      - name: Check out MC-GPT contract source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: mcgpt
+          persist-credentials: false
+
+      - name: Confirm the benchmark and workflow use the same OpenWiki pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          PIN="$(python -c 'import json; print(json.load(open("mcgpt/benchmarks/deep-mncg-openwiki/RUN_MATRIX.json"))["source_freeze"]["openwiki"])')"
+          test "$PIN" = "$OPENWIKI_COMMIT"
+
       - name: Check out OpenWiki at reviewed revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: langchain-ai/openwiki
-          ref: 05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe
+          ref: ${{ env.OPENWIKI_COMMIT }}
           path: openwiki-upstream
           persist-credentials: false
 
       - name: Set up pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
         with:
-          version: 10.33.2
+          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
       - name: Set up Node.js
@@ -121,11 +150,11 @@ jobs:
         working-directory: openwiki-upstream
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe"
+          test "$(git rev-parse HEAD)" = "$OPENWIKI_COMMIT"
+          test "$(node -p "require('./package.json').license")" = "MIT"
+          test "$(node -p "require('./package.json').version")" = "0.4.3"
           test -z "$(git status --porcelain)"
-          node --version
-          pnpm --version
-          test "$(pnpm --version)" = "10.33.2"
+          test "$(pnpm --version)" = "$PNPM_VERSION"
 
       - name: Install frozen dependencies
         working-directory: openwiki-upstream
@@ -142,6 +171,8 @@ jobs:
 
       - name: Provider-free CLI smoke
         working-directory: openwiki-upstream
+        env:
+          OPENWIKI_CONFIG_DIR: /tmp/openwiki-config
         run: |
           set -euo pipefail
           node dist/cli/cli.js --help > "${RUNNER_TEMP}/openwiki-help.txt"
@@ -152,13 +183,13 @@ jobs:
           git add README.md
           git -c user.name='MC-GPT Audit' -c user.email='audit@example.invalid' commit -q -m fixture
           node "${GITHUB_WORKSPACE}/openwiki-upstream/dist/cli/cli.js" \
-            --dry-run --init > "${RUNNER_TEMP}/openwiki-dry-run.txt"
+            code --dry-run --init > "${RUNNER_TEMP}/openwiki-dry-run.txt"
 
       - name: Build qualification receipt
         working-directory: openwiki-upstream
         run: |
           set -euo pipefail
-          node -e 'const fs=require("fs"),crypto=require("crypto"),pkg=require("./package.json"); const r={schema:"iot-ai.openwiki-upstream-qualification.v1",repository:"langchain-ai/openwiki",commit:"05aa586bd945afc1d5c1a1e8af15a4f3d1fae3fe",package_version:pkg.version,node:process.version,pnpm:"10.33.2",telemetry_disabled:process.env.DO_NOT_TRACK==="1",frozen_install:true,format:"pass",lint:"pass",upstream_test_pipeline:"pass",eval_ledger_typecheck:"pass",cli_help:"pass",provider_free_dry_run:"pass",provider_calls:0,production_claim:false}; r.receipt_sha256=crypto.createHash("sha256").update(JSON.stringify(r)).digest("hex"); fs.writeFileSync(process.env.RUNNER_TEMP+"/openwiki-qualification.json",JSON.stringify(r,null,2)+"\n")'
+          node -e 'const fs=require("fs"),crypto=require("crypto"),pkg=require("./package.json"); const r={schema:"iot-ai.openwiki-upstream-qualification.v2",repository:"langchain-ai/openwiki",commit:process.env.OPENWIKI_COMMIT,package_version:pkg.version,node:process.version,pnpm:process.env.PNPM_VERSION,telemetry_disabled:process.env.DO_NOT_TRACK==="1"&&process.env.OPENWIKI_TELEMETRY_DISABLED==="1",frozen_install:true,format:"pass",lint:"pass",upstream_test_pipeline:"pass",eval_ledger_typecheck:"pass",cli_help:"pass",provider_free_dry_run:"pass",provider_calls:0,production_claim:false}; r.receipt_sha256=crypto.createHash("sha256").update(JSON.stringify(r)).digest("hex"); fs.writeFileSync(process.env.RUNNER_TEMP+"/openwiki-qualification.json",JSON.stringify(r,null,2)+"\n")'
 
       - name: Upload OpenWiki qualification evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

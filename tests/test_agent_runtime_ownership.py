@@ -23,7 +23,7 @@ from iot_ai.roles import ROLE_CATALOG
 from iot_ai.status import unified_status
 from iot_ai.tool_router import build_tool_decision, validate_provider_binding
 
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_xai_token
 
 
 def _role() -> dict:
@@ -124,7 +124,7 @@ class ContextCompilerTests(unittest.TestCase):
         self.assertNotIn("confidential", json.dumps(row.payload))
 
     def test_secret_input_never_enters_cloud_prompt(self) -> None:
-        secret = "xai-" + "A" * 24
+        secret = synthetic_xai_token()
         manifest = compile_context(
             goal_contract=self.goal,
             role_contract=_role(),

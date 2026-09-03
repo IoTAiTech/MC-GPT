@@ -1,0 +1,78 @@
+{
+  "benchmark_id": "mcgpt-mncg-openwiki-2026-02",
+  "common_source_commit": "51cb72e27d013d14ef2e3435ed84a3514b33c170",
+  "common_source_tree": "81e3b88bb0005cad19b58e016ac3b50b5e8443cd",
+  "production_claim": false,
+  "schema": "iot-ai.deep-benchmark-treatment-registry.v1",
+  "treatments": {
+    "A_BASELINE": {
+      "kind": "benchmark_control",
+      "runtime_component": false,
+      "dependency_policy": "none",
+      "production_eligibility": false,
+      "treatment_bundle": [],
+      "delivery": "Experimental arm only. No reuse-first instruction or repository wiki is delivered. The common source, task, provider policy, verifier and limits remain unchanged."
+    },
+    "B_SIMPLE_YAGNI": {
+      "kind": "benchmark_ablation",
+      "runtime_component": false,
+      "folded_into": {
+        "component": "native_mncg",
+        "function": "reuse_first_precheck"
+      },
+      "dependency_policy": "none",
+      "production_eligibility": false,
+      "treatment_bundle": ["simple_yagni_prompt"],
+      "delivery": "Experimental arm only. Before adding code, check whether the task is already satisfied or can be solved by an existing capability, the standard library, the native platform or an approved dependency. Prefer the smallest sufficient safe change."
+    },
+    "C_PONYTAIL_PINNED": {
+      "kind": "external_comparator",
+      "runtime_component": false,
+      "production_dependency": false,
+      "dependency_policy": "pinned_external_non_runtime",
+      "production_eligibility": false,
+      "treatment_bundle": ["ponytail_pinned"],
+      "delivery": "Experimental arm only. Install and use the unmodified upstream Ponytail treatment in an isolated agent home. Do not add MC-GPT MNCG or OpenWiki instructions.",
+      "upstream_commit": "2ed6c52c9d7e5e56942508591085fd45dea277d3",
+      "upstream_license": "MIT"
+    },
+    "D_MNCG": {
+      "kind": "native_runtime_gate",
+      "runtime_component": true,
+      "authoritative": true,
+      "dependency_policy": "native",
+      "production_eligibility": true,
+      "treatment_bundle": ["mcgpt_mncg"],
+      "contract_schema": "iot-ai.minimum-necessary-change-contract.v1",
+      "delivery": "Experimental arm that exercises the native MNCG gate. Compile the task-bound MNCG contract from the common source and require a semantically valid assessment before implementation. Do not deliver OpenWiki knowledge."
+    },
+    "E_OPENWIKI": {
+      "kind": "optional_context_adapter_benchmark",
+      "runtime_component": false,
+      "default_enabled": false,
+      "task_authority": false,
+      "direct_product_db_access": false,
+      "direct_golden_write": false,
+      "dependency_policy": "optional_default_off_adapter",
+      "production_eligibility": "conditional",
+      "treatment_bundle": ["openwiki_pinned"],
+      "delivery": "Experimental arm only. Generate and deliver the integrity-bound repository wiki from the pinned OpenWiki revision. Treat every claim as derived and verify it against current source. Do not deliver MNCG.",
+      "telemetry": "disabled",
+      "upstream_commit": "58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5",
+      "upstream_license": "MIT"
+    },
+    "F_MNCG_OPENWIKI": {
+      "kind": "integration_benchmark_profile",
+      "runtime_component": false,
+      "dependency_policy": "composition_of_native_gate_and_optional_adapter",
+      "production_eligibility": false,
+      "composition": ["D_MNCG", "E_OPENWIKI"],
+      "treatment_bundle": ["mcgpt_mncg", "openwiki_pinned"],
+      "contract_schema": "iot-ai.minimum-necessary-change-contract.v1",
+      "delivery": "Experimental arm only. Deliver the task-bound MNCG contract and the integrity-bound pinned OpenWiki knowledge. Verify wiki claims against source and account for all generation and retrieval overhead.",
+      "telemetry": "disabled",
+      "upstream_commit": "58a1358e1f7d5b883db7405f56dcbdac3c4d7fe5",
+      "upstream_license": "MIT"
+    }
+  }
+}

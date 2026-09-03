@@ -4,6 +4,7 @@
 # Version: 6.7.0-beta.5 | Date: 2026-08-08
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,20 +12,23 @@ from pathlib import Path
 from iot_ai.privacy import sanitize
 from iot_ai.release_guard import export_public, root_digest, scan
 
-from tests.common import IsolatedHomeTestCase
+from tests.common import IsolatedHomeTestCase, synthetic_bearer_header, synthetic_personal_path, synthetic_rfc1918_host
 
 
 class PrivacyReleaseTests(IsolatedHomeTestCase):
     def test_secret_blocks_cloud_egress(self) -> None:
-        result = sanitize("Authorization: Bearer " + "A" * 32, "strict")
+        header = synthetic_bearer_header()
+        result = sanitize(header, "strict")
         self.assertEqual(result.decision, "block")
-        self.assertNotIn("A" * 32, result.text)
+        self.assertNotIn(header.split()[-1], result.text)
 
     def test_private_infrastructure_is_redacted(self) -> None:
-        value = "server=192.168." + "50.40 path=/home/" + "operator/private/file"
+        host = synthetic_rfc1918_host()
+        path = synthetic_personal_path() + os.sep + "file"
+        value = f"server={host} path={path}"
         result = sanitize(value, "strict")
-        self.assertNotIn("192.168.", result.text)
-        self.assertNotIn("/home/operator", result.text)
+        self.assertNotIn(host, result.text)
+        self.assertNotIn(path, result.text)
         self.assertTrue(result.findings)
 
     def test_public_text_passes(self) -> None:
@@ -34,7 +38,7 @@ class PrivacyReleaseTests(IsolatedHomeTestCase):
     def test_release_scanner_detects_private_ip(self) -> None:
         root = self.home / "scan"
         root.mkdir()
-        (root / "bad.txt").write_text("endpoint=10." + "20.30.40", encoding="utf-8")
+        (root / "bad.txt").write_text("endpoint=" + synthetic_rfc1918_host(), encoding="utf-8")
         self.assertTrue(scan(root))
 
     def test_release_scanner_clean_tree(self) -> None:

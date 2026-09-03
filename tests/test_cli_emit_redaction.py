@@ -10,6 +10,7 @@ import unittest
 from contextlib import redirect_stdout
 
 from iot_ai.cli import _cli_public_text, _public_cli_view, emit
+from tests.common import synthetic_bearer_header, synthetic_google_token, synthetic_openai_token, synthetic_xai_token
 
 
 class CliEmitRedactionTests(unittest.TestCase):
@@ -48,9 +49,9 @@ class CliEmitRedactionTests(unittest.TestCase):
         self.assertEqual(parsed, {"nested": {"ok": True}})
 
     def test_string_emit_masks_inline_secrets(self) -> None:
-        raw = "Authorization: Bearer " + ("A" * 32)
+        raw = synthetic_bearer_header()
         text = _cli_public_text(raw)
-        self.assertNotIn("A" * 32, text)
+        self.assertNotIn(raw.split()[-1], text)
         self.assertIn("[REDACTED]", text)
 
     def test_public_status_text_is_unchanged(self) -> None:
@@ -65,10 +66,9 @@ class CliEmitRedactionTests(unittest.TestCase):
 
     def test_delimited_provider_keys_are_still_masked(self) -> None:
         samples = (
-            "sk-" + ("A" * 32),
-            "sk_live_" + ("B" * 24),
-            "xai-" + ("C" * 24),
-            "AIza" + ("D" * 24),
+            synthetic_openai_token(),
+            synthetic_xai_token(),
+            synthetic_google_token(),
         )
         for sample in samples:
             text = _cli_public_text(sample)

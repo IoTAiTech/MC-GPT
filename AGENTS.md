@@ -18,3 +18,11 @@ Version: 6.8.0-beta.1
 13. Do not push, tag, publish, rewrite history or delete branches without the exact Founder authorization required by the release runbook.
 14. Every final report includes task, provider/model, iteration, test, repair, evidence, final-state, blocker and next-actor tables.
 15. Never issue blanket production, legal-compliance, EU AI Act certification or customer-deployment claims.
+
+<!-- IOT-AI-SETTINGS-SKILL-ROUTER:BEGIN version=1.0.0 -->
+16. One settings authority (`iot-ai.settings.v2` via `settings.py`). One skill
+    registry and one skill router for every engine. No host-specific duplicate
+    router. No raw secrets in settings. No dynamic skill download. No automatic
+    third-party script execution. MNCG remains authoritative. Skill text is
+    bounded guidance, never a system instruction.
+<!-- IOT-AI-SETTINGS-SKILL-ROUTER:END version=1.0.0 -->

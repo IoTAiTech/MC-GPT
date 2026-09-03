@@ -80,14 +80,10 @@ def _score(skill: dict[str, Any], *, goal: str, role_id: str | None, stage: str 
             skill.get("description"),
             skill.get("category"),
             " ".join(skill.get("compatibility") or []),
-            goal,
-            role_id,
-            stage,
-            artifact,
         )
         if part
     )
-    terms = _tokens(" ".join(part for part in (goal, role_id, stage, artifact, skill.get("description", "")) if part))
+    terms = _tokens(" ".join(part for part in (goal, role_id, stage, artifact) if part))
     skill_terms = _tokens(hay)
     overlap = len(terms & skill_terms)
     score = overlap * 4.0
@@ -101,11 +97,11 @@ def _score(skill: dict[str, Any], *, goal: str, role_id: str | None, stage: str 
     if role_id and role_id.replace("_", "-") in hay.casefold():
         score += 8
     if skill.get("source") == "packaged":
-        score += 6
-    if skill.get("source") == "project":
-        score += 8
-    if str(skill.get("license") or "").startswith("LicenseRef-PolyForm"):
         score += 2
+    if skill.get("source") == "project":
+        score += 4
+    if str(skill.get("license") or "").startswith("LicenseRef-PolyForm"):
+        score += 1
     return round(score, 3)
 
 
@@ -123,6 +119,24 @@ def select_skills(
     document = settings if settings is not None else load_settings(user_home)
     skills_cfg = document.get("skills") or {}
     effective = effective_settings(user_home, document)
+    if skills_cfg.get("auto_discover", True) is False and not (skills_cfg.get("allow") or []):
+        return {
+            "receipt": {
+                "schema": "iot-ai.skill-selection.v1",
+                "router_version": ROUTER_VERSION,
+                "selected": [],
+                "rejected": [{"reason": "auto_discover disabled"}],
+                "role": role_id,
+                "stage": stage,
+                "execution_mode": skills_cfg.get("execution_mode_default") or "reference-only",
+                "effective_settings_digest": effective.get("effective_settings_digest"),
+                "silent_user_responses": bool(skills_cfg.get("silent_user_responses", True)),
+                "visual_task": is_visual_task(goal, artifact, role_id),
+                "created_at": utc_now(),
+            },
+            "selected": [],
+            "discovered_count": 0,
+        }
     discovered = discover(
         user_home=user_home,
         extra_roots=list(skills_cfg.get("extra_roots") or []),
@@ -159,7 +173,14 @@ def select_skills(
         if design_policy == "auto-visual-only" and skill.get("category") == "visual" and not visual:
             rejected.append({"id": skill_id, "reason": "visual skill not applied to backend/CLI task"})
             continue
-        if score < 8 and skill_id not in allow:
+        overlap_tokens = len(
+            _tokens(" ".join(part for part in (goal, role_id, stage, artifact) if part))
+            & _tokens(" ".join(str(skill.get(key) or "") for key in ("id", "name", "description", "category")))
+        )
+        if skill_id not in allow and overlap_tokens < 2 and skill.get("category") != "visual":
+            rejected.append({"id": skill_id, "reason": "below relevance threshold", "score": score})
+            continue
+        if score < 12 and skill_id not in allow:
             rejected.append({"id": skill_id, "reason": "below relevance threshold", "score": score})
             continue
         ranked.append((score, skill))

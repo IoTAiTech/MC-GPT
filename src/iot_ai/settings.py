@@ -131,6 +131,7 @@ def load(
     project_root: Path | None = None,
     session_override: dict[str, Any] | None = None,
     persist: bool = False,
+    normalize: bool = True,
 ) -> dict[str, Any]:
     """Load v1 or v2 settings. v2 fields are injected in memory; persistence is explicit."""
     from .settings_v2 import inject_v2, layer_merge
@@ -140,10 +141,9 @@ def load(
     if project_root is not None:
         project = load_json(project_settings_path(project_root), {}) or {}
     merged, _sources = layer_merge(DEFAULTS, user, project, session_override)
-    normalized = inject_v2(merged)
     if persist:
         raise ValueError("load() must not persist; use migrate_v1_to_v2 or save after an explicit apply")
-    return normalized
+    return inject_v2(merged) if normalize else merged
 
 
 def save(user_home: Path, value: dict[str, Any]) -> None:
@@ -214,7 +214,7 @@ def effective_settings(user_home: Path, value: dict[str, Any] | None = None, *, 
         user = load_json(settings_path(user_home), {}) or {}
         project = load_json(project_settings_path(project_root), {}) or {} if project_root else {}
         merged, sources = layer_merge(DEFAULTS, user, project, None)
-        return compute_effective(merged, sources)
+        return compute_effective(inject_v2(merged), sources)
     return compute_effective(inject_v2(value))
 
 
@@ -257,8 +257,14 @@ def migrate_v1_to_v2(user_home: Path, *, apply: bool = False) -> dict[str, Any]:
 
 
 def rollback_settings(user_home: Path, rollback_id: str, *, apply: bool = False) -> dict[str, Any]:
-    backup_dir = settings_backup_root(user_home)
-    backup_path = backup_dir / f"{rollback_id}.json"
+    import re
+
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,120}", str(rollback_id or "")):
+        raise ValueError("invalid rollback id")
+    backup_dir = settings_backup_root(user_home).resolve()
+    backup_path = (backup_dir / f"{rollback_id}.json").resolve()
+    if backup_dir not in backup_path.parents:
+        raise ValueError("rollback path escapes backup root")
     if not backup_path.is_file():
         raise FileNotFoundError(f"unknown rollback receipt: {rollback_id}")
     previous = load_json(backup_path, {}) or {}

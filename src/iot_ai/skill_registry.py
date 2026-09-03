@@ -30,8 +30,15 @@ FORBIDDEN_OVERRIDE = (
     "override provider",
     "override the selected provider",
     "create tasks without",
+    "outranks the goal",
+    "ignore the goal",
+    "override the goal",
+    "override goal contract",
 )
-NETWORK_FETCH_RE = re.compile(r"\b(curl|wget|fetch\(|httpx|requests\.get|urllib\.request)\b", re.I)
+NETWORK_FETCH_RE = re.compile(
+    r"\b(curl|wget|fetch\(|httpx|requests\.get|urllib\.request)\b|https?://",
+    re.I,
+)
 HOOK_RE = re.compile(r"\b(pretooluse|posttooluse|executable hook|child_process|os\.system|subprocess)\b", re.I)
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,80}$")
 
@@ -155,7 +162,15 @@ def validate_skill_dir(directory: Path, *, root: Path, source: str, automatic: b
     if skill_id not in {directory.name, meta.get("name"), meta.get("id")}:
         if directory.name != skill_id and str(meta.get("name") or "") not in {skill_id, directory.name}:
             raise ValueError("directory/name inconsistency")
-    license_id = str(meta.get("license") or "LicenseRef-PolyForm-Noncommercial-1.0.0")
+    manifest = _load_manifest(directory)
+    declared_license = meta.get("license") or (manifest.get("license") if isinstance(manifest, dict) else None)
+    if not declared_license:
+        if source == "packaged":
+            license_id = "LicenseRef-PolyForm-Noncommercial-1.0.0"
+        else:
+            raise ValueError("license not on the allowlist")
+    else:
+        license_id = str(declared_license)
     if license_id not in LICENSE_ALLOWLIST:
         raise ValueError("license not on the allowlist")
     mode = str(meta.get("execution_mode") or "reference-only")
@@ -171,7 +186,6 @@ def validate_skill_dir(directory: Path, *, root: Path, source: str, automatic: b
     scripts = directory / "scripts"
     if scripts.exists() and automatic:
         raise ValueError("executable hooks in automatic mode")
-    manifest = _load_manifest(directory)
     category = str(meta.get("category") or manifest.get("category") or "general")
     return {
         "id": skill_id,
@@ -214,8 +228,23 @@ def discover_roots(*, user_home: Path, extra_roots: list[str] | None = None, pro
             roots.append(("project", project_skills))
     for extra in extra_roots or []:
         path = Path(extra).expanduser()
-        if path.is_dir():
-            roots.append(("configured", path))
+        try:
+            resolved = path.resolve()
+        except OSError:
+            continue
+        if not resolved.is_dir():
+            continue
+        allowed = False
+        for base in (user_home.resolve(), *(Path(p).resolve() for p in (project_root,) if project_root)):
+            try:
+                resolved.relative_to(base)
+                allowed = True
+                break
+            except ValueError:
+                continue
+        if not allowed:
+            continue
+        roots.append(("configured", resolved))
     return roots
 
 
@@ -250,9 +279,13 @@ def discover(
                 rejected.append({"id": record["id"], "reason": "license not on the allowlist", "source": source})
                 continue
             previous = accepted.get(record["id"])
-            if previous and previous["source"] == source and previous["directory"] != record["directory"]:
-                rejected.append({"id": record["id"], "reason": "duplicate IDs without an explicit precedence decision", "source": source})
-                continue
+            if previous:
+                if previous["source"] == "packaged" and source != "packaged":
+                    rejected.append({"id": record["id"], "reason": "duplicate IDs without an explicit precedence decision", "source": source})
+                    continue
+                if previous["directory"] != record["directory"]:
+                    rejected.append({"id": record["id"], "reason": "duplicate IDs without an explicit precedence decision", "source": source})
+                    continue
             record.pop("body_tokens", None)
             accepted[record["id"]] = record
     return {

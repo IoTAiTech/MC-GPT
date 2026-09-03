@@ -59,7 +59,23 @@ LICENSE_ALLOWLIST = (
     "LicenseRef-PolyForm-Noncommercial-1.0.0",
 )
 SECRET_KEY_RE = re.compile(r"(?:^|_)(password|secret|api_key|token|private_key|credential)s?(?:$|_value)", re.I)
-EXACT_SECRET_KEYS = frozenset({"password", "secret", "api_key", "token", "private_key", "credential", "secret_value", "access_token"})
+EXACT_SECRET_KEYS = frozenset(
+    {
+        "password",
+        "secret",
+        "api_key",
+        "token",
+        "private_key",
+        "credential",
+        "secret_value",
+        "access_token",
+        "key",
+        "keys",
+        "openai_api_key",
+        "xai_api_key",
+        "anthropic_api_key",
+    }
+)
 DEFAULT_ROLE_BINDINGS: dict[str, dict[str, Any]] = {
     "implementation-engineer": {
         "preferred_providers": ["codex"],
@@ -404,7 +420,15 @@ def _forbidden_settings_key(key: str) -> bool:
     lowered = str(key).lower()
     if lowered in {"secret_env", "endpoint_env"}:
         return False
-    return lowered in EXACT_SECRET_KEYS or bool(SECRET_KEY_RE.fullmatch(lowered))
+    if lowered in EXACT_SECRET_KEYS or bool(SECRET_KEY_RE.fullmatch(lowered)):
+        return True
+    if "api_key" in lowered or "password" in lowered or "private_key" in lowered:
+        return True
+    if lowered.endswith("_token") or lowered.endswith("_secret"):
+        return True
+    if lowered.endswith("_key") and lowered not in {"schema"}:
+        return True
+    return False
 
 
 def assert_no_secrets(value: Any, path: str = "") -> None:
@@ -489,7 +513,7 @@ def layer_merge(built_in: dict[str, Any], user: dict[str, Any], project: dict[st
     if session:
         merged = _merge(merged, session)
         _mark("", session, "cli/session")
-    return inject_v2(merged), sources
+    return merged, sources
 
 
 def _clamp_effort(requested: str, ceiling: str) -> tuple[str, str | None]:

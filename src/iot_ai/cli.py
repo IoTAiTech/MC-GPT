@@ -656,14 +656,15 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "setup": emit(setup_discover() if a.op == "discover" else show_inventory(h) if a.op == "show" else init_inventory(h, a.project_root, a.server, a.apply)); return 0
         if a.cmd == "settings":
             value = settings_mod.load(h)
+            editable = settings_mod.load(h, normalize=False)
             if a.op == "show":
                 emit(settings_mod.effective_settings(h, value) if getattr(a, "effective", False) else value)
-            elif a.op == "set": settings_mod.set_value(value, a.key, a.value); settings_mod.save(h, value); emit({"decision": "pass", "key": a.key})
-            elif a.op == "group": settings_mod.toggle_group(value, a.group, a.state == "on"); settings_mod.save(h, value); emit({"decision": "pass", "group": a.group, "enabled": a.state == "on"})
+            elif a.op == "set": settings_mod.set_value(editable, a.key, a.value); settings_mod.save(h, editable); emit({"decision": "pass", "key": a.key})
+            elif a.op == "group": settings_mod.toggle_group(editable, a.group, a.state == "on"); settings_mod.save(h, editable); emit({"decision": "pass", "group": a.group, "enabled": a.state == "on"})
             elif a.op == "profile":
-                value["orchestration"]["active_profile"] = a.name
-                if not a.session_only: settings_mod.save(h, value)
-                emit({"decision": "pass", "profile": a.name, "session_only": a.session_only, "settings": value["orchestration"]["profiles"][a.name]})
+                editable["orchestration"]["active_profile"] = a.name
+                if not a.session_only: settings_mod.save(h, editable)
+                emit({"decision": "pass", "profile": a.name, "session_only": a.session_only, "settings": editable["orchestration"]["profiles"][a.name]})
             elif a.op == "validate":
                 emit(settings_mod.validate_settings(h, value))
             elif a.op == "preset":

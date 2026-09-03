@@ -52,6 +52,14 @@ class SettingsV2Tests(IsolatedHomeTestCase):
         value = load(self.home)
         with self.assertRaises(ValueError):
             set_value(value, "providers.claude.api_key", "sk-demo")
+        value = load(self.home)
+        value["providers"]["claude"]["key"] = "hunter2-not-a-token-shape"
+        with self.assertRaises(ValueError):
+            save(self.home, value)
+
+    def test_rollback_id_cannot_escape(self) -> None:
+        with self.assertRaises(ValueError):
+            rollback_settings(self.home, "../../outside", apply=True)
 
     def test_migrate_and_rollback(self) -> None:
         plan = migrate_v1_to_v2(self.home, apply=False)
@@ -133,6 +141,21 @@ class SettingsV2Tests(IsolatedHomeTestCase):
     def test_schema_file_parses(self) -> None:
         schema = json.loads((Path(__file__).resolve().parents[1] / "schemas" / "iot-ai-settings-v2.schema.json").read_text(encoding="utf-8"))
         self.assertEqual(schema["title"], "iot-ai.settings.v2")
+
+    def test_settings_set_does_not_persist_injected_v2(self) -> None:
+        import io
+        from contextlib import redirect_stdout
+        from iot_ai.cli import main
+        from iot_ai.paths import settings_path
+        from iot_ai.util import load_json
+
+        stream = io.StringIO()
+        with redirect_stdout(stream):
+            code = main(["settings", "group", "all-cloud", "on", "--home", str(self.home)])
+        self.assertEqual(code, 0)
+        raw = load_json(settings_path(self.home), {}) or {}
+        self.assertNotEqual(raw.get("schema"), SCHEMA_V2)
+        self.assertNotIn("routing", raw)
 
     def test_cli_show_effective(self) -> None:
         import io

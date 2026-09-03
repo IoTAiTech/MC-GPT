@@ -229,6 +229,7 @@ def compile_context(
     token_budget: int = 32000,
     reserve_ratio: float = 0.2,
     egress: str = "cloud",
+    extra_blocks: list[dict[str, Any]] | None = None,
 ) -> ContextManifest:
     """Select explicit context blocks and record every omission.
 
@@ -288,6 +289,17 @@ def compile_context(
                 source=source,
                 payload=value,
                 privacy_class=value_privacy,
+                mandatory=False,
+                query=query,
+            )
+        )
+    for extra in extra_blocks or []:
+        blocks.append(
+            _block(
+                kind=str(extra.get("kind") or "skill-guidance"),
+                source=str(extra.get("source") or "skill"),
+                payload=extra.get("payload"),
+                privacy_class=str(extra.get("privacy_class") or "D0"),
                 mandatory=False,
                 query=query,
             )

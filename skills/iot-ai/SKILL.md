@@ -1,6 +1,10 @@
 ---
 name: iot-ai
 description: Natural-language, conversation-aware closed-loop engineering through Tasks, Meetings, Multi-Coder, tests, repair, audit and terminal reporting.
+id: iot-ai
+version: 1.0.0
+category: general
+license: LicenseRef-PolyForm-Noncommercial-1.0.0
 ---
 # iot-ai
 

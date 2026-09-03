@@ -22,7 +22,8 @@ from .model_policy import clamp_effort, select_candidates
 from .prompt_compiler import compile_prompt, validate_prompt
 from .paths import data_root
 from .roles import ROLE_CATALOG
-from .settings import load as load_settings
+from .settings import effective_settings, load as load_settings
+from .skill_router import context_blocks, select_skills
 from .tool_router import build_tool_decision, validate_provider_binding
 from .transparency import record_disclosure, runtime_output_provenance
 from .util import atomic_json, utc_now
@@ -491,6 +492,7 @@ def run_goal(
     atomic_json(runtime_root / "goal-contract.json", goal_contract.to_dict())
     role_ids = list(dict.fromkeys(node.role_id for node in graph.nodes if node.node_type == "agent"))
     entitlements = current()
+    settings = load_settings(user_home)
     candidates = select_candidates(
         user_home,
         role_ids,
@@ -498,7 +500,16 @@ def run_goal(
         allow_reuse=True,
         max_providers=entitlements.max_providers,
         required_provider_families=required_provider_families,
+        settings=settings,
     )
+    skill_selection = select_skills(
+        user_home,
+        goal=goal,
+        role_id=role_ids[0] if role_ids else None,
+        stage="agentic-execution",
+        settings=settings,
+    )
+    effective = effective_settings(user_home, settings)
     task_id, meeting_id = _register_run(user_home, graph, goal, len(role_ids), execute, existing_task_id)
     provider_executor = provider_executor or _default_provider_executor(
         user_home,
@@ -752,6 +763,14 @@ def run_goal(
         egress = "local" if primary_candidate.get("provider") == "ollama" and not primary_candidate.get("cloud", True) else "cloud"
         runtime_settings = settings.get("agent_runtime", {})
         context_budget = int(runtime_settings.get("context_token_budget", min(64000, max(12000, graph.token_budget // max(4, len(role_ids))))))
+        node_skills = select_skills(
+            user_home,
+            goal=goal,
+            role_id=node.role_id,
+            stage=node.stage,
+            artifact=node.mission,
+            settings=settings,
+        )
         context_manifest = compile_context(
             goal_contract=goal_contract.to_dict(),
             role_contract=contract.to_dict(),
@@ -761,6 +780,7 @@ def run_goal(
             token_budget=context_budget,
             reserve_ratio=float(runtime_settings.get("output_reserve_ratio", 0.2)),
             egress=egress,
+            extra_blocks=context_blocks(node_skills),
         )
         context_validation = validate_context_manifest(context_manifest)
         node_runtime_root = runtime_root / node.node_id
@@ -803,6 +823,7 @@ def run_goal(
             "goal_first": True,
             "application_owns_control_flow": True,
             "do_not_reveal_private_chain_of_thought": True,
+            "skill_selection": node_skills.get("receipt"),
         }
         prompt_artifact = compile_prompt(
             goal_contract=goal_contract.to_dict(),
@@ -957,6 +978,8 @@ def run_goal(
                 "checkpoint_path": str(run_root(user_home, graph.correlation_id) / "07_CHECKPOINT" / "checkpoint.json"),
             },
             "global_compliance_claim_allowed": False,
+            "effective_settings_digest": effective.get("effective_settings_digest"),
+            "skill_selection": skill_selection.get("receipt"),
         }
     )
     return result

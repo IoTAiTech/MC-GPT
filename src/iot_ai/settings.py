@@ -7,7 +7,7 @@ from __future__ import annotations
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
-from .paths import settings_path
+from .paths import project_settings_path, settings_backup_root, settings_path
 from .util import atomic_json, load_json, utc_now
 
 DEFAULTS: dict[str, Any] = {
@@ -125,12 +125,56 @@ def _merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def load(user_home: Path) -> dict[str, Any]:
-    return _merge(DEFAULTS, load_json(settings_path(user_home), {}) or {})
+def load(
+    user_home: Path,
+    *,
+    project_root: Path | None = None,
+    session_override: dict[str, Any] | None = None,
+    persist: bool = False,
+    normalize: bool = True,
+) -> dict[str, Any]:
+    """Load v1 or v2 settings. v2 fields are injected in memory; persistence is explicit."""
+    from .settings_v2 import inject_v2, layer_merge
+
+    user = load_json(settings_path(user_home), {}) or {}
+    project: dict[str, Any] = {}
+    if project_root is not None:
+        project = load_json(project_settings_path(project_root), {}) or {}
+    merged, _sources = layer_merge(DEFAULTS, user, project, session_override)
+    if persist:
+        raise ValueError("load() must not persist; use migrate_v1_to_v2 or save after an explicit apply")
+    return inject_v2(merged) if normalize else merged
 
 
 def save(user_home: Path, value: dict[str, Any]) -> None:
-    value = deepcopy(value); value["updated_at"] = utc_now(); atomic_json(settings_path(user_home), value)
+    from .settings_v2 import assert_no_secrets, validate_settings_document
+
+    value = deepcopy(value)
+    assert_no_secrets(value)
+    _assert_extra_roots_confined(user_home, value)
+    check = validate_settings_document(value)
+    if check["decision"] != "pass":
+        raise ValueError("; ".join(check["errors"]))
+    value["updated_at"] = utc_now()
+    atomic_json(settings_path(user_home), value)
+
+
+def _assert_extra_roots_confined(user_home: Path, value: dict[str, Any]) -> None:
+    home = Path(user_home).resolve()
+    roots = list(((value.get("skills") or {}) if isinstance(value.get("skills"), dict) else {}).get("extra_roots") or [])
+    for item in roots:
+        raw = str(item)
+        if ".." in Path(raw).parts:
+            raise ValueError("skills.extra_roots must stay under the user or project home")
+        path = Path(raw).expanduser()
+        try:
+            resolved = path.resolve()
+        except OSError as exc:
+            raise ValueError("skills.extra_roots must stay under the user or project home") from exc
+        try:
+            resolved.relative_to(home)
+        except ValueError as exc:
+            raise ValueError("skills.extra_roots must stay under the user or project home") from exc
 
 
 def get_value(value: dict[str, Any], dotted: str) -> Any:
@@ -146,6 +190,16 @@ def parse_scalar(raw: str) -> Any:
     if low in {"true","on","yes","enabled"}: return True
     if low in {"false","off","no","disabled"}: return False
     if low == "null": return None
+    if s[:1] in {"{", "["}:
+        import json
+        try:
+            return json.loads(s)
+        except json.JSONDecodeError:
+            pass
+    if "," in s and not s.startswith("http"):
+        parts = [part.strip() for part in s.split(",") if part.strip()]
+        if len(parts) > 1:
+            return parts
     try: return int(s)
     except ValueError: return s
 
@@ -169,4 +223,108 @@ def toggle_group(value: dict[str, Any], group: str, enabled: bool) -> dict[str, 
     else:
         known = ["all-cloud", "all-models", *sorted(value.get("providers", {}))]
         raise ValueError(f"unknown settings group: {group}; known: {', '.join(known)}")
+    return value
+
+
+def effective_settings(user_home: Path, value: dict[str, Any] | None = None, *, project_root: Path | None = None) -> dict[str, Any]:
+    from .settings_v2 import compute_effective, inject_v2, layer_merge
+
+    if value is None:
+        user = load_json(settings_path(user_home), {}) or {}
+        project = load_json(project_settings_path(project_root), {}) or {} if project_root else {}
+        merged, sources = layer_merge(DEFAULTS, user, project, None)
+        return compute_effective(inject_v2(merged), sources)
+    return compute_effective(inject_v2(value))
+
+
+def validate_settings(user_home: Path, value: dict[str, Any] | None = None) -> dict[str, Any]:
+    from .settings_v2 import validate_settings_document
+
+    document = value if value is not None else load(user_home)
+    return validate_settings_document(document)
+
+
+def migrate_v1_to_v2(user_home: Path, *, apply: bool = False) -> dict[str, Any]:
+    from .settings_v2 import SCHEMA_V2, migrate_document, sha256_json
+
+    path = settings_path(user_home)
+    current = load_json(path, {}) or {}
+    source_digest = sha256_json(current)
+    migrated = migrate_document(_merge(DEFAULTS, current))
+    dest_digest = sha256_json(migrated)
+    receipt = {
+        "decision": "plan" if not apply else "pass",
+        "action": "migrate-v1-to-v2",
+        "source_schema": current.get("schema") or "iot-ai.settings.v1",
+        "destination_schema": SCHEMA_V2,
+        "source_sha256": source_digest,
+        "destination_sha256": dest_digest,
+        "backup_path": None,
+        "rollback_id": None,
+    }
+    if not apply:
+        return receipt
+    backup_dir = settings_backup_root(user_home)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    rollback_id = f"settings-v2-{utc_now().replace(':', '').replace('-', '')}"
+    backup_path = backup_dir / f"{rollback_id}.json"
+    atomic_json(backup_path, current or {"schema": "iot-ai.settings.v1"})
+    save(user_home, migrated)
+    receipt.update({"decision": "pass", "backup_path": str(backup_path), "rollback_id": rollback_id, "apply": True})
+    atomic_json(backup_dir / f"{rollback_id}.receipt.json", receipt)
+    return receipt
+
+
+def rollback_settings(user_home: Path, rollback_id: str, *, apply: bool = False) -> dict[str, Any]:
+    import re
+
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,120}", str(rollback_id or "")):
+        raise ValueError("invalid rollback id")
+    backup_dir = settings_backup_root(user_home).resolve()
+    backup_path = (backup_dir / f"{rollback_id}.json").resolve()
+    if backup_dir not in backup_path.parents:
+        raise ValueError("rollback path escapes backup root")
+    if not backup_path.is_file():
+        raise FileNotFoundError(f"unknown rollback receipt: {rollback_id}")
+    previous = load_json(backup_path, {}) or {}
+    receipt = {"decision": "plan" if not apply else "pass", "action": "rollback", "rollback_id": rollback_id, "backup_path": str(backup_path)}
+    if not apply:
+        return receipt
+    save(user_home, previous)
+    receipt["decision"] = "pass"
+    return receipt
+
+
+def apply_preset(user_home: Path, name: str, *, apply: bool = False) -> dict[str, Any]:
+    from .settings_v2 import apply_preset_overlay, preset_diff, validate_settings_document
+
+    current = load(user_home)
+    diff = preset_diff(current, name)
+    proposed = apply_preset_overlay(current, name)
+    check = validate_settings_document(proposed)
+    result = {"decision": "plan" if not apply else "pass", "preset": name, "diff": diff, "validation": check}
+    if check["decision"] != "pass":
+        result["decision"] = "block"
+        return result
+    if not apply:
+        return result
+    migrate = migrate_v1_to_v2(user_home, apply=True)
+    from .settings_v2 import SCHEMA_V2
+
+    on_disk = load(user_home, normalize=False)
+    proposed = apply_preset_overlay(on_disk, name)
+    proposed["schema"] = SCHEMA_V2
+    save(user_home, proposed)
+    result.update({"decision": "pass", "rollback_id": migrate.get("rollback_id"), "backup_path": migrate.get("backup_path")})
+    return result
+
+
+def set_role_binding(value: dict[str, Any], role_id: str, **fields: Any) -> dict[str, Any]:
+    from .settings_v2 import normalize_role_binding
+
+    routing = value.setdefault("routing", {})
+    bindings = routing.setdefault("role_bindings", {})
+    current = dict(bindings.get(role_id) or {})
+    current.update({key: item for key, item in fields.items() if item is not None})
+    bindings[role_id] = normalize_role_binding(current, role_id)
     return value

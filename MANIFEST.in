@@ -10,6 +10,7 @@ recursive-include installers *.sh *.ps1 *.whl
 recursive-include examples *.json *.xlsx
 recursive-include assets *.png *.webp *.jpg *.json
 recursive-include schemas *.json
+recursive-include governance *.json
 
 include LEGACY_IDENTITY_ALLOWLIST.json
 

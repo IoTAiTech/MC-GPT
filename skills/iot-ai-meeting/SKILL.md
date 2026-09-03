@@ -1,6 +1,10 @@
 ---
 name: iot-ai-meeting
 description: Automatic, governed full-hybrid meetings for planning, failures, repair decisions and final hard-judge review.
+id: iot-ai-meeting
+version: 1.0.0
+category: general
+license: LicenseRef-PolyForm-Noncommercial-1.0.0
 ---
 # iot-ai-meeting
 

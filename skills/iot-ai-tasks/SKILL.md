@@ -1,6 +1,10 @@
 ---
 name: iot-ai-tasks
 description: Natural-language task lifecycle and authoritative backend routing with validation, WIP control, evidence, audit and Founder handoff.
+id: iot-ai-tasks
+version: 1.0.0
+category: general
+license: LicenseRef-PolyForm-Noncommercial-1.0.0
 ---
 # iot-ai-tasks
 

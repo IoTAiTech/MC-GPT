@@ -9,6 +9,7 @@ import shutil
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from .exec_pin import pin_executable
 from .paths import routes_path
@@ -128,6 +129,21 @@ def static_status(route: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
+def endpoint_is_forbidden(endpoint: str) -> str | None:
+    parsed = urlparse(endpoint)
+    if parsed.username or parsed.password:
+        return "endpoint must not contain embedded credentials"
+    if parsed.fragment:
+        return "endpoint must not contain a fragment"
+    query = parse_qs(parsed.query)
+    secretish = ("token", "key", "secret", "password", "api_key", "access_token", "credential")
+    for name in query:
+        lowered = name.lower()
+        if any(item in lowered for item in secretish):
+            return "endpoint must not contain query credentials"
+    return None
+
+
 def eligible_routes(
     user_home: Path,
     provider: str | None = None,
@@ -153,6 +169,22 @@ def eligible_routes(
             continue
         if not route.get("cloud", True) and not settings.get("models", {}).get("local_enabled", False):
             continue
+        routing = settings.get("routing") or {}
+        ollama = routing.get("ollama") or {}
+        if route.get("provider") == "ollama" and route.get("cloud") and ollama.get("cloud_policy") == "never":
+            continue
+        if route.get("provider") == "ollama" and not route.get("cloud") and ollama.get("local_policy") == "never":
+            continue
+        if ollama.get("local_policy") == "only" and not (route.get("provider") == "ollama" and not route.get("cloud")):
+            continue
+        if ollama.get("cloud_policy") == "only" and not (route.get("provider") == "ollama" and route.get("cloud")):
+            continue
+        allow = routing.get("model_allowlist") or []
+        deny = routing.get("model_denylist") or []
+        if deny and model in deny:
+            continue
+        if allow and model not in allow and model not in {"auto", "auto:cloud"}:
+            continue
         status = static_status(route)
         if not status["installed"]:
             continue
@@ -170,6 +202,11 @@ def add_route(user_home: Path, route: dict[str, Any], apply: bool = False) -> di
         if not route.get("endpoint") or not route.get("protocol"):
             raise ValueError("API routes require endpoint and protocol")
         if route.get("secret_value"):
+            raise ValueError("secret values are forbidden; use secret_env")
+        forbidden = endpoint_is_forbidden(str(route.get("endpoint")))
+        if forbidden:
+            raise ValueError(forbidden)
+        if any(key in route for key in ("password", "api_key", "token", "secret")):
             raise ValueError("secret values are forbidden; use secret_env")
     elif not route.get("command"):
         raise ValueError("CLI routes require a command template")

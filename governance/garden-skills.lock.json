@@ -1,0 +1,48 @@
+{
+  "schema": "iot-ai.garden-skills.lock.v1",
+  "upstream_repository": "https://github.com/ConardLi/garden-skills",
+  "upstream_commit": "aaf9a82f5efd73e87cc0998edc398e75bfc35901",
+  "upstream_license": "MIT",
+  "integration": "derived-not-vendored",
+  "adds_dependency": false,
+  "submodule": false,
+  "network_pull": "never",
+  "allowed_execution_mode": "reference-only",
+  "script_execution_policy": "never",
+  "update_policy": "explicit-review-only",
+  "review_status": "reviewed-derived",
+  "included_skill_paths": [
+    "skills/third-party/garden-web-design/SKILL.md",
+    "skills/third-party/garden-gpt-image-2/SKILL.md",
+    "skills/third-party/garden-beautiful-article/SKILL.md",
+    "skills/third-party/garden-web-video-presentation/SKILL.md",
+    "skills/third-party/garden-kb-retriever/SKILL.md"
+  ],
+  "files": [
+    {
+      "path": "skills/third-party/garden-web-design/SKILL.md",
+      "sha256": "70bb95e9da75f402f55f1bc278dab562a07a6fdc5b152f0c422d9c26ff784d81",
+      "upstream_skill": "web-design-engineer"
+    },
+    {
+      "path": "skills/third-party/garden-gpt-image-2/SKILL.md",
+      "sha256": "5a4abcf9bb77ebfd928b3fbb3d9d82cd99982539240df4569007e4fb0cb80e15",
+      "upstream_skill": "gpt-image-2"
+    },
+    {
+      "path": "skills/third-party/garden-beautiful-article/SKILL.md",
+      "sha256": "5fc1a35d76941a7b3bd4fdcca1abd9c854e29620304547802c94ccddf153ee75",
+      "upstream_skill": "beautiful-article"
+    },
+    {
+      "path": "skills/third-party/garden-web-video-presentation/SKILL.md",
+      "sha256": "33979c83788d768b18cb032fb19d6e4889412787b31d1dc70afe3fb8004fb7ad",
+      "upstream_skill": "web-video-presentation"
+    },
+    {
+      "path": "skills/third-party/garden-kb-retriever/SKILL.md",
+      "sha256": "cf9dd0550e73b33a3c1888a39d9b10fcad1104b098db21c74958d772181b7362",
+      "upstream_skill": "kb-retriever"
+    }
+  ]
+}

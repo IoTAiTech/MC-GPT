@@ -1,6 +1,10 @@
 ---
 name: iot-ai-status
 description: Explain current tasks, active waves, meetings, providers, tests, audits, checkpoints and next actors in one management view.
+id: iot-ai-status
+version: 1.0.0
+category: general
+license: LicenseRef-PolyForm-Noncommercial-1.0.0
 ---
 # iot-ai-status
 

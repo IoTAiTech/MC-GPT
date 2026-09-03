@@ -1,6 +1,10 @@
 ---
 name: iot-ai-update
 description: Natural-language transactional install/update/rollback authority with package discovery, verification and fleet receipts.
+id: iot-ai-update
+version: 1.0.0
+category: general
+license: LicenseRef-PolyForm-Noncommercial-1.0.0
 ---
 # iot-ai-update
 

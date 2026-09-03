@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -157,6 +156,52 @@ class SettingsV2Tests(IsolatedHomeTestCase):
         self.assertNotEqual(raw.get("schema"), SCHEMA_V2)
         self.assertNotIn("routing", raw)
 
+    def test_settings_role_set_does_not_persist_injected_v2(self) -> None:
+        import io
+        from contextlib import redirect_stdout
+        from iot_ai.cli import main
+        from iot_ai.paths import settings_path
+        from iot_ai.util import load_json
+
+        stream = io.StringIO()
+        with redirect_stdout(stream):
+            code = main([
+                "settings", "role", "set", "implementation-engineer",
+                "--preferred-providers", "codex",
+                "--home", str(self.home),
+            ])
+        self.assertEqual(code, 0)
+        raw = load_json(settings_path(self.home), {}) or {}
+        self.assertNotEqual(raw.get("schema"), SCHEMA_V2)
+        self.assertNotIn("skills", raw)
+        self.assertNotIn("api_profiles", raw)
+        self.assertIn("routing", raw)
+        self.assertEqual(
+            raw["routing"]["role_bindings"]["implementation-engineer"]["preferred_providers"],
+            ["codex"],
+        )
+
+    def test_secret_keys_and_values_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            save(self.home, {"schema": SCHEMA_V1, "providers": {"claude": {"apikey": "x"}}})
+        with self.assertRaises(ValueError):
+            save(self.home, {"schema": SCHEMA_V1, "providers": {"claude": {"passwd": "x"}}})
+        with self.assertRaises(ValueError):
+            save(self.home, {"schema": SCHEMA_V1, "providers": {"claude": {"authorization": "x"}}})
+        with self.assertRaises(ValueError):
+            save(self.home, {"schema": SCHEMA_V1, "notes": "sk-" + "abcdefghijklmnopqrstuvwxyz0123"})
+
+    def test_extra_roots_outside_home_rejected_on_save(self) -> None:
+        with self.assertRaises(ValueError):
+            save(self.home, {"schema": SCHEMA_V1, "skills": {"extra_roots": ["/etc"]}})
+
+    def test_apply_preset_persists_v2_schema(self) -> None:
+        result = apply_preset(self.home, "no-local-ollama", apply=True)
+        self.assertEqual(result["decision"], "pass")
+        on_disk = load(self.home, normalize=False)
+        self.assertEqual(on_disk.get("schema"), SCHEMA_V2)
+        self.assertEqual(on_disk["routing"]["ollama"]["local_policy"], "never")
+
     def test_cli_show_effective(self) -> None:
         import io
         import json as json_mod
@@ -197,6 +242,14 @@ class RoutingPolicyTests(IsolatedHomeTestCase):
         with patch("iot_ai.model_policy.provider_candidates", return_value=self._candidates()):
             result = select_candidates(self.home, ["implementation-engineer"], settings=settings)
         self.assertTrue(all(row["provider"] == "ollama" and not row.get("cloud") for row in result.values()))
+
+    def test_required_local_ollama_absent_fails_closed(self) -> None:
+        settings = load(self.home)
+        settings["routing"]["ollama"] = {"local_policy": "required", "cloud_policy": "never"}
+        cloud_only = [row for row in self._candidates() if not (row["provider"] == "ollama" and not row.get("cloud"))]
+        with patch("iot_ai.model_policy.provider_candidates", return_value=cloud_only):
+            result = select_candidates(self.home, ["implementation-engineer"], settings=settings)
+        self.assertEqual(result, {})
 
     def test_required_local_ollama(self) -> None:
         settings = load(self.home)

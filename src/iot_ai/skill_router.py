@@ -64,11 +64,23 @@ def _tokens(text: str) -> set[str]:
     return {token.casefold() for token in TOKEN_RE.findall(text or "")}
 
 
+def _visual_match(blob: str, tokens: set[str]) -> bool:
+    for term in VISUAL_TERMS:
+        needle = term.casefold()
+        if " " in needle or "-" in needle:
+            if needle in blob:
+                return True
+        elif needle in tokens:
+            return True
+    return False
+
+
 def is_visual_task(goal: str, artifact: str | None = None, role_id: str | None = None) -> bool:
     blob = " ".join(part for part in (goal, artifact, role_id) if part).casefold()
-    if any(term in blob for term in BACKEND_ONLY_TERMS) and not any(term in blob for term in VISUAL_TERMS):
+    tokens = _tokens(blob)
+    if any(term in blob for term in BACKEND_ONLY_TERMS) and not _visual_match(blob, tokens):
         return False
-    return any(term in blob for term in VISUAL_TERMS) or (role_id or "") in {"operator-ux-reviewer"}
+    return _visual_match(blob, tokens) or (role_id or "") in {"operator-ux-reviewer"}
 
 
 def _score(skill: dict[str, Any], *, goal: str, role_id: str | None, stage: str | None, artifact: str | None) -> float:
@@ -119,7 +131,9 @@ def select_skills(
     document = settings if settings is not None else load_settings(user_home)
     skills_cfg = document.get("skills") or {}
     effective = effective_settings(user_home, document)
-    if skills_cfg.get("auto_discover", True) is False and not (skills_cfg.get("allow") or []):
+    allow = {str(item) for item in skills_cfg.get("allow") or []}
+    auto_discover = skills_cfg.get("auto_discover", True) is not False
+    if not auto_discover and not allow:
         return {
             "receipt": {
                 "schema": "iot-ai.skill-selection.v1",
@@ -143,7 +157,6 @@ def select_skills(
         project_root=project_root,
         license_allowlist=list(skills_cfg.get("license_allowlist") or []),
     )
-    allow = {str(item) for item in skills_cfg.get("allow") or []}
     deny = {str(item) for item in skills_cfg.get("deny") or []}
     max_selected = int(skills_cfg.get("max_selected") or 4)
     design_policy = str(skills_cfg.get("design_policy") or "off")
@@ -155,6 +168,9 @@ def select_skills(
         skill_id = skill["id"]
         if skill_id in deny:
             rejected.append({"id": skill_id, "reason": "user deny rule"})
+            continue
+        if not auto_discover and skill_id not in allow:
+            rejected.append({"id": skill_id, "reason": "auto_discover disabled"})
             continue
         body = str(skill.get("body") or "")
         if any(term in body.casefold() for term in AUTHORITY_BLOCK_TERMS):
@@ -177,7 +193,7 @@ def select_skills(
             _tokens(" ".join(part for part in (goal, role_id, stage, artifact) if part))
             & _tokens(" ".join(str(skill.get(key) or "") for key in ("id", "name", "description", "category")))
         )
-        if skill_id not in allow and overlap_tokens < 2 and skill.get("category") != "visual":
+        if skill_id not in allow and overlap_tokens < 2 and not (skill.get("category") == "visual" and visual):
             rejected.append({"id": skill_id, "reason": "below relevance threshold", "score": score})
             continue
         if score < 12 and skill_id not in allow:

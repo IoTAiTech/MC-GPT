@@ -372,10 +372,14 @@ def select_candidates(
                         selected.pop(role_id, None)
                     else:
                         selected[role_id] = {**replacement, "selection_reason": "ollama-local-only"}
-        elif local_options and not any(row.get("provider") == "ollama" and not row.get("cloud") for row in selected.values()):
-            role_id = next(iter(selected), None)
-            if role_id:
-                selected[role_id] = {**local_options[0], "selection_reason": "ollama-local-required", "fallback_candidates": [selected[role_id]]}
+        elif local_policy == "required":
+            if not local_options:
+                for role_id in list(selected):
+                    selected.pop(role_id, None)
+            elif not any(row.get("provider") == "ollama" and not row.get("cloud") for row in selected.values()):
+                role_id = next(iter(selected), None)
+                if role_id:
+                    selected[role_id] = {**local_options[0], "selection_reason": "ollama-local-required", "fallback_candidates": [selected[role_id]]}
 
     max_models = int(routing.get("max_distinct_models") or 16)
     used_models: list[str] = []

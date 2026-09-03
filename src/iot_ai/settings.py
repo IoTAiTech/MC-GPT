@@ -151,11 +151,30 @@ def save(user_home: Path, value: dict[str, Any]) -> None:
 
     value = deepcopy(value)
     assert_no_secrets(value)
+    _assert_extra_roots_confined(user_home, value)
     check = validate_settings_document(value)
     if check["decision"] != "pass":
         raise ValueError("; ".join(check["errors"]))
     value["updated_at"] = utc_now()
     atomic_json(settings_path(user_home), value)
+
+
+def _assert_extra_roots_confined(user_home: Path, value: dict[str, Any]) -> None:
+    home = Path(user_home).resolve()
+    roots = list(((value.get("skills") or {}) if isinstance(value.get("skills"), dict) else {}).get("extra_roots") or [])
+    for item in roots:
+        raw = str(item)
+        if ".." in Path(raw).parts:
+            raise ValueError("skills.extra_roots must stay under the user or project home")
+        path = Path(raw).expanduser()
+        try:
+            resolved = path.resolve()
+        except OSError as exc:
+            raise ValueError("skills.extra_roots must stay under the user or project home") from exc
+        try:
+            resolved.relative_to(home)
+        except ValueError as exc:
+            raise ValueError("skills.extra_roots must stay under the user or project home") from exc
 
 
 def get_value(value: dict[str, Any], dotted: str) -> Any:
@@ -290,6 +309,11 @@ def apply_preset(user_home: Path, name: str, *, apply: bool = False) -> dict[str
     if not apply:
         return result
     migrate = migrate_v1_to_v2(user_home, apply=True)
+    from .settings_v2 import SCHEMA_V2
+
+    on_disk = load(user_home, normalize=False)
+    proposed = apply_preset_overlay(on_disk, name)
+    proposed["schema"] = SCHEMA_V2
     save(user_home, proposed)
     result.update({"decision": "pass", "rollback_id": migrate.get("rollback_id"), "backup_path": migrate.get("backup_path")})
     return result

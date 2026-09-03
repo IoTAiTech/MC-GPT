@@ -58,15 +58,25 @@ LICENSE_ALLOWLIST = (
     "ISC",
     "LicenseRef-PolyForm-Noncommercial-1.0.0",
 )
-SECRET_KEY_RE = re.compile(r"(?:^|_)(password|secret|api_key|token|private_key|credential)s?(?:$|_value)", re.I)
+SECRET_KEY_RE = re.compile(
+    r"(?:^|_)(password|passwd|secret|api_key|apikey|token|private_key|credential|authorization)s?(?:$|_value)",
+    re.I,
+)
+SECRET_VALUE_RE = re.compile(
+    r"(sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|xai-[A-Za-z0-9]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)",
+    re.I,
+)
 EXACT_SECRET_KEYS = frozenset(
     {
         "password",
+        "passwd",
         "secret",
         "api_key",
+        "apikey",
         "token",
         "private_key",
         "credential",
+        "authorization",
         "secret_value",
         "access_token",
         "key",
@@ -417,9 +427,12 @@ def normalize_api_profiles(raw: Any) -> dict[str, Any]:
 
 
 def _forbidden_settings_key(key: str) -> bool:
-    lowered = str(key).lower()
+    lowered = str(key).lower().replace("-", "_")
     if lowered in {"secret_env", "endpoint_env"}:
         return False
+    compact = lowered.replace("_", "")
+    if compact in {"apikey", "passwd", "authorization"}:
+        return True
     if lowered in EXACT_SECRET_KEYS or bool(SECRET_KEY_RE.fullmatch(lowered)):
         return True
     if "api_key" in lowered or "password" in lowered or "private_key" in lowered:
@@ -441,6 +454,8 @@ def assert_no_secrets(value: Any, path: str = "") -> None:
     elif isinstance(value, list):
         for index, item in enumerate(value):
             assert_no_secrets(item, f"{path}[{index}]")
+    elif isinstance(value, str) and SECRET_VALUE_RE.search(value):
+        raise ValueError("secret values are forbidden in settings; use an environment-variable reference")
 
 
 def inject_v2(document: dict[str, Any]) -> dict[str, Any]:

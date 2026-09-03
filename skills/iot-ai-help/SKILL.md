@@ -1,6 +1,10 @@
 ---
 name: iot-ai-help
 description: Explain goals in natural language and show advanced commands only when an operator needs manual control.
+id: iot-ai-help
+version: 1.0.0
+category: general
+license: LicenseRef-PolyForm-Noncommercial-1.0.0
 ---
 # iot-ai-help
 

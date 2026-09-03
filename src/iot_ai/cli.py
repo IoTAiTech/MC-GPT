@@ -686,14 +686,14 @@ def main(argv: list[str] | None = None) -> int:
                     emit((value.get("routing") or {}).get("role_bindings", {}).get(a.role_id) or {})
                 else:
                     settings_mod.set_role_binding(
-                        value,
+                        editable,
                         a.role_id,
                         preferred_providers=a.preferred_providers,
                         effort=a.effort,
                         minimum_effort=a.minimum_effort,
                     )
-                    settings_mod.save(h, value)
-                    emit({"decision": "pass", "role_id": a.role_id, "binding": value["routing"]["role_bindings"][a.role_id]})
+                    settings_mod.save(h, editable)
+                    emit({"decision": "pass", "role_id": a.role_id, "binding": editable["routing"]["role_bindings"][a.role_id]})
             elif a.op == "skills":
                 from .skill_registry import discover
                 from .skill_router import select_skills

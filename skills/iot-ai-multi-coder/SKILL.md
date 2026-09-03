@@ -1,6 +1,10 @@
 ---
 name: iot-ai-multi-coder
 description: Role-bound hybrid implementation with all eligible coders, deterministic tests, failure review, bounded repair and independent final judgment.
+id: iot-ai-multi-coder
+version: 1.0.0
+category: general
+license: LicenseRef-PolyForm-Noncommercial-1.0.0
 ---
 # iot-ai-multi-coder
 

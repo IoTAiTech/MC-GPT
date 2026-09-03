@@ -1,5 +1,6 @@
 ---
 name: iot-ai-minimum-change
+id: iot-ai-minimum-change
 description: >
   Evidence-bound Build Necessity / Minimum Necessary Change specialist for MC-GPT.
   Use before implementation, dependency selection, architecture expansion,

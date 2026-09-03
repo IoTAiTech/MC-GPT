@@ -1,6 +1,10 @@
 ---
 name: iot-ai-settings
 description: Conversation-aware policy, provider, privacy, WIP and execution-profile settings without requiring flag memorisation.
+id: iot-ai-settings
+version: 1.0.0
+category: general
+license: LicenseRef-PolyForm-Noncommercial-1.0.0
 ---
 # iot-ai-settings
 

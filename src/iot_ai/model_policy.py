@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from .readiness import provider_candidates
+from .settings import load as load_settings
+from .settings_v2 import normalize_routing, resolve_effort
 from .telemetry import summary
 
 ROLE_PREFERENCES: dict[str, tuple[str, ...]] = {
@@ -49,9 +51,60 @@ def _historical_map(user_home: Path) -> dict[tuple[str, str | None], dict[str, A
     return {(row.get("provider"), row.get("model_served")): row for row in summary(user_home, "30d")}
 
 
-def _score(candidate: dict[str, Any], role_id: str, history: dict[tuple[str, str | None], dict[str, Any]]) -> float:
+def _ollama_plane(candidate: dict[str, Any]) -> str:
+    if str(candidate.get("provider")) != "ollama":
+        return "other"
+    return "cloud" if candidate.get("cloud") else "local"
+
+
+def _policy_allows(policy: str, plane: str, candidate_plane: str) -> bool:
+    if plane != candidate_plane:
+        return True
+    if policy == "never":
+        return False
+    if policy == "only":
+        return candidate_plane == plane
+    return True
+
+
+def _candidate_allowed(candidate: dict[str, Any], routing: dict[str, Any]) -> bool:
     provider = str(candidate.get("provider"))
-    preferences = ROLE_PREFERENCES.get(role_id, tuple())
+    model = str(candidate.get("model") or "")
+    allow = routing.get("model_allowlist") or []
+    deny = routing.get("model_denylist") or []
+    if deny and model in deny:
+        return False
+    if allow and model not in allow and model not in {"auto", "auto:cloud", ""}:
+        return False
+    local_policy = routing.get("ollama", {}).get("local_policy", "never")
+    cloud_policy = routing.get("ollama", {}).get("cloud_policy", "prefer")
+    if local_policy == "only" and not (provider == "ollama" and not candidate.get("cloud")):
+        return False
+    if cloud_policy == "only" and not (provider == "ollama" and candidate.get("cloud")):
+        return False
+    if provider == "ollama" and candidate.get("cloud") and cloud_policy == "never":
+        return False
+    if provider == "ollama" and not candidate.get("cloud") and local_policy == "never":
+        return False
+    return True
+
+
+def _role_preferences(role_id: str, routing: dict[str, Any]) -> tuple[str, ...]:
+    binding = (routing.get("role_bindings") or {}).get(role_id) or {}
+    preferred = tuple(binding.get("preferred_providers") or ())
+    fallback = tuple(binding.get("fallback_sequence") or ())
+    order = tuple(routing.get("provider_order") or ())
+    if preferred or fallback:
+        return tuple(dict.fromkeys((*preferred, *fallback, *order, *ROLE_PREFERENCES.get(role_id, ()))))
+    if order:
+        return tuple(dict.fromkeys((*order, *ROLE_PREFERENCES.get(role_id, ()))))
+    return ROLE_PREFERENCES.get(role_id, tuple())
+
+
+def _score(candidate: dict[str, Any], role_id: str, history: dict[tuple[str, str | None], dict[str, Any]], routing: dict[str, Any] | None = None) -> float:
+    routing = routing or {}
+    provider = str(candidate.get("provider"))
+    preferences = _role_preferences(role_id, routing)
     preference = len(preferences) - preferences.index(provider) if provider in preferences else 0
     historical = history.get((provider, candidate.get("model"))) or history.get((provider, None)) or {}
     quality = float(historical.get("avg_quality") or 0)
@@ -66,7 +119,14 @@ def _score(candidate: dict[str, Any], role_id: str, history: dict[tuple[str, str
         - float(candidate.get("priority") or 100) / 20.0
     )
     if provider == "ollama" and candidate.get("cloud") and candidate.get("model") not in {"auto", "auto:cloud", None}:
-        score += 20
+        score += 20 if str((routing.get("ollama") or {}).get("cloud_policy") or "prefer") in {"prefer", "required", "only"} else 0
+    if provider == "ollama" and not candidate.get("cloud") and str((routing.get("ollama") or {}).get("local_policy") or "never") in {"prefer", "required", "only"}:
+        score += 24
+    binding = (routing.get("role_bindings") or {}).get(role_id) or {}
+    if provider in set(binding.get("denied_providers") or ()):
+        score -= 1000
+    if str(candidate.get("model") or "") in set(binding.get("preferred_models") or ()):
+        score += 30
     return score
 
 
@@ -77,16 +137,38 @@ def rank_candidates(
     require_live: bool = True,
     cloud_only: bool = False,
     max_candidates_per_role: int = 4,
+    settings: dict[str, Any] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return explicit same-role candidate ladders; no fallback is implicit."""
-    candidates = provider_candidates(user_home, require_live=require_live, cloud_only=cloud_only)
+    routing = normalize_routing((settings if settings is not None else load_settings(user_home)).get("routing"))
+    max_candidates_per_role = int(routing.get("max_candidates_per_role") or max_candidates_per_role)
+    candidates = [
+        candidate
+        for candidate in provider_candidates(user_home, require_live=require_live, cloud_only=cloud_only)
+        if _candidate_allowed(candidate, routing)
+    ]
     history = _historical_map(user_home)
     ranked_by_role: dict[str, list[dict[str, Any]]] = {}
     for role_id in role_ids:
+        binding = (routing.get("role_bindings") or {}).get(role_id) or {}
+        permitted_providers = set(binding.get("permitted_providers") or ())
+        denied_providers = set(binding.get("denied_providers") or ())
+        permitted_models = set(binding.get("permitted_models") or ())
+        role_candidates = []
+        for candidate in candidates:
+            provider = str(candidate.get("provider"))
+            model = str(candidate.get("model") or "")
+            if denied_providers and provider in denied_providers:
+                continue
+            if permitted_providers and provider not in permitted_providers:
+                continue
+            if permitted_models and model not in permitted_models and model not in {"auto", "auto:cloud", ""}:
+                continue
+            role_candidates.append(candidate)
         ranked = sorted(
-            candidates,
+            role_candidates,
             key=lambda candidate: (
-                -_score(candidate, role_id, history),
+                -_score(candidate, role_id, history, routing),
                 str(candidate.get("provider")),
                 str(candidate.get("model")),
                 str(candidate.get("route_id")),
@@ -99,7 +181,7 @@ def rank_candidates(
             if candidate_id in seen_candidates:
                 continue
             seen_candidates.add(candidate_id)
-            distinct.append({**candidate, "selection_score": round(_score(candidate, role_id, history), 3)})
+            distinct.append({**candidate, "selection_score": round(_score(candidate, role_id, history, routing), 3)})
             if len(distinct) >= max(1, max_candidates_per_role):
                 break
         ranked_by_role[role_id] = distinct
@@ -116,19 +198,34 @@ def select_candidates(
     require_ollama_when_available: bool = True,
     max_providers: int | None = None,
     required_provider_families: list[str] | tuple[str, ...] | None = None,
+    settings: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Assign candidates to roles with diversity and an explicit fallback ladder."""
-    ladders = rank_candidates(user_home, role_ids, require_live=require_live, cloud_only=cloud_only)
+    document = settings if settings is not None else load_settings(user_home)
+    routing = normalize_routing(document.get("routing"))
+    ladders = rank_candidates(
+        user_home,
+        role_ids,
+        require_live=require_live,
+        cloud_only=cloud_only,
+        settings=document,
+    )
     selected: dict[str, dict[str, Any]] = {}
     used_candidates: set[str] = set()
     used_providers: set[str] = set()
+    if str(routing.get("ollama", {}).get("cloud_policy")) == "never":
+        require_ollama_when_available = False
+    elif str(routing.get("ollama", {}).get("cloud_policy")) in {"prefer", "required"}:
+        require_ollama_when_available = True
 
     for role_id in role_ids:
+        binding = (routing.get("role_bindings") or {}).get(role_id) or {}
+        role_allow_reuse = allow_reuse if binding.get("allow_reuse", True) else False
         options = ladders.get(role_id, [])
         scored: list[tuple[float, str, dict[str, Any]]] = []
         for candidate in options:
             candidate_id = str(candidate.get("candidate_id"))
-            if not allow_reuse and candidate_id in used_candidates:
+            if not role_allow_reuse and candidate_id in used_candidates:
                 continue
             score = float(candidate.get("selection_score") or 0)
             if str(candidate.get("provider")) not in used_providers:
@@ -163,16 +260,16 @@ def select_candidates(
         for role_id in role_ids:
             if role_id not in selected:
                 continue
-            best_ollama = max(ollama_options, key=lambda candidate: _score(candidate, role_id, history))
-            current_score = _score(selected[role_id], role_id, history)
-            ollama_score = _score(best_ollama, role_id, history)
+            best_ollama = max(ollama_options, key=lambda candidate: _score(candidate, role_id, history, routing))
+            current_score = _score(selected[role_id], role_id, history, routing)
+            ollama_score = _score(best_ollama, role_id, history, routing)
             replacement_options.append((current_score - ollama_score, role_id, best_ollama))
         if replacement_options:
             _, role_id, ollama = min(replacement_options, key=lambda item: (item[0], item[1]))
             old = selected[role_id]
             selected[role_id] = {
                 **ollama,
-                "selection_score": round(_score(ollama, role_id, history), 3),
+                "selection_score": round(_score(ollama, role_id, history, routing), 3),
                 "selection_reason": "first-class-ollama-diversity",
                 "fallback_candidates": [old, *[c for c in ladders.get(role_id, []) if c.get("candidate_id") not in {old.get("candidate_id"), ollama.get("candidate_id")}]],
             }
@@ -255,4 +352,62 @@ def select_candidates(
                 for candidate in selected[role_id].get("fallback_candidates", [])
                 if candidate.get("provider") in allowed_set
             ]
+
+    local_policy = str(routing.get("ollama", {}).get("local_policy") or "never")
+    if local_policy in {"required", "only"}:
+        local_options = [
+            candidate
+            for options in ladders.values()
+            for candidate in options
+            if candidate.get("provider") == "ollama" and not candidate.get("cloud")
+        ]
+        if local_policy == "only":
+            for role_id in list(selected):
+                if not (selected[role_id].get("provider") == "ollama" and not selected[role_id].get("cloud")):
+                    replacement = next(
+                        (candidate for candidate in ladders.get(role_id, []) if candidate.get("provider") == "ollama" and not candidate.get("cloud")),
+                        None,
+                    )
+                    if replacement is None:
+                        selected.pop(role_id, None)
+                    else:
+                        selected[role_id] = {**replacement, "selection_reason": "ollama-local-only"}
+        elif local_options and not any(row.get("provider") == "ollama" and not row.get("cloud") for row in selected.values()):
+            role_id = next(iter(selected), None)
+            if role_id:
+                selected[role_id] = {**local_options[0], "selection_reason": "ollama-local-required", "fallback_candidates": [selected[role_id]]}
+
+    max_models = int(routing.get("max_distinct_models") or 16)
+    used_models: list[str] = []
+    for role_id in list(selected):
+        model_key = f"{selected[role_id].get('provider')}:{selected[role_id].get('model')}"
+        if model_key not in used_models and len(used_models) >= max_models:
+            replacement = next(
+                (
+                    candidate
+                    for candidate in ladders.get(role_id, [])
+                    if f"{candidate.get('provider')}:{candidate.get('model')}" in used_models
+                ),
+                None,
+            )
+            if replacement is None:
+                selected.pop(role_id, None)
+                continue
+            selected[role_id] = {**replacement, "selection_reason": "max-distinct-models"}
+            model_key = f"{replacement.get('provider')}:{replacement.get('model')}"
+        if model_key not in used_models:
+            used_models.append(model_key)
+
+    for role_id, candidate in selected.items():
+        effort = resolve_effort(
+            role_id=role_id,
+            provider=str(candidate.get("provider") or ""),
+            model=str(candidate.get("model") or ""),
+            routing=routing,
+            requested=candidate.get("requested_effort"),
+        )
+        candidate["requested_effort"] = effort["requested_effort"]
+        candidate["effective_effort"] = effort["effective_value"]
+        candidate["effort_clamp_reason"] = effort["clamp_reason"]
+        candidate["effort_source"] = effort["source_layer"]
     return selected

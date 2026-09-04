@@ -4,15 +4,14 @@
 # Version: 6.8.0-beta.1 | Date: 2026-09-04
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
-from unittest.mock import patch
 
 from iot_ai.minimum_change import NON_NEGOTIABLE_CONTROLS, RUNG_DEFINITIONS, ZERO_DEFAULT_BUDGETS
-from iot_ai.provider_catalog import catalog_version, resolve_model, source_dates, supported_matrix
-from iot_ai.providers import eligible_routes, materialize_api_profiles
+from iot_ai.provider_catalog import apply_catalog_to_candidate, catalog_version, resolve_model, source_dates, supported_matrix
+from iot_ai.providers import eligible_routes, endpoint_is_forbidden, materialize_api_profiles
 from iot_ai.runtime_gates import (
+    accepted_plan_allows_implement,
     bind_implementation_to_accepted_plan,
     build_effort_receipt,
     coerce_max_selected,
@@ -119,35 +118,66 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         )
         self.assertTrue(ok["valid"])
 
+    def test_bind_reuses_accepted_context_digest(self) -> None:
+        accepted = evaluate_minimum_change_gate(
+            {"minimum_change_assessment": passing_assessment("standard-library")},
+            goal="Export inventory",
+            task_id="task-1",
+            risk_class="R2",
+            acceptance="Tests pass.",
+            context_digest="a" * 64,
+        )
+        bind = bind_implementation_to_accepted_plan(
+            {"minimum_change_assessment": passing_assessment("standard-library")},
+            {"decision": "accept", "mncg": accepted},
+            goal="Export inventory",
+            task_id="task-1",
+            risk_class="R2",
+            acceptance="Tests pass.",
+            context_digest=None,
+        )
+        self.assertTrue(bind["valid"])
+        self.assertEqual(bind["contract_sha256"], accepted["contract_sha256"])
+
+    def test_pre_dispatch_requires_accepted_plan(self) -> None:
+        blocked = accepted_plan_allows_implement({"decision": "needs-review", "mncg": {"valid": False}})
+        self.assertFalse(blocked["valid"])
+        self.assertTrue(blocked.get("pre_dispatch"))
+        allowed = accepted_plan_allows_implement(
+            {"decision": "accept", "mncg": {"valid": True, "selected_rung": "standard-library"}}
+        )
+        self.assertTrue(allowed["valid"])
+
 
 class EffortReceiptTests(IsolatedHomeTestCase):
     def test_candidate_effective_effort_is_dispatch_source(self) -> None:
         candidate = {
-            "requested_effort": "xhigh",
-            "effective_effort": "xhigh",
+            "requested_effort": "medium",
+            "effective_effort": "medium",
             "effort_source": "role-override",
         }
-        dispatch = resolve_dispatch_effort(candidate, node_effort="medium", max_effort="xhigh")
-        self.assertEqual(dispatch["effective_effort"], "xhigh")
-        self.assertNotEqual(dispatch["effective_effort"], "medium")
+        dispatch = resolve_dispatch_effort(candidate, node_effort="low", max_effort="medium")
+        self.assertEqual(dispatch["effective_effort"], "medium")
+        self.assertNotEqual(dispatch["effective_effort"], "low")
         receipt = build_effort_receipt(
-            settings_requested="xhigh",
+            settings_requested="medium",
             candidate=candidate,
             dispatch=dispatch,
-            tool_decision={"requested_effort": "xhigh", "effective_effort": "xhigh"},
-            adapter_request_effort="xhigh",
-            response={"effort_effective": "xhigh"},
+            tool_decision={"requested_effort": "medium", "effective_effort": "medium"},
+            adapter_request_effort="medium",
+            response={"effort_effective": "medium"},
         )
         self.assertTrue(receipt["consistent"])
-        self.assertEqual(receipt["effective_effort"], "xhigh")
+        self.assertEqual(receipt["effective_effort"], "medium")
 
     def test_node_effort_cannot_override_candidate(self) -> None:
         dispatch = resolve_dispatch_effort(
-            {"effective_effort": "high", "requested_effort": "high"},
+            {"effective_effort": "medium", "requested_effort": "medium"},
             node_effort="low",
-            max_effort="xhigh",
+            max_effort="medium",
         )
-        self.assertEqual(dispatch["effective_effort"], "high")
+        self.assertEqual(dispatch["effective_effort"], "medium")
+        self.assertNotEqual(dispatch["effective_effort"], "low")
 
     def test_minimum_effort_raises_or_blocks(self) -> None:
         routing = {
@@ -367,6 +397,49 @@ class ProviderCatalogTests(IsolatedHomeTestCase):
         self.assertIn("openai", matrix["providers"])
         self.assertIn("xai", matrix["providers"])
         self.assertIn("anthropic", matrix["providers"])
+
+    def test_catalog_rewrites_and_blocks_before_dispatch(self) -> None:
+        retired = apply_catalog_to_candidate({"provider": "xai", "model": "grok-2"})
+        self.assertEqual(retired["model"], "grok-4.6")
+        self.assertFalse(retired.get("catalog_block"))
+        astra = apply_catalog_to_candidate({"provider": "openai", "model": "gpt-6-astra"})
+        self.assertTrue(astra.get("catalog_block"))
+        self.assertIn("limited-access-unentitled", astra.get("catalog_errors") or [])
+
+
+class EndpointSafetyTests(IsolatedHomeTestCase):
+    def test_link_local_metadata_is_forbidden(self) -> None:
+        self.assertIsNotNone(endpoint_is_forbidden("http://169.254.169.254/latest/meta-data/"))
+        self.assertIsNotNone(endpoint_is_forbidden("https://169.254.169.254/latest/meta-data/"))
+        self.assertIsNone(endpoint_is_forbidden("https://example.invalid/v1"))
+
+    def test_private_api_profile_is_not_materialized(self) -> None:
+        settings = load(self.home)
+        settings["api_profiles"] = {
+            "lab": {
+                "endpoint": "http://169.254.169.254/",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "private",
+            }
+        }
+        result = materialize_api_profiles(self.home, settings)
+        self.assertEqual(result["created"], [])
+        self.assertTrue(any(row.get("reason") in {"private-endpoint-not-allowed", "private provider endpoint requires allow_private_endpoint", "cloud API routes require HTTPS"} for row in result["skipped"]))
+
+
+class GardenIdLockTests(IsolatedHomeTestCase):
+    def test_garden_id_is_locked_even_if_directory_is_renamed(self) -> None:
+        payload = discover(user_home=self.home)
+        record = dict(payload["skills"]["garden-web-design"])
+        record["directory"] = str(self.home / "InnocentSkill")
+        self.assertIsNone(verify_garden_lock(record))
+        record["file_sha256"] = "0" * 64
+        self.assertEqual(verify_garden_lock(record), "garden-lock-digest-mismatch")
+        record["file_sha256"] = payload["skills"]["garden-web-design"]["file_sha256"]
+        record["source_commit"] = ""
+        self.assertEqual(verify_garden_lock(record), "garden-lock-commit-mismatch")
 
 
 if __name__ == "__main__":

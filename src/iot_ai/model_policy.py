@@ -206,6 +206,8 @@ def select_candidates(
 
     materialize_api_profiles(user_home, document)
     routing = normalize_routing(document.get("routing"))
+    from .provider_catalog import apply_catalog_to_candidate
+
     ladders = rank_candidates(
         user_home,
         role_ids,
@@ -224,7 +226,8 @@ def select_candidates(
     for role_id in role_ids:
         binding = (routing.get("role_bindings") or {}).get(role_id) or {}
         role_allow_reuse = allow_reuse if binding.get("allow_reuse", True) else False
-        options = ladders.get(role_id, [])
+        options = [apply_catalog_to_candidate(row) for row in ladders.get(role_id, [])]
+        options = [row for row in options if not row.get("catalog_block")]
         scored: list[tuple[float, str, dict[str, Any]]] = []
         for candidate in options:
             candidate_id = str(candidate.get("candidate_id"))

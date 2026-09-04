@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from .minimum_change import assess_strategy, compile_contract
+from .minimum_change import assess_strategy, compile_contract  # PR #19 overlap: import only; do not edit that module.
 from .model_policy import clamp_effort
 from .settings_v2 import EFFORT_ORDER, resolve_effort
 
@@ -88,7 +88,23 @@ def evaluate_minimum_change_gate(
         "selected_rung": result.get("selected_rung"),
         "assessment_sha256": result.get("assessment_sha256"),
         "contract_sha256": result.get("contract_sha256"),
+        "context_digest": context_digest,
+        "acceptance": acceptance,
         "normalized": result.get("normalized"),
+    }
+
+
+def accepted_plan_allows_implement(accepted_plan: Mapping[str, Any] | None) -> dict[str, Any]:
+    accepted = dict(accepted_plan or {})
+    accepted_mncg = accepted.get("mncg") if isinstance(accepted.get("mncg"), Mapping) else accepted
+    if accepted.get("decision") == "accept" and accepted_mncg.get("valid"):
+        return {"valid": True, "decision": "pass", "errors": [], "selected_rung": accepted_mncg.get("selected_rung")}
+    return {
+        "valid": False,
+        "decision": "block",
+        "errors": ["accepted-plan-mncg-missing"],
+        "selected_rung": accepted_mncg.get("selected_rung") if isinstance(accepted_mncg, Mapping) else None,
+        "pre_dispatch": True,
     }
 
 
@@ -115,13 +131,15 @@ def bind_implementation_to_accepted_plan(
             "selected_rung": None,
         }
     impl = dict(implementation or {})
+    frozen_digest = accepted_mncg.get("context_digest") or context_digest
+    frozen_acceptance = str(accepted_mncg.get("acceptance") or acceptance)
     recomputed = evaluate_minimum_change_gate(
         impl,
         goal=goal,
         task_id=task_id,
         risk_class=risk_class,
-        acceptance=acceptance,
-        context_digest=context_digest,
+        acceptance=frozen_acceptance,
+        context_digest=frozen_digest,
         revision=revision,
     )
     errors = list(recomputed.get("errors") or [])
@@ -156,29 +174,25 @@ def resolve_dispatch_effort(
     row = dict(candidate or {})
     requested = str(row.get("requested_effort") or row.get("effective_effort") or node_effort or "medium")
     source = str(row.get("effort_source") or "candidate")
-    if row.get("effective_effort") in EFFORT_ORDER:
-        effective = str(row["effective_effort"])
-        clamp_reason = row.get("effort_clamp_reason")
-    else:
-        resolved = resolve_effort(
-            role_id=role_id or str(row.get("role_id") or ""),
-            provider=str(row.get("provider") or ""),
-            model=str(row.get("model") or ""),
-            routing=dict(routing or {}),
-            requested=requested,
-        )
-        effective = str(resolved["effective_value"])
-        clamp_reason = resolved.get("clamp_reason")
-        source = str(resolved.get("source_layer") or source)
-        if resolved.get("decision") == "block":
-            return {
-                "decision": "block",
-                "block_reason": resolved.get("block_reason") or "minimum-effort-unsatisfied",
-                "requested_effort": requested,
-                "effective_effort": effective,
-                "effort_source": source,
-                "clamp_reason": clamp_reason,
-            }
+    resolved = resolve_effort(
+        role_id=role_id or str(row.get("role_id") or ""),
+        provider=str(row.get("provider") or ""),
+        model=str(row.get("model") or ""),
+        routing=dict(routing or {}),
+        requested=requested,
+    )
+    effective = str(resolved["effective_value"] or row.get("effective_effort") or requested)
+    clamp_reason = resolved.get("clamp_reason") or row.get("effort_clamp_reason")
+    source = str(resolved.get("source_layer") or source)
+    if resolved.get("decision") == "block":
+        return {
+            "decision": "block",
+            "block_reason": resolved.get("block_reason") or "minimum-effort-unsatisfied",
+            "requested_effort": requested,
+            "effective_effort": effective,
+            "effort_source": source,
+            "clamp_reason": clamp_reason,
+        }
     capped, cap_reason = clamp_effort(effective, [item for item in EFFORT_ORDER if EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(max_effort if max_effort in EFFORT_ORDER else "medium")])
     if cap_reason:
         clamp_reason = f"{clamp_reason}; {cap_reason}" if clamp_reason else cap_reason
@@ -297,6 +311,8 @@ def finalize_skill_state(
         if privacy in {"D2", "D3"} and egress == "cloud" and row.get("id") in included:
             privacy_errors.append(f"cloud-egress-blocked:{row.get('id')}:{privacy}")
             cloud_checked = False
+            if row.get("id") in actually_used:
+                actually_used = [item for item in actually_used if item != row.get("id")]
     state = {
         "schema": SKILL_STATE_SCHEMA,
         "discovered": int(selection.get("discovered_count") or receipt.get("discovered_count") or 0),

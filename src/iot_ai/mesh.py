@@ -4,7 +4,6 @@
 # Version: 6.8.0-beta.2 | Date: 2026-08-21
 from __future__ import annotations
 
-import ipaddress
 import json
 import os
 import subprocess
@@ -19,7 +18,7 @@ from typing import Any
 
 from .exec_pin import pin_command, provider_env
 from .privacy import sanitize
-from .providers import eligible_routes
+from .providers import eligible_routes, host_requires_private_allow
 from .telemetry import record
 from .readiness import save_receipt
 
@@ -126,10 +125,7 @@ def _with_cli_identity_flags(provider: str, argv: list[str], effort: str = "medi
 
 
 def _is_private_host(host: str) -> bool:
-    try:
-        return ipaddress.ip_address(host).is_private
-    except ValueError:
-        return host.lower() in {"localhost"} or host.lower().endswith(".local")
+    return host_requires_private_allow(host)
 
 
 def _validate_endpoint(route: dict[str, Any]) -> str:

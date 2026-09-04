@@ -23,6 +23,7 @@ from .prompt_compiler import compile_prompt, validate_prompt
 from .paths import data_root
 from .roles import ROLE_CATALOG
 from .runtime_gates import (
+    accepted_plan_allows_implement,
     bind_implementation_to_accepted_plan,
     build_effort_receipt,
     evaluate_minimum_change_gate,
@@ -111,7 +112,7 @@ def _default_provider_executor(
     *,
     task_id: str | None = None,
     meeting_id: str | None = None,
-    max_effort: str = "xhigh",
+    max_effort: str = "medium",
 ) -> ProviderExecutor:
     """Create a role executor with explicit route decisions and binding checks."""
     recoverable = {
@@ -149,7 +150,9 @@ def _default_provider_executor(
                     }
                 },
             }
-        ladder = [primary, *list(primary.get("fallback_candidates") or [])]
+        from .provider_catalog import apply_catalog_to_candidate
+
+        ladder = [apply_catalog_to_candidate(row) for row in [primary, *list(primary.get("fallback_candidates") or [])]]
         primary_dispatch = resolve_dispatch_effort(
             primary,
             node_effort=node.effort,
@@ -200,6 +203,31 @@ def _default_provider_executor(
                     }
                 )
                 continue
+            if candidate.get("catalog_block"):
+                attempts.append(
+                    {
+                        "candidate_id": candidate.get("candidate_id"),
+                        "provider": candidate.get("provider"),
+                        "model_requested": candidate.get("requested_model") or candidate.get("model"),
+                        "status": "blocked",
+                        "failure_class": "catalog-model-blocked",
+                        "reasons": list(candidate.get("catalog_errors") or []),
+                    }
+                )
+                continue
+            skill_privacy = list(context.get("included_skill_privacy") or [])
+            candidate_cloud = bool(candidate.get("cloud", True))
+            if candidate_cloud and any(item in {"D2", "D3"} for item in skill_privacy):
+                attempts.append(
+                    {
+                        "candidate_id": candidate.get("candidate_id"),
+                        "provider": candidate.get("provider"),
+                        "model_requested": candidate.get("model"),
+                        "status": "blocked",
+                        "failure_class": "skill-cloud-egress-blocked",
+                    }
+                )
+                continue
             effective = str(dispatch.get("effective_effort") or node.effort)
             reason = dispatch.get("clamp_reason")
             try:
@@ -235,7 +263,7 @@ def _default_provider_executor(
                 dispatch=dispatch,
                 tool_decision=tool_decision,
                 adapter_request_effort=effective,
-                response={**result, "effort_effective": effective},
+                response=result,
             )
             result = {
                 **result,
@@ -822,6 +850,17 @@ def run_goal(
             "frozen_plan_digest": plan_digest,
             "effort": node.effort,
         }
+        if node.node_id == "implement":
+            accepted_plan = (inputs.get("final-plan-gate") or {}).get("output") or {}
+            pre_bind = accepted_plan_allows_implement(accepted_plan)
+            node_contract["accepted_mncg_rung"] = pre_bind.get("selected_rung")
+            if not pre_bind.get("valid"):
+                return {
+                    "status": "blocked",
+                    "failure_class": "implementation-not-bound-to-accepted-mncg",
+                    "output": {},
+                    "_runtime_decisions": {"mncg_writer_bind": pre_bind},
+                }
         primary_candidate = candidates.get(node.role_id) or {}
         egress = "local" if primary_candidate.get("provider") == "ollama" and not primary_candidate.get("cloud", True) else "cloud"
         runtime_settings = settings.get("agent_runtime", {})
@@ -851,6 +890,18 @@ def run_goal(
             egress=egress,
         )
         node_skills = {**node_skills, **finalized_skills}
+        skill_state = finalized_skills.get("skill_state") or {}
+        privacy_errors = list(((skill_state.get("privacy") or {}).get("errors") or []))
+        if privacy_errors and egress == "cloud":
+            return {
+                "status": "blocked",
+                "failure_class": "skill-cloud-egress-blocked",
+                "output": {},
+                "_runtime_decisions": {
+                    "skill_state": skill_state,
+                    "tool_decision": {"decision": "block", "reason": "cloud-egress-blocked"},
+                },
+            }
         context_validation = validate_context_manifest(context_manifest)
         node_runtime_root = runtime_root / node.node_id
         atomic_json(node_runtime_root / "context-manifest.json", context_manifest.to_dict(include_payloads=True))
@@ -932,6 +983,10 @@ def run_goal(
             "prompt_id": prompt_artifact.prompt_id,
             "prompt_sha256": prompt_artifact.sha256,
             "dependency_ids": list(inputs),
+            "included_skill_privacy": [
+                str(row.get("privacy_class") or "")
+                for row in (node_skills.get("selected") or [])
+            ],
         }
         value = provider_executor(node, prompt_artifact.text, provider_context)
         if not isinstance(value, dict):
@@ -989,7 +1044,8 @@ def run_goal(
                 goal=goal,
                 task_id=task_id,
                 risk_class=risk_class,
-                acceptance=goal,
+                acceptance=str((accepted.get("mncg") or {}).get("acceptance") or goal),
+                context_digest=str((accepted.get("mncg") or {}).get("context_digest") or accepted.get("plan_digest") or ""),
             )
             runtime_decisions["mncg_writer_bind"] = bind
             if not bind.get("valid"):

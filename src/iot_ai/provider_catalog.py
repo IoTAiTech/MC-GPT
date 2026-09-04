@@ -112,6 +112,50 @@ def resolve_model(
     return _result(provider, requested, served, errors, warnings, redirected_from, cleaned_sampling, client_product, client_version, merged)
 
 
+_CLIENT_PRODUCT = {
+    "claude": "claude-code",
+    "openai": "codex",
+    "codex": "codex",
+    "xai": "grok-cli",
+    "grok": "grok-cli",
+}
+
+
+def apply_catalog_to_candidate(candidate: dict[str, Any] | None) -> dict[str, Any]:
+    """Rewrite aliases/retirements and block entitled-limited models before dispatch."""
+
+    row = dict(candidate or {})
+    provider = str(row.get("provider") or "")
+    requested = str(row.get("model") or "")
+    if requested in {"", "auto", "auto:cloud"}:
+        return row
+    providers = load_catalog().get("providers") or {}
+    if provider not in providers:
+        return row
+    models = (providers.get(provider) or {}).get("models") or {}
+    if requested not in models:
+        return row
+    resolved = resolve_model(
+        provider,
+        requested,
+        client_product=_CLIENT_PRODUCT.get(provider),
+        limited_access=bool(row.get("limited_access")),
+    )
+    row["requested_model"] = requested
+    row["catalog"] = resolved
+    if resolved.get("decision") == "block":
+        row["catalog_block"] = True
+        row["catalog_errors"] = list(resolved.get("errors") or [])
+        return row
+    served = resolved.get("served_model")
+    if served:
+        row["model"] = served
+        row["served_model"] = served
+    row["catalog_block"] = False
+    row["multi_agent"] = bool(resolved.get("multi_agent") or row.get("multi_agent"))
+    return row
+
+
 def supported_matrix() -> dict[str, Any]:
     catalog = load_catalog()
     matrix: dict[str, Any] = {}

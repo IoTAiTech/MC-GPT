@@ -265,11 +265,22 @@ def garden_lock_path(packaged_root: Path | None = None) -> Path | None:
     return None
 
 
+def _is_garden_skill(record: dict[str, Any]) -> bool:
+    skill_id = str(record.get("id") or "").casefold()
+    directory = str(record.get("directory") or "").replace("\\", "/")
+    name = Path(directory).name.casefold()
+    return (
+        "garden-" in name
+        or "third-party/garden-" in directory.casefold()
+        or skill_id.startswith("garden-")
+        or "garden-" in skill_id
+    )
+
+
 def verify_garden_lock(record: dict[str, Any], *, packaged_root: Path | None = None) -> str | None:
     """Fail closed at load for Garden-derived packaged skills."""
 
-    directory = str(record.get("directory") or "").replace("\\", "/")
-    if "garden-" not in Path(directory).name and "third-party/garden-" not in directory:
+    if not _is_garden_skill(record):
         return None
     lock_file = garden_lock_path(packaged_root)
     if lock_file is None:
@@ -283,14 +294,23 @@ def verify_garden_lock(record: dict[str, Any], *, packaged_root: Path | None = N
     if lock.get("script_execution_policy") != "never":
         return "garden-lock-script-policy"
     files = {str(row.get("path")): row for row in lock.get("files") or [] if isinstance(row, dict)}
-    skill_name = Path(directory).name
-    row = next((item for path, item in files.items() if Path(path).parent.name == skill_name), None)
+    skill_name = Path(str(record.get("directory") or "")).name.casefold()
+    skill_id = str(record.get("id") or "").casefold()
+    row = next(
+        (
+            item
+            for path, item in files.items()
+            if Path(path).parent.name.casefold() in {skill_name, skill_id} or skill_id in path.casefold()
+        ),
+        None,
+    )
     if row is None:
         return "garden-lock-unlisted"
     if row.get("sha256") != record.get("file_sha256"):
         return "garden-lock-digest-mismatch"
     expected_commit = str(lock.get("upstream_commit") or "")
-    if expected_commit and record.get("source_commit") and record.get("source_commit") != expected_commit:
+    actual_commit = str(record.get("source_commit") or "")
+    if expected_commit and actual_commit != expected_commit:
         return "garden-lock-commit-mismatch"
     return None
 

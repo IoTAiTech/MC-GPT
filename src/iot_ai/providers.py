@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-09-04
 from __future__ import annotations
 
 import os
@@ -9,6 +9,8 @@ import shutil
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
+import ipaddress
+import socket
 from urllib.parse import parse_qs, urlparse
 
 from .exec_pin import pin_executable
@@ -129,7 +131,46 @@ def static_status(route: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
-def endpoint_is_forbidden(endpoint: str) -> str | None:
+def _ip_requires_private_allow(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return bool(
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+        or address.is_unspecified
+    )
+
+
+def host_requires_private_allow(host: str, *, resolve_dns: bool = True) -> bool:
+    raw = str(host or "").strip().strip("[]")
+    if not raw:
+        return True
+    lowered = raw.casefold()
+    if lowered in {"localhost", "metadata.google.internal", "metadata", "instance-data"} or lowered.endswith(
+        (".local", ".internal", ".localhost")
+    ):
+        return True
+    try:
+        return _ip_requires_private_allow(ipaddress.ip_address(raw.split("%")[0]))
+    except ValueError:
+        pass
+    if not resolve_dns:
+        return False
+    try:
+        for info in socket.getaddrinfo(raw, None):
+            ip = str(info[4][0]).split("%")[0]
+            try:
+                if _ip_requires_private_allow(ipaddress.ip_address(ip)):
+                    return True
+            except ValueError:
+                continue
+    except OSError:
+        return False
+    return False
+
+
+def endpoint_is_forbidden(endpoint: str, *, allow_private: bool = False) -> str | None:
     parsed = urlparse(endpoint)
     if parsed.username or parsed.password:
         return "endpoint must not contain embedded credentials"
@@ -141,6 +182,12 @@ def endpoint_is_forbidden(endpoint: str) -> str | None:
         lowered = name.lower()
         if any(item in lowered for item in secretish):
             return "endpoint must not contain query credentials"
+    if parsed.scheme not in {"https", "http"} or not parsed.hostname:
+        return "endpoint must be an http or https URL"
+    if parsed.scheme != "https" and not allow_private:
+        return "cloud API routes require HTTPS"
+    if host_requires_private_allow(parsed.hostname) and not allow_private:
+        return "private provider endpoint requires allow_private_endpoint"
     return None
 
 
@@ -221,7 +268,12 @@ def materialize_api_profiles(user_home: Path, settings: dict[str, Any] | None = 
         if not endpoint:
             skipped.append({"id": str(name), "reason": "endpoint-unresolved"})
             continue
-        forbidden = endpoint_is_forbidden(str(endpoint))
+        allow_private = bool(profile.get("allow_private_endpoint"))
+        classification = str(profile.get("classification") or "cloud")
+        if classification == "private" and not allow_private:
+            skipped.append({"id": str(name), "reason": "private-endpoint-not-allowed"})
+            continue
+        forbidden = endpoint_is_forbidden(str(endpoint), allow_private=allow_private)
         if forbidden:
             skipped.append({"id": str(name), "reason": forbidden})
             continue
@@ -236,7 +288,8 @@ def materialize_api_profiles(user_home: Path, settings: dict[str, Any] | None = 
             "models": list(profile.get("models") or []),
             "enabled": True,
             "priority": int(profile.get("priority") or 50),
-            "cloud": str(profile.get("classification") or "cloud") != "private",
+            "cloud": classification != "private",
+            "allow_private_endpoint": allow_private,
             "secret_env": profile.get("secret_env"),
             "source": "settings-api-profile",
         }
@@ -259,7 +312,10 @@ def add_route(user_home: Path, route: dict[str, Any], apply: bool = False) -> di
             raise ValueError("API routes require endpoint and protocol")
         if route.get("secret_value"):
             raise ValueError("secret values are forbidden; use secret_env")
-        forbidden = endpoint_is_forbidden(str(route.get("endpoint")))
+        forbidden = endpoint_is_forbidden(
+            str(route.get("endpoint")),
+            allow_private=bool(route.get("allow_private_endpoint")),
+        )
         if forbidden:
             raise ValueError(forbidden)
         if any(key in route for key in ("password", "api_key", "token", "secret")):

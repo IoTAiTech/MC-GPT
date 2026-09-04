@@ -6,6 +6,7 @@
 from __future__ import annotations
 import os
 from contextlib import contextmanager
+from contextvars import ContextVar
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterator
@@ -148,17 +149,21 @@ def load(
     return inject_v2(merged) if normalize else merged
 
 
+_SETTINGS_LOCK_HELD: ContextVar[bool] = ContextVar("iot_ai_settings_lock_held", default=False)
+
+
 def save(user_home: Path, value: dict[str, Any]) -> None:
     from .settings_v2 import assert_no_secrets, validate_settings_document
 
-    value = deepcopy(value)
-    assert_no_secrets(value)
-    _assert_extra_roots_confined(user_home, value)
-    check = validate_settings_document(value)
-    if check["decision"] != "pass":
-        raise ValueError("; ".join(check["errors"]))
-    value["updated_at"] = utc_now()
-    atomic_json(settings_path(user_home), value)
+    with exclusive_settings_lock(user_home):
+        value = deepcopy(value)
+        assert_no_secrets(value)
+        _assert_extra_roots_confined(user_home, value)
+        check = validate_settings_document(value)
+        if check["decision"] != "pass":
+            raise ValueError("; ".join(check["errors"]))
+        value["updated_at"] = utc_now()
+        atomic_json(settings_path(user_home), value)
 
 
 def _assert_extra_roots_confined(user_home: Path, value: dict[str, Any]) -> None:
@@ -248,10 +253,14 @@ def validate_settings(user_home: Path, value: dict[str, Any] | None = None) -> d
 
 @contextmanager
 def exclusive_settings_lock(user_home: Path) -> Iterator[None]:
+    if _SETTINGS_LOCK_HELD.get():
+        yield
+        return
     path = settings_path(user_home)
     path.parent.mkdir(parents=True, exist_ok=True)
     lock_path = path.with_name(path.name + ".lock")
     handle = open(lock_path, "a+b")
+    token = _SETTINGS_LOCK_HELD.set(True)
     try:
         handle.seek(0)
         if handle.read(1) == b"":
@@ -279,6 +288,7 @@ def exclusive_settings_lock(user_home: Path) -> Iterator[None]:
 
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         finally:
+            _SETTINGS_LOCK_HELD.reset(token)
             handle.close()
 
 
@@ -406,15 +416,16 @@ def apply_preset(user_home: Path, name: str, *, apply: bool = False) -> dict[str
         return result
     if not apply:
         return result
-    migrate = migrate_v1_to_v2(user_home, apply=True)
-    from .settings_v2 import SCHEMA_V2
+    with exclusive_settings_lock(user_home):
+        migrate = migrate_v1_to_v2(user_home, apply=True)
+        from .settings_v2 import SCHEMA_V2
 
-    on_disk = load(user_home, normalize=False)
-    proposed = apply_preset_overlay(on_disk, name)
-    proposed["schema"] = SCHEMA_V2
-    save(user_home, proposed)
-    result.update({"decision": "pass", "rollback_id": migrate.get("rollback_id"), "backup_path": migrate.get("backup_path")})
-    return result
+        on_disk = load(user_home, normalize=False)
+        proposed = apply_preset_overlay(on_disk, name)
+        proposed["schema"] = SCHEMA_V2
+        save(user_home, proposed)
+        result.update({"decision": "pass", "rollback_id": migrate.get("rollback_id"), "backup_path": migrate.get("backup_path")})
+        return result
 
 
 def set_role_binding(value: dict[str, Any], role_id: str, **fields: Any) -> dict[str, Any]:

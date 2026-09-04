@@ -627,6 +627,13 @@ class ProviderCatalogTests(IsolatedHomeTestCase):
         astra = apply_catalog_to_candidate({"provider": "openai", "model": "gpt-6-astra"})
         self.assertTrue(astra.get("catalog_block"))
         self.assertIn("limited-access-unentitled", astra.get("catalog_errors") or [])
+        evil = apply_catalog_to_candidate({"provider": "evil-provider", "model": "x", "risk_class": "R2"})
+        self.assertTrue(evil.get("catalog_block"))
+        self.assertIn("unknown-provider-capability", evil.get("catalog_errors") or [])
+        gemini = apply_catalog_to_candidate({"provider": "gemini", "model": "gemini-2.5-pro", "risk_class": "R2"})
+        self.assertFalse(gemini.get("catalog_block"))
+        ollama = apply_catalog_to_candidate({"provider": "ollama", "model": "gpt-oss:20b", "risk_class": "R2"})
+        self.assertFalse(ollama.get("catalog_block"))
 
 
 class EndpointSafetyTests(IsolatedHomeTestCase):
@@ -1032,6 +1039,72 @@ class GardenIdLockTests(IsolatedHomeTestCase):
         record["file_sha256"] = payload["skills"]["garden-web-design"]["file_sha256"]
         record["source_commit"] = ""
         self.assertEqual(verify_garden_lock(record), "garden-lock-commit-mismatch")
+
+    def test_garden_lock_uses_exact_skill_md_path(self) -> None:
+        payload = discover(user_home=self.home)
+        record = dict(payload["skills"]["garden-web-design"])
+        record["id"] = "garden-web-design-evil"
+        record["relative_path"] = "third-party/garden-web-design-evil"
+        self.assertEqual(verify_garden_lock(record), "garden-lock-unlisted")
+
+
+class UniqueSeatFollowupTests(IsolatedHomeTestCase):
+    def test_cli_save_passes_optimistic_concurrency(self) -> None:
+        from iot_ai import cli
+        from iot_ai.settings_v2 import sha256_json
+
+        original = load(self.home, normalize=False)
+        import sys
+        from io import StringIO
+
+        old = sys.stdout
+        sys.stdout = StringIO()
+        try:
+            rc = cli.main(["--home", str(self.home), "settings", "set", "routing.max_distinct_models", "7"])
+        finally:
+            sys.stdout = old
+        self.assertEqual(rc, 0)
+        updated = load(self.home, normalize=False)
+        self.assertEqual(int(updated["routing"]["max_distinct_models"]), 7)
+        self.assertNotEqual(sha256_json(original), sha256_json(updated))
+
+    def test_api_request_connects_to_pinned_ip(self) -> None:
+        import socket
+        from iot_ai import mesh
+
+        seen: dict[str, object] = {}
+
+        def fake_getaddrinfo(host, port, *args, **kwargs):
+            self.assertEqual(host, "example.invalid")
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", port))]
+
+        def fake_create_connection(address, timeout=None):
+            seen["address"] = address
+            raise OSError("stop-before-tls")
+
+        original_getaddrinfo = socket.getaddrinfo
+        original_create = socket.create_connection
+        socket.getaddrinfo = fake_getaddrinfo  # type: ignore[assignment]
+        socket.create_connection = fake_create_connection  # type: ignore[assignment]
+        try:
+            with self.assertRaises(RuntimeError):
+                mesh._api_request(
+                    {"endpoint": "https://example.invalid", "protocol": "openai-compatible", "cloud": True},
+                    "ping",
+                    "gpt-5.6-sol",
+                    2,
+                    effort="low",
+                )
+        finally:
+            socket.getaddrinfo = original_getaddrinfo
+            socket.create_connection = original_create
+        self.assertEqual(seen.get("address"), ("8.8.8.8", 443))
+
+    def test_cli_success_does_not_synthesize_model_served(self) -> None:
+        usage = {"model_served": None}
+        selected_model = "gpt-5.6"
+        self.assertIsNone(usage.get("model_served"))
+        self.assertNotEqual(selected_model, usage.get("model_served"))
 
 
 if __name__ == "__main__":

@@ -211,12 +211,13 @@ def select_candidates(
     max_providers: int | None = None,
     required_provider_families: list[str] | tuple[str, ...] | None = None,
     settings: dict[str, Any] | None = None,
+    risk_class: str | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Assign candidates to roles with diversity and an explicit fallback ladder."""
     document = settings if settings is not None else load_settings(user_home)
     routing = normalize_routing(document.get("routing"))
     selection_errors: list[dict[str, Any]] = []
-    from .provider_catalog import apply_catalog_to_candidate
+    from .provider_catalog import apply_catalog_to_candidate, normalize_provider
 
     ladders = rank_candidates(
         user_home,
@@ -236,7 +237,10 @@ def select_candidates(
     for role_id in role_ids:
         binding = (routing.get("role_bindings") or {}).get(role_id) or {}
         role_allow_reuse = allow_reuse if binding.get("allow_reuse", True) else False
-        options = [apply_catalog_to_candidate(row) for row in ladders.get(role_id, [])]
+        options = [
+            apply_catalog_to_candidate({**dict(row), "risk_class": row.get("risk_class") or risk_class})
+            for row in ladders.get(role_id, [])
+        ]
         options = [row for row in options if not row.get("catalog_block")]
         scored: list[tuple[float, str, dict[str, Any]]] = []
         for candidate in options:
@@ -370,6 +374,29 @@ def select_candidates(
                 if candidate.get("provider") in allowed_set
             ]
 
+    max_distinct_providers = int(routing.get("max_distinct_providers") or 16)
+    if max_distinct_providers > 0:
+        used_families: list[str] = []
+        for role_id in list(selected):
+            family = normalize_provider(str(selected[role_id].get("provider") or ""))
+            if family not in used_families and len(used_families) >= max_distinct_providers:
+                replacement = next(
+                    (
+                        candidate
+                        for candidate in ladders.get(role_id, [])
+                        if normalize_provider(str(candidate.get("provider") or "")) in used_families
+                    ),
+                    None,
+                )
+                if replacement is None:
+                    selection_errors.append({"code": "provider-cap-conflict", "role_id": role_id})
+                    selected.pop(role_id, None)
+                    continue
+                selected[role_id] = {**replacement, "selection_reason": "max-distinct-providers"}
+                family = normalize_provider(str(selected[role_id].get("provider") or ""))
+            if family not in used_families:
+                used_families.append(family)
+
     local_policy = str(routing.get("ollama", {}).get("local_policy") or "never")
     if local_policy in {"required", "only"}:
         local_options = [
@@ -440,8 +467,6 @@ def select_candidates(
         if role_id not in selected:
             selection_errors.append({"code": "required-role-unsatisfied", "role_id": role_id})
     if routing.get("require_provider_diversity") and len([role for role in role_ids if role in selected]) >= 2:
-        from .provider_catalog import normalize_provider
-
         families = {normalize_provider(str(row.get("provider") or "")) for row in selected.values()}
         families.discard("")
         if len(families) < 2:

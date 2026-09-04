@@ -20,6 +20,7 @@ DEFAULT_NAMESPACES = {
     "claude": "anthropic",
     "anthropic": "anthropic",
 }
+RUNTIME_WITHOUT_MODEL_CATALOG = frozenset({"gemini", "ollama"})
 _CLIENT_PRODUCT = {
     "claude": "claude-code",
     "anthropic": "claude-code",
@@ -98,13 +99,26 @@ def resolve_model(
     redirected_from = None
     providers = load_catalog().get("providers") or {}
     if catalog_provider not in providers:
-        if (risk_class or "") in GOVERNED_RISKS:
-            errors.append("unknown-provider-capability")
+        if catalog_provider in RUNTIME_WITHOUT_MODEL_CATALOG:
+            return _result(
+                runtime_provider,
+                catalog_provider,
+                requested_model,
+                canonical,
+                errors,
+                warnings,
+                redirected_from,
+                sampling,
+                client_product,
+                client_version,
+                None,
+            )
+        errors.append("unknown-provider-capability")
         return _result(
             runtime_provider,
             catalog_provider,
             requested_model,
-            canonical,
+            None,
             errors,
             warnings,
             redirected_from,
@@ -232,10 +246,16 @@ def resolve_model(
     )
 
 
-def apply_catalog_to_candidate(candidate: dict[str, Any] | None) -> dict[str, Any]:
+def apply_catalog_to_candidate(
+    candidate: dict[str, Any] | None,
+    *,
+    risk_class: str | None = None,
+) -> dict[str, Any]:
     """Attach catalog identity. Never populate model_served before a provider response."""
 
     row = dict(candidate or {})
+    if risk_class:
+        row["risk_class"] = risk_class
     runtime_provider = str(row.get("provider") or "")
     requested = str(row.get("model") or row.get("model_requested") or "")
     row["provider_family"] = normalize_provider(runtime_provider)

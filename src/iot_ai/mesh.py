@@ -4,8 +4,11 @@
 # Version: 6.8.0-beta.1 | Date: 2026-09-04
 from __future__ import annotations
 
+import http.client
 import json
 import os
+import socket
+import ssl
 import subprocess
 import time
 from datetime import datetime, timedelta, timezone
@@ -124,12 +127,9 @@ def _openai_reasoning_effort(effort: str, supported: list[str] | tuple[str, ...]
 def _pin_resolved_endpoint(url: str, *, allow_private: bool = False) -> list[str]:
     """Resolve destination IPs at connection time and reject rebinding/metadata."""
 
-    import socket
-    from urllib.parse import urlparse
-
     from .providers import host_is_never_allowed, host_requires_private_allow
 
-    parsed = urlparse(url)
+    parsed = urllib.parse.urlparse(url)
     host = parsed.hostname or ""
     if not host:
         raise RuntimeError("endpoint host is missing")
@@ -140,15 +140,74 @@ def _pin_resolved_endpoint(url: str, *, allow_private: bool = False) -> list[str
         raise RuntimeError("endpoint DNS resolution failed") from exc
     pinned: list[str] = []
     for info in infos:
-        ip = str(info[4][0])
+        ip = str(info[4][0]).split("%", 1)[0]
         if host_is_never_allowed(ip) or host_is_never_allowed(host):
             raise RuntimeError("metadata and link-local endpoints are forbidden")
         if host_requires_private_allow(ip) and not allow_private:
             raise RuntimeError("private provider endpoint requires allow_private_endpoint")
-        pinned.append(ip)
+        if ip not in pinned:
+            pinned.append(ip)
     if not pinned:
         raise RuntimeError("endpoint DNS resolution failed")
     return pinned
+
+
+def _open_pinned_request(
+    url: str,
+    data: bytes,
+    headers: dict[str, str],
+    timeout: int,
+    *,
+    allow_private: bool = False,
+) -> tuple[bytes, dict[str, str], list[str], str]:
+    """Connect to a pinned IP while keeping Host/SNI on the original hostname."""
+
+    parsed = urllib.parse.urlparse(url)
+    hostname = parsed.hostname or ""
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    pinned = _pin_resolved_endpoint(url, allow_private=allow_private)
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    req_headers = {str(key): str(value) for key, value in headers.items()}
+    req_headers["Host"] = hostname
+    last_error: Exception | None = None
+    for ip in pinned:
+        conn: http.client.HTTPConnection | None = None
+        try:
+            if parsed.scheme == "https":
+                context = ssl.create_default_context()
+                sock = socket.create_connection((ip, port), timeout=timeout)
+                try:
+                    wrapped = context.wrap_socket(sock, server_hostname=hostname)
+                except Exception:
+                    sock.close()
+                    raise
+                conn = http.client.HTTPSConnection(ip, port=port, timeout=timeout, context=context)
+                conn.sock = wrapped
+            else:
+                if not allow_private:
+                    raise RuntimeError("cloud API routes require HTTPS")
+                conn = http.client.HTTPConnection(ip, port=port, timeout=timeout)
+            conn.request("POST", path, body=data, headers=req_headers)
+            response = conn.getresponse()
+            raw = response.read(MAX_RESPONSE_BYTES + 1)
+            header_map = {str(key): str(value) for key, value in response.getheaders()}
+            if response.status >= 400:
+                raise urllib.error.HTTPError(url, response.status, response.reason, response.headers, None)
+            return raw, header_map, pinned, ip
+        except urllib.error.HTTPError:
+            raise
+        except (OSError, ssl.SSLError, http.client.HTTPException) as exc:
+            last_error = exc
+            continue
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except OSError:
+                    pass
+    raise RuntimeError(f"pinned endpoint connection failed: {last_error}")
 
 
 def _with_cli_identity_flags(provider: str, argv: list[str], effort: str = "medium") -> list[str]:
@@ -368,25 +427,24 @@ def _build_api_request(route: dict[str, Any], prompt: str, model: str, effort: s
 
 def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int, effort: str = "medium") -> dict[str, Any]:
     plan = _build_api_request(route, prompt, model, effort)
-    _pin_resolved_endpoint(plan["url"], allow_private=bool(route.get("allow_private_endpoint")))
-    request = urllib.request.Request(
+    raw, response_headers, pinned, connected_ip = _open_pinned_request(
         plan["url"],
-        data=json.dumps(plan["body"]).encode("utf-8"),
-        headers=plan["headers"],
-        method="POST",
+        json.dumps(plan["body"]).encode("utf-8"),
+        plan["headers"],
+        timeout,
+        allow_private=bool(route.get("allow_private_endpoint")),
     )
-    opener = urllib.request.build_opener(_NoRedirect())
-    with opener.open(request, timeout=timeout) as response:
-        raw = response.read(MAX_RESPONSE_BYTES + 1)
-        if len(raw) > MAX_RESPONSE_BYTES:
-            raise RuntimeError("provider response exceeds maximum size")
-        payload = json.loads(raw.decode("utf-8"))
-        return {
-            "payload": payload,
-            "headers": dict(response.headers.items()),
-            "effort": plan["effort"],
-            "adapter_request_effort": plan["effort"].get("effort_effective") if plan["effort"].get("effort_applied") else None,
-        }
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise RuntimeError("provider response exceeds maximum size")
+    payload = json.loads(raw.decode("utf-8"))
+    return {
+        "payload": payload,
+        "headers": response_headers,
+        "effort": plan["effort"],
+        "adapter_request_effort": plan["effort"].get("effort_effective") if plan["effort"].get("effort_applied") else None,
+        "pinned_ips": pinned,
+        "connected_ip": connected_ip,
+    }
 
 
 def _extract_cli_banner_model(text: str) -> str | None:
@@ -448,6 +506,7 @@ def delegate(
                     "provider": route.get("provider"),
                     "model": selected_model,
                     "requested_effort": route.get("effective_effort") or route.get("default_effort") or "medium",
+                    "risk_class": route.get("risk_class"),
                 }
             )
             route_effort = str(
@@ -562,11 +621,6 @@ def delegate(
                     failure_class = "auth"
                     if not exit_code:
                         exit_code = 1
-                # Ollama CLI executes the exact model supplied as an argv item.
-                # A successful non-empty `ollama run <exact-model>` call is
-                # therefore stronger evidence than a configured default and may
-                # bind the served-model receipt to that exact argument.  Auto
-                # selectors remain unverified and fail closed.
                 if (
                     route.get("provider") == "ollama"
                     and completed.returncode == 0
@@ -576,17 +630,9 @@ def delegate(
                 ):
                     usage["model_served"] = selected_model
                     usage["model_identity_source"] = "ollama-cli-exact-model-argument"
-                if completed.returncode == 0 and output.strip() and not usage.get("model_served") and route.get("kind") != "api":
-                    route_model = str(route.get("model") or "auto")
-                    if selected_model not in {"auto", "auto:cloud"}:
-                        usage["model_served"] = selected_model
-                        usage["model_identity_source"] = "cli-exact-model-argument"
-                    elif route_model not in {"auto", "auto:cloud", ""}:
-                        usage["model_served"] = route_model
-                        usage["model_identity_source"] = "cli-route-configured-model"
-                    else:
-                        usage["model_served"] = None
-                        usage["model_identity_source"] = "unverified-cli-success"
+                elif completed.returncode == 0 and output.strip() and not usage.get("model_served"):
+                    usage["model_served"] = None
+                    usage["model_identity_source"] = "unverified-cli-success"
                 status = "pass" if exit_code == 0 and output.strip() else "failed"
                 if exit_code != 0:
                     low = raw_output.lower()

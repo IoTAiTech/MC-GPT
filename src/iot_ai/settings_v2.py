@@ -118,6 +118,7 @@ ROUTING_DEFAULTS: dict[str, Any] = {
     "active_preset": "balanced",
     "provider_order": ["claude", "codex", "gemini", "grok", "ollama"],
     "max_distinct_models": 16,
+    "max_distinct_providers": 16,
     "max_candidates_per_role": 4,
     "require_provider_diversity": True,
     "model_allowlist": [],
@@ -324,6 +325,8 @@ def normalize_routing(raw: Any) -> dict[str, Any]:
         routing["provider_order"] = _as_str_list(raw.get("provider_order"), "routing.provider_order")
     if "max_distinct_models" in raw:
         routing["max_distinct_models"] = _as_int(raw["max_distinct_models"], "routing.max_distinct_models", minimum=1, maximum=64)
+    if "max_distinct_providers" in raw:
+        routing["max_distinct_providers"] = _as_int(raw["max_distinct_providers"], "routing.max_distinct_providers", minimum=1, maximum=64)
     if "max_candidates_per_role" in raw:
         routing["max_candidates_per_role"] = _as_int(raw["max_candidates_per_role"], "routing.max_candidates_per_role", minimum=1, maximum=16)
     if "require_provider_diversity" in raw:
@@ -652,6 +655,7 @@ def compute_effective(document: dict[str, Any], sources: dict[str, str] | None =
         "routing.active_preset": describe_field(routing["active_preset"], routing["active_preset"], sources.get("routing.active_preset", "built-in")),
         "routing.provider_order": describe_field(routing["provider_order"], routing["provider_order"], sources.get("routing.provider_order", "built-in")),
         "routing.max_distinct_models": describe_field(max_models_configured, max_models_effective, sources.get("routing.max_distinct_models", "built-in")),
+        "routing.max_distinct_providers": describe_field(routing["max_distinct_providers"], routing["max_distinct_providers"], sources.get("routing.max_distinct_providers", "built-in")),
         "routing.max_providers": describe_field(entitlement.max_providers, entitlement.max_providers, "entitlement", None, entitlement.max_providers),
         "routing.max_candidates_per_role": describe_field(routing["max_candidates_per_role"], routing["max_candidates_per_role"], sources.get("routing.max_candidates_per_role", "built-in")),
         "routing.require_provider_diversity": describe_field(routing["require_provider_diversity"], routing["require_provider_diversity"], sources.get("routing.require_provider_diversity", "built-in")),

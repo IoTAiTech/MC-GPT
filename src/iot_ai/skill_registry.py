@@ -311,10 +311,14 @@ def garden_lock_path(packaged_root: Path | None = None) -> Path | None:
     return None
 
 
+def _garden_lock_key(skill_id: str) -> str:
+    return f"skills/third-party/{str(skill_id or '').casefold()}/skill.md"
+
+
 def _is_garden_skill(record: dict[str, Any]) -> bool:
     skill_id = str(record.get("id") or "").casefold()
-    relative = str(record.get("relative_path") or "").replace("\\", "/").casefold()
-    return skill_id.startswith("garden-") or "/garden-" in f"/{relative}"
+    relative = str(record.get("relative_path") or "").replace("\\", "/").casefold().strip("/")
+    return relative in {f"third-party/{skill_id}", f"third-party/{skill_id}/skill.md", _garden_lock_key(skill_id)}
 
 
 def verify_garden_lock(record: dict[str, Any], *, packaged_root: Path | None = None) -> str | None:
@@ -335,11 +339,12 @@ def verify_garden_lock(record: dict[str, Any], *, packaged_root: Path | None = N
         return "garden-lock-script-policy"
     files = {str(row.get("path")): row for row in lock.get("files") or [] if isinstance(row, dict)}
     skill_id = str(record.get("id") or "").casefold()
+    expected = _garden_lock_key(skill_id)
     row = next(
         (
             item
             for path, item in files.items()
-            if Path(path).parent.name.casefold() == skill_id or path.replace("\\", "/").casefold().endswith(f"/{skill_id}/skill.md")
+            if path.replace("\\", "/").casefold() == expected
         ),
         None,
     )

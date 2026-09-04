@@ -33,7 +33,7 @@ from .runtime_gates import (
 from .settings import effective_settings, load as load_settings
 from .skill_router import context_blocks, detect_host_native_image_tool, is_visual_task, select_skills
 from .tool_router import build_tool_decision, validate_provider_binding
-from .visual_acceptance import evaluate_visual_acceptance
+from .visual_acceptance import UNAVAILABLE, evaluate_visual_acceptance
 from .transparency import record_disclosure, runtime_output_provenance
 from .util import atomic_json, utc_now
 from .workspace import append_event, connect_write, new_id, one
@@ -166,7 +166,10 @@ def _default_provider_executor(
             }
         from .provider_catalog import apply_catalog_to_candidate
 
-        ladder = [apply_catalog_to_candidate(row) for row in [primary, *list(primary.get("fallback_candidates") or [])]]
+        ladder = [
+            apply_catalog_to_candidate({**dict(row), "risk_class": row.get("risk_class") or graph.risk_class})
+            for row in [primary, *list(primary.get("fallback_candidates") or [])]
+        ]
         primary_dispatch = resolve_dispatch_effort(
             primary,
             node_effort=node.effort,
@@ -250,7 +253,7 @@ def _default_provider_executor(
                     str(candidate["provider"]),
                     prompt,
                     node.stage,
-                    model=str(candidate.get("model") or "auto"),
+                    model=str(candidate.get("canonical_target_model") or candidate.get("model") or "auto"),
                     auth_mode=str(candidate.get("auth_mode") or "auto"),
                     allow_fallback=False,
                     run_id=graph.graph_id,
@@ -578,6 +581,7 @@ def run_goal(
         max_providers=entitlements.max_providers,
         required_provider_families=required_provider_families,
         settings=settings,
+        risk_class=risk_class,
     )
     skill_selection = select_skills(
         user_home,
@@ -797,9 +801,9 @@ def run_goal(
                 if isinstance(inputs.get("implement", {}).get("parsed"), dict)
                 else None,
             )
-            hard_gates["visual_acceptance"] = visual.get("decision") in {"pass", "not-applicable", "VISUAL_ACCEPTANCE_TOOL_UNAVAILABLE"}
+            hard_gates["visual_acceptance"] = visual.get("decision") in {"pass", "not-applicable"}
             hard_gates["visual_acceptance_claim"] = bool(visual.get("visual_acceptance_claim"))
-            if visual.get("decision") == "block":
+            if visual.get("decision") in {"block", UNAVAILABLE}:
                 hard_gates["visual_acceptance"] = False
             decision = "accept" if all(value is True for key, value in hard_gates.items() if key != "visual_acceptance_claim") else "needs-review"
             return {

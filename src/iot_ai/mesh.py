@@ -18,7 +18,7 @@ from typing import Any
 
 from .exec_pin import pin_command, provider_env
 from .privacy import sanitize
-from .providers import eligible_routes, host_requires_private_allow
+from .providers import eligible_routes, host_is_never_allowed, host_requires_private_allow
 from .telemetry import record
 from .readiness import save_receipt
 
@@ -136,6 +136,8 @@ def _validate_endpoint(route: dict[str, Any]) -> str:
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise RuntimeError("provider endpoint must not contain credentials, query or fragment")
     is_private = _is_private_host(parsed.hostname)
+    if host_is_never_allowed(parsed.hostname):
+        raise RuntimeError("metadata and link-local endpoints are forbidden")
     if route.get("cloud", True) and parsed.scheme != "https":
         raise RuntimeError("cloud API routes require HTTPS")
     if is_private and not route.get("allow_private_endpoint", False):

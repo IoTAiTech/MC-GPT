@@ -131,28 +131,52 @@ def static_status(route: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
+_METADATA_HOSTS = frozenset(
+    {
+        "metadata",
+        "metadata.google.internal",
+        "instance-data",
+        "instance-data.ec2.internal",
+    }
+)
+_AWS_IMDS_V6 = ipaddress.ip_network("fd00:ec2::/32")
+_NEVER_ALLOW_REASON = "metadata and link-local endpoints are forbidden"
+
+
+def _canonical_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    mapped = getattr(address, "ipv4_mapped", None)
+    return mapped if mapped is not None else address
+
+
+def _ip_is_never_allowed(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    address = _canonical_ip(address)
+    if address.is_link_local or address.is_multicast or address.is_reserved or address.is_unspecified:
+        return True
+    if isinstance(address, ipaddress.IPv6Address) and address in _AWS_IMDS_V6:
+        return True
+    return False
+
+
 def _ip_requires_private_allow(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return bool(
-        address.is_private
-        or address.is_loopback
-        or address.is_link_local
-        or address.is_multicast
-        or address.is_reserved
-        or address.is_unspecified
-    )
+    address = _canonical_ip(address)
+    if _ip_is_never_allowed(address):
+        return True
+    return bool(address.is_private or address.is_loopback)
 
 
-def host_requires_private_allow(host: str, *, resolve_dns: bool = True) -> bool:
+def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
     raw = str(host or "").strip().strip("[]")
     if not raw:
         return True
     lowered = raw.casefold()
-    if lowered in {"localhost", "metadata.google.internal", "metadata", "instance-data"} or lowered.endswith(
-        (".local", ".internal", ".localhost")
-    ):
+    if never_allowed:
+        if lowered in _METADATA_HOSTS:
+            return True
+    elif lowered in {"localhost"} or lowered.endswith((".local", ".internal", ".localhost")) or lowered in _METADATA_HOSTS:
         return True
     try:
-        return _ip_requires_private_allow(ipaddress.ip_address(raw.split("%")[0]))
+        address = ipaddress.ip_address(raw.split("%")[0])
+        return _ip_is_never_allowed(address) if never_allowed else _ip_requires_private_allow(address)
     except ValueError:
         pass
     if not resolve_dns:
@@ -161,13 +185,26 @@ def host_requires_private_allow(host: str, *, resolve_dns: bool = True) -> bool:
         for info in socket.getaddrinfo(raw, None):
             ip = str(info[4][0]).split("%")[0]
             try:
-                if _ip_requires_private_allow(ipaddress.ip_address(ip)):
+                address = ipaddress.ip_address(ip)
+                if _ip_is_never_allowed(address) if never_allowed else _ip_requires_private_allow(address):
                     return True
             except ValueError:
                 continue
     except OSError:
         return False
     return False
+
+
+def host_is_never_allowed(host: str, *, resolve_dns: bool = True) -> bool:
+    """Link-local, metadata, multicast, reserved, and AWS IMDS hosts cannot be opted in."""
+
+    return _host_matches(host, never_allowed=True, resolve_dns=resolve_dns)
+
+
+def host_requires_private_allow(host: str, *, resolve_dns: bool = True) -> bool:
+    if host_is_never_allowed(host, resolve_dns=resolve_dns):
+        return True
+    return _host_matches(host, never_allowed=False, resolve_dns=resolve_dns)
 
 
 def endpoint_is_forbidden(endpoint: str, *, allow_private: bool = False) -> str | None:
@@ -184,6 +221,8 @@ def endpoint_is_forbidden(endpoint: str, *, allow_private: bool = False) -> str 
             return "endpoint must not contain query credentials"
     if parsed.scheme not in {"https", "http"} or not parsed.hostname:
         return "endpoint must be an http or https URL"
+    if host_is_never_allowed(parsed.hostname):
+        return _NEVER_ALLOW_REASON
     if parsed.scheme != "https" and not allow_private:
         return "cloud API routes require HTTPS"
     if host_requires_private_allow(parsed.hostname) and not allow_private:

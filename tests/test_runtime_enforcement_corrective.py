@@ -9,7 +9,14 @@ from pathlib import Path
 
 from iot_ai.minimum_change import NON_NEGOTIABLE_CONTROLS, RUNG_DEFINITIONS, ZERO_DEFAULT_BUDGETS
 from iot_ai.provider_catalog import apply_catalog_to_candidate, catalog_version, resolve_model, source_dates, supported_matrix
-from iot_ai.providers import eligible_routes, endpoint_is_forbidden, materialize_api_profiles
+from iot_ai.mesh import _validate_endpoint
+from iot_ai.providers import (
+    add_route,
+    eligible_routes,
+    endpoint_is_forbidden,
+    host_is_never_allowed,
+    materialize_api_profiles,
+)
 from iot_ai.runtime_gates import (
     accepted_plan_allows_implement,
     bind_implementation_to_accepted_plan,
@@ -413,6 +420,25 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         self.assertIsNotNone(endpoint_is_forbidden("https://169.254.169.254/latest/meta-data/"))
         self.assertIsNone(endpoint_is_forbidden("https://example.invalid/v1"))
 
+    def test_allow_private_cannot_opt_in_metadata(self) -> None:
+        imds = "http://169.254.169.254/latest/meta-data/"
+        https_imds = "https://169.254.169.254/latest/meta-data/"
+        mapped = "https://[::ffff:169.254.169.254]/"
+        google = "https://metadata.google.internal/"
+        aws_v6 = "https://[fd00:ec2::254]/"
+        for endpoint in (imds, https_imds, mapped, google, aws_v6):
+            self.assertEqual(
+                endpoint_is_forbidden(endpoint, allow_private=True),
+                "metadata and link-local endpoints are forbidden",
+                endpoint,
+            )
+        self.assertTrue(host_is_never_allowed("169.254.169.254"))
+        self.assertTrue(host_is_never_allowed("metadata.google.internal"))
+        self.assertTrue(host_is_never_allowed("fd00:ec2::254"))
+        rfc1918 = ".".join(("10", "0", "0", "8"))
+        self.assertFalse(host_is_never_allowed(rfc1918))
+        self.assertIsNone(endpoint_is_forbidden("https://" + rfc1918 + "/v1", allow_private=True))
+
     def test_private_api_profile_is_not_materialized(self) -> None:
         settings = load(self.home)
         settings["api_profiles"] = {
@@ -426,7 +452,47 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         }
         result = materialize_api_profiles(self.home, settings)
         self.assertEqual(result["created"], [])
-        self.assertTrue(any(row.get("reason") in {"private-endpoint-not-allowed", "private provider endpoint requires allow_private_endpoint", "cloud API routes require HTTPS"} for row in result["skipped"]))
+        self.assertTrue(any(row.get("reason") in {"private-endpoint-not-allowed", "private provider endpoint requires allow_private_endpoint", "cloud API routes require HTTPS", "metadata and link-local endpoints are forbidden"} for row in result["skipped"]))
+
+    def test_allow_private_profile_still_skips_imds(self) -> None:
+        settings = load(self.home)
+        settings["api_profiles"] = {
+            "imds": {
+                "endpoint": "http://169.254.169.254/latest/meta-data/",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "private",
+                "allow_private_endpoint": True,
+            }
+        }
+        result = materialize_api_profiles(self.home, settings)
+        self.assertEqual(result["created"], [])
+        self.assertTrue(
+            any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in result["skipped"])
+        )
+        with self.assertRaisesRegex(ValueError, "metadata and link-local"):
+            add_route(
+                self.home,
+                {
+                    "route_id": "imds-direct",
+                    "provider": "ollama",
+                    "kind": "api",
+                    "endpoint": "https://169.254.169.254/latest/meta-data/",
+                    "protocol": "openai-compatible",
+                    "allow_private_endpoint": True,
+                    "cloud": False,
+                },
+                apply=True,
+            )
+        with self.assertRaisesRegex(RuntimeError, "metadata and link-local"):
+            _validate_endpoint(
+                {
+                    "endpoint": "https://169.254.169.254/latest/meta-data/",
+                    "cloud": False,
+                    "allow_private_endpoint": True,
+                }
+            )
 
 
 class GardenIdLockTests(IsolatedHomeTestCase):

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import unicodedata
 from copy import deepcopy
@@ -151,6 +152,7 @@ _CLOUD_IMDS_V4 = frozenset(
         ipaddress.IPv4Address("168.63.129.16"),
     }
 )
+_IPV4_LABELS = re.compile(r"(?<!\d)(\d{1,3}(?:\.\d{1,3}){3})(?!\d)")
 
 
 def _canonical_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
@@ -192,6 +194,21 @@ def _normalize_host(host: str) -> str:
     return raw.rstrip(".")
 
 
+def _host_has_forbidden_chars(raw: str) -> bool:
+    return any(ord(ch) < 33 or ch in "/\\" for ch in raw)
+
+
+def _contains_never_allow_ipv4(raw: str) -> bool:
+    for match in _IPV4_LABELS.finditer(raw):
+        try:
+            address = ipaddress.IPv4Address(match.group(1))
+        except ValueError:
+            continue
+        if _ip_is_never_allowed(address):
+            return True
+    return False
+
+
 def _leading_ipv4(raw: str) -> ipaddress.IPv4Address | None:
     labels = raw.split(".")
     if len(labels) < 4 or not all(part.isdigit() for part in labels[:4]):
@@ -205,6 +222,8 @@ def _leading_ipv4(raw: str) -> ipaddress.IPv4Address | None:
 def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
     raw = _normalize_host(host)
     if not raw:
+        return True
+    if _host_has_forbidden_chars(raw) or _contains_never_allow_ipv4(raw):
         return True
     leading = _leading_ipv4(raw)
     if leading is not None and _ip_is_never_allowed(leading):

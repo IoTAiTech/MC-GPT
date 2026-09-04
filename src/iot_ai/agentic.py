@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.8.0-beta.1 | Date: 2026-09-04
+# Version: 6.8.0-beta.1 | Date: 2026-09-05
 """Primary natural-language workflow backed by immutable roles and a DAG."""
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any, Callable
 
@@ -33,10 +34,10 @@ from .runtime_gates import (
 from .settings import effective_settings, load as load_settings
 from .skill_router import context_blocks, detect_host_native_image_tool, is_visual_task, select_skills
 from .tool_router import build_tool_decision, validate_provider_binding
-from .visual_acceptance import UNAVAILABLE, evaluate_visual_acceptance
+from .visual_acceptance import UNAVAILABLE, evaluate_visual_acceptance, run_visual_acceptance
 from .transparency import record_disclosure, runtime_output_provenance
-from .util import atomic_json, utc_now
-from .workspace import append_event, connect_write, new_id, one
+from .util import atomic_json, utc_now, open_secure
+from .workspace import append_event, connect_read, connect_write, new_id, one
 
 ProviderExecutor = Callable[[GraphNode, str, dict[str, Any]], dict[str, Any]]
 
@@ -70,18 +71,45 @@ def _parse_model_output(text: str) -> dict[str, Any]:
     }
 
 
-def _task_revision(user_home: Path, task_id: str) -> int:
-    connection = connect_write(user_home)
+def _task_authority(user_home: Path, task_id: str, graph_id: str) -> dict[str, Any]:
+    """Read current Community authority, without opening or initializing a writer."""
+    connection = connect_read(user_home)
+    if connection is None:
+        raise ValueError("current-task-authority-unavailable")
     try:
-        row = one(connection, "SELECT revision FROM tasks WHERE id=?", (task_id,))
+        row = one(connection, "SELECT id,revision,description,title,acceptance_criteria,risk_class,source_id FROM tasks WHERE id=?", (task_id,))
     finally:
         connection.close()
-    if not row:
-        return 1
+    if (not row or row.get("source_id") != graph_id or isinstance(row.get("revision"), bool)
+            or not isinstance(row.get("revision"), int) or row["revision"] < 1):
+        raise ValueError("current-task-authority-mismatch")
+    return {"task_id": row["id"], "revision": row["revision"],
+            "goal": row["description"] or row["title"],
+            "acceptance": row["acceptance_criteria"], "risk_class": row["risk_class"]}
+
+
+def _stored_plan_digest(user_home: Path, graph_id: str) -> str | None:
+    connection = connect_read(user_home)
+    if connection is None:
+        return None
     try:
-        return int(row.get("revision") or 1)
-    except (TypeError, ValueError):
-        return 1
+        row = one(connection, "SELECT output_sha256 FROM graph_nodes WHERE graph_id=? AND id='final-plan-gate' AND node_type='deterministic' AND status='pass'", (graph_id,))
+        return row["output_sha256"] if row else None
+    finally:
+        connection.close()
+
+
+def _planning_context_digest(runtime_root: Path, accepted: dict[str, Any]) -> str:
+    name = "plan-revision" if accepted.get("selected_round") == 2 else "plan-synthesis"
+    with open_secure(runtime_root / name / "context-manifest.json", runtime_root, max_bytes=2_000_000) as stream:
+        manifest = json.load(stream)
+    body = {key: value for key, value in manifest.items()
+            if key not in {"context_id", "created_at", "digest", "decision", "blockers"}}
+    digest = hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False,
+        separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+    if manifest.get("digest") != digest or manifest.get("node_id") != name or manifest.get("decision") != "pass":
+        raise ValueError("planning-context-integrity-mismatch")
+    return digest
 
 
 def _five_w_one_h(goal: str) -> dict[str, str]:
@@ -714,12 +742,8 @@ def run_goal(
             )
             mncg = evaluate_minimum_change_gate(
                 synthesis,
-                goal=goal,
-                task_id=task_id,
-                risk_class=risk_class,
-                acceptance=acceptance or goal,
+                **_task_authority(user_home, task_id, graph.graph_id),
                 context_digest=synthesis_context,
-                revision=_task_revision(user_home, task_id),
             )
             hard_gates["minimum_change_assessment_valid"] = bool(mncg.get("valid"))
             decision = "accept" if all(hard_gates.values()) else "needs-review"
@@ -794,13 +818,19 @@ def run_goal(
                     "no_active_failure": result_status(inputs) == "pass",
                 }
             skills_cfg = settings.get("skills") or {}
-            visual = evaluate_visual_acceptance(
-                visual_task=is_visual_task(goal),
-                require_browser_acceptance=bool(skills_cfg.get("require_browser_acceptance")),
-                evidence=(inputs.get("implement", {}).get("parsed") or {}).get("visual_evidence")
-                if isinstance(inputs.get("implement", {}).get("parsed"), dict)
-                else None,
-            )
+            visual_required = bool(execute and is_visual_task(goal) and skills_cfg.get("require_browser_acceptance"))
+            # Source scope comes from the operator environment, never a model payload.
+            visual_root = os.environ.get("IOT_AI_VISUAL_SOURCE_ROOT")
+            if visual_required and visual_root:
+                visual = run_visual_acceptance(
+                    source_root=Path(visual_root), entry=os.environ.get("IOT_AI_VISUAL_ENTRY", "index.html"),
+                    artifact_parent=runtime_root, run_id=graph.graph_id,
+                )
+            else:
+                visual = evaluate_visual_acceptance(
+                    visual_task=visual_required, require_browser_acceptance=visual_required,
+                    tool_available=False if visual_required else None,
+                )
             hard_gates["visual_acceptance"] = visual.get("decision") in {"pass", "not-applicable"}
             hard_gates["visual_acceptance_claim"] = bool(visual.get("visual_acceptance_claim"))
             if visual.get("decision") in {"block", UNAVAILABLE}:
@@ -877,8 +907,21 @@ def run_goal(
         }
         if node.node_id == "implement":
             accepted_plan = (inputs.get("final-plan-gate") or {}).get("output") or {}
-            pre_bind = accepted_plan_allows_implement(accepted_plan)
+            pre_bind = accepted_plan_allows_implement(
+                accepted_plan, persisted_output_sha256=_stored_plan_digest(user_home, graph.graph_id)
+            )
+            if pre_bind.get("valid"):
+                try:
+                    pre_bind = bind_implementation_to_accepted_plan(
+                        {"minimum_change_assessment": accepted_plan["mncg"]["normalized"]},
+                        accepted_plan, **_task_authority(user_home, task_id, graph.graph_id),
+                        context_digest=_planning_context_digest(runtime_root, accepted_plan),
+                    )
+                except (OSError, ValueError, TypeError, KeyError):
+                    pre_bind = {"valid": False, "errors": ["current-authority-or-plan-context-unavailable"]}
             node_contract["accepted_mncg_rung"] = pre_bind.get("selected_rung")
+            node_contract["accepted_mncg_assessment"] = (accepted_plan.get("mncg") or {}).get("normalized")
+            node_contract["accepted_mncg_assessment_sha256"] = (accepted_plan.get("mncg") or {}).get("assessment_sha256")
             if not pre_bind.get("valid"):
                 return {
                     "status": "blocked",
@@ -1063,7 +1106,7 @@ def run_goal(
             ).hexdigest()
         if isinstance(value, dict):
             value["context_digest"] = context_manifest.digest
-            value["task_revision"] = _task_revision(user_home, task_id)
+            value["task_revision"] = _task_authority(user_home, task_id, graph.graph_id)["revision"]
         runtime_decisions["skill_state"] = (node_skills.get("skill_state") or (node_skills.get("receipt") or {}).get("skill_state"))
         runtime_decisions.setdefault(
             "context_decision",
@@ -1075,17 +1118,20 @@ def run_goal(
         )
         if node.node_id == "implement":
             accepted = (inputs.get("final-plan-gate") or {}).get("output") or {}
-            bind = bind_implementation_to_accepted_plan(
-                parsed,
-                accepted,
-                goal=goal,
-                task_id=task_id,
-                risk_class=risk_class,
-                acceptance=str((accepted.get("mncg") or {}).get("acceptance") or goal),
-                context_digest=str((accepted.get("mncg") or {}).get("context_digest") or ""),
-                revision=int((accepted.get("mncg") or {}).get("task_revision") or _task_revision(user_home, task_id)),
-            )
-            runtime_decisions["mncg_writer_bind"] = bind
+            try:
+                bind = bind_implementation_to_accepted_plan(
+                    parsed, accepted,
+                    **_task_authority(user_home, task_id, graph.graph_id),
+                    context_digest=_planning_context_digest(runtime_root, accepted),
+                )
+            except (OSError, ValueError, TypeError, KeyError):
+                bind = {"valid": False, "errors": ["current-authority-or-plan-context-unavailable"]}
+            binding_receipt = {key: bind.get(key) for key in (
+                "valid", "decision", "errors", "selected_rung", "accepted_rung",
+                "task_revision", "context_digest", "contract_sha256", "assessment_sha256",
+            )}
+            value["mncg_writer_bind"] = binding_receipt
+            runtime_decisions.setdefault("validation_decision", {})["mncg_writer_bind"] = binding_receipt
             if not bind.get("valid"):
                 value["status"] = "blocked"
                 value["failure_class"] = "implementation-not-bound-to-accepted-mncg"

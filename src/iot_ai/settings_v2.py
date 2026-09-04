@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.8.0-beta.1 | Date: 2026-09-04
+# Version: 6.8.0-beta.1 | Date: 2026-09-05
 """Settings v2 helper for the single settings authority in settings.py.
 
 This module is not a second settings store. load/save remain in settings.py.
@@ -22,7 +22,7 @@ SCHEMA_V2 = "iot-ai.settings.v2"
 ROUTER_VERSION = "1.0.0"
 OLLAMA_POLICIES = ("never", "fallback", "prefer", "required", "only")
 EFFORT_ORDER = ("none", "low", "medium", "high", "xhigh", "max")
-SETTINGS_EFFORT_VALUES = ("low", "medium", "high", "xhigh")
+SETTINGS_EFFORT_VALUES = EFFORT_ORDER
 GOVERNED_TOP_LEVEL = frozenset(
     {
         "schema",
@@ -586,50 +586,34 @@ def resolve_effort(
         configured = requested
         source = "requested"
     entitlement = current_entitlements()
-    effective, entitlement_reason = _clamp_effort(str(configured), entitlement.max_effort)
-    clamp_reason = entitlement_reason
-    entitlement_limit = entitlement.max_effort
-    policy_limit = None
-    if supported:
-        allowed = [item for item in supported if item in EFFORT_ORDER]
-        if allowed and effective not in allowed:
-            idx = EFFORT_ORDER.index(effective)
-            lower = [item for item in allowed if EFFORT_ORDER.index(item) <= idx]
-            previous = effective
-            effective = max(lower, key=EFFORT_ORDER.index) if lower else min(allowed, key=EFFORT_ORDER.index)
-            policy_limit = ",".join(allowed)
-            extra = f"provider-supported effort clamped {previous} to {effective}"
-            clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
-    decision = "pass"
-    block_reason = None
-    if isinstance(binding, dict) and binding.get("minimum_effort"):
-        minimum = binding["minimum_effort"]
-        if EFFORT_ORDER.index(effective) < EFFORT_ORDER.index(minimum):
-            entitlement_ok = EFFORT_ORDER.index(minimum) <= EFFORT_ORDER.index(entitlement.max_effort)
-            supported_ok = True
-            if supported:
-                allowed = [item for item in supported if item in EFFORT_ORDER]
-                supported_ok = minimum in allowed
-            if entitlement_ok and supported_ok:
-                previous = effective
-                effective = minimum
-                extra = f"raised to role minimum {minimum} from {previous}"
-                clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
-            else:
-                extra = "minimum-effort-unsatisfied"
-                clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
-                decision = "block"
-                block_reason = "minimum-effort-unsatisfied"
+    ceiling = entitlement.max_effort
+    minimum = (binding.get("minimum_effort") or "none") if isinstance(binding, dict) else "none"
+    error = None
+    if configured not in EFFORT_ORDER or ceiling not in EFFORT_ORDER or minimum not in EFFORT_ORDER:
+        error = "effort-policy-value-invalid"
+    if supported is not None and (not isinstance(supported, (list, tuple))
+            or not supported or any(not isinstance(v, str) or v not in EFFORT_ORDER for v in supported)):
+        error = "provider-effort-capabilities-invalid"
+    allowed = [] if error else [value for value in EFFORT_ORDER
+        if EFFORT_ORDER.index(minimum) <= EFFORT_ORDER.index(value) <= EFFORT_ORDER.index(ceiling)
+        and (supported is None or value in supported)]
+    if not allowed:
+        error = error or ("minimum-effort-unsatisfied" if minimum != "none" else "effort-policy-intersection-empty")
+    effective = None
+    if not error:
+        lower = [value for value in allowed if EFFORT_ORDER.index(value) <= EFFORT_ORDER.index(configured)]
+        effective = lower[-1] if lower else allowed[0]
     return {
-        "configured_value": configured,
-        "effective_value": effective,
+        "configured_value": configured, "effective_value": effective,
         "source_layer": source,
-        "clamp_reason": clamp_reason,
-        "entitlement_limit": entitlement_limit,
-        "policy_limit": policy_limit,
+        "clamp_reason": error or (
+            f"requested {configured} exceeds {ceiling}; policy-intersection"
+            if effective != configured and EFFORT_ORDER.index(configured) > EFFORT_ORDER.index(ceiling)
+            else "policy-intersection" if effective != configured else None),
+        "entitlement_limit": ceiling,
+        "policy_limit": ",".join(allowed), "allowed_efforts": allowed,
         "requested_effort": requested or configured,
-        "decision": decision,
-        "block_reason": block_reason,
+        "decision": "block" if error else "pass", "block_reason": error,
     }
 
 

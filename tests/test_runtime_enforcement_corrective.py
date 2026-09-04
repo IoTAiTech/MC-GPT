@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import os
+import socket
+from unittest.mock import patch
 from pathlib import Path
 
 from iot_ai.minimum_change import NON_NEGOTIABLE_CONTROLS, RUNG_DEFINITIONS, ZERO_DEFAULT_BUDGETS
@@ -163,7 +165,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         self.assertFalse(bind["valid"])
         self.assertTrue(any("drift" in item or "delta" in item for item in bind["errors"]))
 
-    def test_bind_reuses_accepted_context_digest(self) -> None:
+    def test_bind_rejects_missing_current_context_digest(self) -> None:
         accepted = evaluate_minimum_change_gate(
             {"minimum_change_assessment": passing_assessment("standard-library")},
             goal="Export inventory",
@@ -181,8 +183,8 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
             acceptance="Tests pass.",
             context_digest=None,
         )
-        self.assertTrue(bind["valid"])
-        self.assertEqual(bind["contract_sha256"], accepted["contract_sha256"])
+        self.assertFalse(bind["valid"])
+        self.assertIn("minimum-change-context-mismatch", bind["errors"])
 
     def test_pre_dispatch_requires_accepted_plan(self) -> None:
         blocked = accepted_plan_allows_implement({"decision": "needs-review", "mncg": {"valid": False}})
@@ -191,7 +193,8 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         allowed = accepted_plan_allows_implement(
             {"decision": "accept", "mncg": {"valid": True, "selected_rung": "standard-library"}}
         )
-        self.assertTrue(allowed["valid"])
+        self.assertFalse(allowed["valid"])
+        self.assertIn("accepted-plan-not-in-managed-store", allowed["errors"])
 
 
 class EffortReceiptTests(IsolatedHomeTestCase):
@@ -241,7 +244,8 @@ class EffortReceiptTests(IsolatedHomeTestCase):
         self.assertEqual(community_ok["decision"], "pass")
         self.assertEqual(community_ok["effective_value"], "medium")
 
-    def test_api_adapter_request_carries_effective_effort(self) -> None:
+    @patch("socket.getaddrinfo", side_effect=socket.gaierror("reserved test domain"))
+    def test_api_adapter_request_carries_effective_effort(self, _dns) -> None:
         route = {
             "endpoint": "https://example.invalid",
             "protocol": "openai-compatible",
@@ -493,9 +497,9 @@ class VisualAcceptanceTests(IsolatedHomeTestCase):
                 "browser_version": "test-runner",
             },
         )
-        self.assertEqual(passed["decision"], "pass")
-        self.assertTrue(passed["visual_acceptance_claim"])
-        self.assertEqual(passed["recomputed_screenshot_sha256"], digests)
+        self.assertEqual(passed["decision"], "block")
+        self.assertFalse(passed["visual_acceptance_claim"])
+        self.assertIn("orchestrator-run-receipt-required", passed["missing"])
 
 
 class GardenLockLoadTests(IsolatedHomeTestCase):

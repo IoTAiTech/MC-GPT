@@ -145,7 +145,20 @@ _METADATA_HOSTS = frozenset(
 _AWS_IMDS_V6 = ipaddress.ip_network("fd00:ec2::/32")
 _NEVER_ALLOW_REASON = "metadata and link-local endpoints are forbidden"
 _DOT_STRIP = ".\u3002\uff0e\u2024\uff61"
-_DOT_SEPARATORS = ("\u3002", "\uff0e", "\u2024", "\uff61")
+_DOT_SEPARATORS = (
+    "\u3002",
+    "\uff0e",
+    "\u2024",
+    "\uff61",
+    "\u00b7",
+    "\u2022",
+    "\u2027",
+    "\u2219",
+    "\u22c5",
+    "\u30fb",
+    "\uff65",
+)
+_HYPHEN_IPV4_RUN = re.compile(r"(?<![\dA-Fa-f])(\d{1,10}(?:-\d{1,10}){1,3})(?![\dA-Fa-f])")
 _CLOUD_IMDS_V4 = frozenset(
     {
         ipaddress.IPv4Address("169.254.169.254"),
@@ -230,6 +243,13 @@ def _ipv4s_from_hostname(raw: str) -> list[ipaddress.IPv4Address]:
     values = [_parse_numeric_label(part) for part in labels]
     found: list[ipaddress.IPv4Address] = []
     seen: set[ipaddress.IPv4Address] = set()
+
+    def remember(address: ipaddress.IPv4Address | None) -> None:
+        if address is None or address in seen:
+            return
+        seen.add(address)
+        found.append(address)
+
     index = 0
     while index < len(values):
         if values[index] is None:
@@ -239,13 +259,6 @@ def _ipv4s_from_hostname(raw: str) -> list[ipaddress.IPv4Address]:
         while end < len(values) and values[end] is not None:
             end += 1
         run = [int(item) for item in values[index:end]]
-
-        def remember(address: ipaddress.IPv4Address | None) -> None:
-            if address is None or address in seen:
-                return
-            seen.add(address)
-            found.append(address)
-
         skip_short: set[int] = set()
         for start in range(0, len(run) - 3):
             address = _ipv4_from_numeric_parts(run[start : start + 4])
@@ -268,6 +281,11 @@ def _ipv4s_from_hostname(raw: str) -> list[ipaddress.IPv4Address]:
         if len(run) == 1:
             remember(_ipv4_from_numeric_parts(run))
         index = end
+    for match in _HYPHEN_IPV4_RUN.finditer(raw):
+        parts = [_parse_numeric_label(part) for part in match.group(1).split("-")]
+        if any(part is None for part in parts):
+            continue
+        remember(_ipv4_from_numeric_parts([int(part) for part in parts]))
     return found
 
 

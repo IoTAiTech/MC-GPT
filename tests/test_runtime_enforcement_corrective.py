@@ -625,6 +625,25 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
             endpoint_is_forbidden("https://" + packed_ideo + "/v1", allow_private=True),
             "metadata and link-local endpoints are forbidden",
         )
+        middle = chr(0x00B7)
+        packed_middle = middle.join(("169", "254", "169", "254"))
+        self.assertTrue(host_is_never_allowed(packed_middle, resolve_dns=False))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + packed_middle + "/v1", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
+        hyphen_imds = "169-254-169-254.nip.io"
+        aws_style = "ip-169-254-169-254.ec2.internal"
+        self.assertTrue(host_is_never_allowed(hyphen_imds, resolve_dns=False))
+        self.assertTrue(host_is_never_allowed(aws_style, resolve_dns=False))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + hyphen_imds + "/v1", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + aws_style + "/v1", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
         self.assertEqual(
             endpoint_is_forbidden("https://metadata.google.internal.attacker.example/", allow_private=True),
             "metadata and link-local endpoints are forbidden",
@@ -778,6 +797,21 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         self.assertEqual(ideo_result["created"], [])
         self.assertTrue(
             any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in ideo_result["skipped"])
+        )
+        settings["api_profiles"] = {
+            "dash": {
+                "endpoint": "https://169-254-169-254.nip.io/v1",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "cloud",
+                "allow_private_endpoint": False,
+            }
+        }
+        dash = materialize_api_profiles(self.home, settings)
+        self.assertEqual(dash["created"], [])
+        self.assertTrue(
+            any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in dash["skipped"])
         )
 
 

@@ -178,22 +178,36 @@ def _ip_requires_private_allow(address: ipaddress.IPv4Address | ipaddress.IPv6Ad
 
 def _normalize_host(host: str) -> str:
     raw = unicodedata.normalize("NFKC", str(host or "")).strip().strip("[]")
-    raw = unquote(raw)
+    previous = None
+    while previous != raw:
+        previous = raw
+        raw = unquote(raw)
     if "%" in raw:
-        hostpart, _, zone = raw.rpartition("%")
+        hostpart, _, _zone = raw.rpartition("%")
         if hostpart and ":" in hostpart:
             raw = hostpart
-        else:
-            raw = raw.split("%", 1)[0]
     raw = raw.strip()
     while raw and raw[-1] in _DOT_STRIP:
         raw = raw[:-1]
     return raw.rstrip(".")
 
 
+def _leading_ipv4(raw: str) -> ipaddress.IPv4Address | None:
+    labels = raw.split(".")
+    if len(labels) < 4 or not all(part.isdigit() for part in labels[:4]):
+        return None
+    try:
+        return ipaddress.IPv4Address(".".join(labels[:4]))
+    except ValueError:
+        return None
+
+
 def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
     raw = _normalize_host(host)
     if not raw:
+        return True
+    leading = _leading_ipv4(raw)
+    if leading is not None and _ip_is_never_allowed(leading):
         return True
     lowered = raw.casefold()
     if never_allowed:

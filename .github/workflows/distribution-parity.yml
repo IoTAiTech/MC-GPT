@@ -50,7 +50,9 @@ jobs:
         run: python -m pytest -q tests/test_distribution_asset_parity.py
       - name: Validate complete Linux regression suite
         if: runner.os == 'Linux'
-        run: python -m pytest -q --junitxml=distribution-regression.xml
+        env:
+          REPORT_DIR: ${{ runner.temp }}
+        run: python -m pytest -q --junitxml="$REPORT_DIR/distribution-regression.xml"
       - name: Validate public source boundaries
         if: runner.os == 'Linux'
         run: |

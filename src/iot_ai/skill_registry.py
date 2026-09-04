@@ -312,44 +312,53 @@ def garden_lock_path(packaged_root: Path | None = None) -> Path | None:
 
 
 def _garden_lock_key(skill_id: str) -> str:
-    return f"skills/third-party/{str(skill_id or '').casefold()}/skill.md"
+    return f"skills/third-party/{str(skill_id or '').strip()}/SKILL.md"
 
 
-def _is_garden_skill(record: dict[str, Any]) -> bool:
-    skill_id = str(record.get("id") or "").casefold()
-    relative = str(record.get("relative_path") or "").replace("\\", "/").casefold().strip("/")
-    return relative in {f"third-party/{skill_id}", f"third-party/{skill_id}/skill.md", _garden_lock_key(skill_id)}
+def _lock_row(files: dict[str, dict[str, Any]], skill_id: str) -> dict[str, Any] | None:
+    wanted = _garden_lock_key(skill_id)
+    if wanted in files:
+        return files[wanted]
+    folded = wanted.casefold()
+    for path, item in files.items():
+        if path.replace("\\", "/").casefold() == folded:
+            return item
+    return None
+
+
+def _is_garden_skill(record: dict[str, Any], files: dict[str, dict[str, Any]] | None = None) -> bool:
+    skill_id = str(record.get("id") or "").strip()
+    if files and _lock_row(files, skill_id) is not None:
+        return True
+    relative = str(record.get("relative_path") or "").replace("\\", "/").strip("/")
+    return relative in {f"third-party/{skill_id}", f"third-party/{skill_id}/SKILL.md"}
 
 
 def verify_garden_lock(record: dict[str, Any], *, packaged_root: Path | None = None) -> str | None:
     """Fail closed at load for Garden-derived packaged skills."""
 
-    if not _is_garden_skill(record):
-        return None
     lock_file = garden_lock_path(packaged_root)
     if lock_file is None:
-        return "garden-lock-missing"
+        return "garden-lock-missing" if _is_garden_skill(record) else None
     try:
         lock = json.loads(lock_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return "garden-lock-unreadable"
+    files = {str(row.get("path")): row for row in lock.get("files") or [] if isinstance(row, dict)}
+    if not _is_garden_skill(record, files):
+        return None
     if lock.get("upstream_license") != "MIT":
         return "garden-lock-license"
     if lock.get("script_execution_policy") != "never":
         return "garden-lock-script-policy"
-    files = {str(row.get("path")): row for row in lock.get("files") or [] if isinstance(row, dict)}
-    skill_id = str(record.get("id") or "").casefold()
-    expected = _garden_lock_key(skill_id)
-    row = next(
-        (
-            item
-            for path, item in files.items()
-            if path.replace("\\", "/").casefold() == expected
-        ),
-        None,
-    )
+    skill_id = str(record.get("id") or "").strip()
+    row = _lock_row(files, skill_id)
     if row is None:
         return "garden-lock-unlisted"
+    relative = str(record.get("relative_path") or "").replace("\\", "/").strip("/")
+    expected_rel = f"third-party/{skill_id}"
+    if relative not in {expected_rel, f"{expected_rel}/SKILL.md", f"skills/{expected_rel}", f"skills/{expected_rel}/SKILL.md"}:
+        return "garden-lock-path-mismatch"
     if row.get("sha256") != record.get("file_sha256"):
         return "garden-lock-digest-mismatch"
     expected_commit = str(lock.get("upstream_commit") or "")

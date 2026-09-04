@@ -630,6 +630,8 @@ class ProviderCatalogTests(IsolatedHomeTestCase):
         evil = apply_catalog_to_candidate({"provider": "evil-provider", "model": "x", "risk_class": "R2"})
         self.assertTrue(evil.get("catalog_block"))
         self.assertIn("unknown-provider-capability", evil.get("catalog_errors") or [])
+        evil_auto = apply_catalog_to_candidate({"provider": "evil-provider", "model": "auto"})
+        self.assertTrue(evil_auto.get("catalog_block"))
         gemini = apply_catalog_to_candidate({"provider": "gemini", "model": "gemini-2.5-pro", "risk_class": "R2"})
         self.assertFalse(gemini.get("catalog_block"))
         ollama = apply_catalog_to_candidate({"provider": "ollama", "model": "gpt-oss:20b", "risk_class": "R2"})
@@ -1046,6 +1048,9 @@ class GardenIdLockTests(IsolatedHomeTestCase):
         record["id"] = "garden-web-design-evil"
         record["relative_path"] = "third-party/garden-web-design-evil"
         self.assertEqual(verify_garden_lock(record), "garden-lock-unlisted")
+        stolen = dict(payload["skills"]["garden-web-design"])
+        stolen["relative_path"] = "third-party/aaa-swap"
+        self.assertEqual(verify_garden_lock(stolen), "garden-lock-path-mismatch")
 
 
 class UniqueSeatFollowupTests(IsolatedHomeTestCase):

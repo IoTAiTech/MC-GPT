@@ -498,23 +498,29 @@ def delegate(
         safe_prompt = privacy.text if privacy else prompt
         selected_model = model if model != "auto" else str(route.get("model", "auto"))
         route_effort = effort
-        if index > 0:
-            from .provider_catalog import apply_catalog_to_candidate
+        from .provider_catalog import apply_catalog_to_candidate, load_catalog, normalize_provider
 
-            fallback_row = apply_catalog_to_candidate(
+        family = normalize_provider(str(route.get("provider") or provider))
+        if family in (load_catalog().get("providers") or {}):
+            cataloged = apply_catalog_to_candidate(
                 {
-                    "provider": route.get("provider"),
+                    "provider": route.get("provider") or provider,
                     "model": selected_model,
-                    "requested_effort": route.get("effective_effort") or route.get("default_effort") or "medium",
+                    "requested_effort": route.get("effective_effort") or route.get("default_effort") or effort,
                     "risk_class": route.get("risk_class"),
                 }
             )
-            route_effort = str(
-                fallback_row.get("effective_effort")
-                or route.get("effective_effort")
-                or route.get("default_effort")
-                or "medium"
-            )
+            if cataloged.get("catalog_block"):
+                raise RuntimeError(";".join(str(item) for item in (cataloged.get("catalog_errors") or ["catalog-block"])))
+            if cataloged.get("canonical_target_model"):
+                selected_model = str(cataloged["canonical_target_model"])
+            if index > 0:
+                route_effort = str(
+                    cataloged.get("effective_effort")
+                    or route.get("effective_effort")
+                    or route.get("default_effort")
+                    or "medium"
+                )
         started = time.monotonic()
         generated_request_id = f"mesh-{uuid.uuid4().hex}"
         usage = _extract_usage({})

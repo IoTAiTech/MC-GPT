@@ -657,19 +657,21 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "settings":
             value = settings_mod.load(h)
             editable = settings_mod.load(h, normalize=False)
+            from .settings_v2 import sha256_json
+            from .util import load_json
+
+            path = settings_mod.settings_path(h)
+            on_disk_snapshot = load_json(path, {}) or {}
+            snapshot_revision = int(on_disk_snapshot.get("revision") or 0) if on_disk_snapshot else None
+            snapshot_digest = sha256_json(on_disk_snapshot) if on_disk_snapshot else None
 
             def persist_settings() -> None:
-                from .settings_v2 import sha256_json
-                from .util import load_json
-
-                path = settings_mod.settings_path(h)
-                on_disk = load_json(path, {}) or {}
-                if on_disk:
+                if snapshot_digest is not None:
                     settings_mod.save(
                         h,
                         editable,
-                        expected_revision=int(on_disk.get("revision") or 0),
-                        expected_digest=sha256_json(on_disk),
+                        expected_revision=snapshot_revision,
+                        expected_digest=snapshot_digest,
                     )
                 else:
                     settings_mod.save(h, editable)

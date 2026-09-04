@@ -264,6 +264,12 @@ def apply_catalog_to_candidate(
     row["model_served"] = None
     if "served_model" in row:
         row.pop("served_model", None)
+    family = row["provider_family"]
+    catalog_providers = load_catalog().get("providers") or {}
+    if family not in catalog_providers and family not in RUNTIME_WITHOUT_MODEL_CATALOG:
+        row["catalog_block"] = True
+        row["catalog_errors"] = ["unknown-provider-capability"]
+        return row
     if requested in {"", "auto", "auto:cloud"}:
         return row
     resolved = resolve_model(

@@ -164,8 +164,14 @@ def _ip_requires_private_allow(address: ipaddress.IPv4Address | ipaddress.IPv6Ad
     return bool(address.is_private or address.is_loopback)
 
 
-def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
+def _normalize_host(host: str) -> str:
     raw = str(host or "").strip().strip("[]")
+    raw = raw.split("%")[0].strip()
+    return raw.rstrip(".")
+
+
+def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
+    raw = _normalize_host(host)
     if not raw:
         return True
     lowered = raw.casefold()
@@ -175,7 +181,7 @@ def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
     elif lowered in {"localhost"} or lowered.endswith((".local", ".internal", ".localhost")) or lowered in _METADATA_HOSTS:
         return True
     try:
-        address = ipaddress.ip_address(raw.split("%")[0])
+        address = ipaddress.ip_address(raw)
         return _ip_is_never_allowed(address) if never_allowed else _ip_requires_private_allow(address)
     except ValueError:
         pass

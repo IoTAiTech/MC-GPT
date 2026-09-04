@@ -438,6 +438,13 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         rfc1918 = ".".join(("10", "0", "0", "8"))
         self.assertFalse(host_is_never_allowed(rfc1918))
         self.assertIsNone(endpoint_is_forbidden("https://" + rfc1918 + "/v1", allow_private=True))
+        dotted = "http://169.254.169.254./latest/meta-data/"
+        self.assertEqual(
+            endpoint_is_forbidden(dotted, allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
+        self.assertTrue(host_is_never_allowed("169.254.169.254."))
+        self.assertTrue(host_is_never_allowed("metadata.google.internal."))
 
     def test_private_api_profile_is_not_materialized(self) -> None:
         settings = load(self.home)
@@ -470,6 +477,21 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         self.assertEqual(result["created"], [])
         self.assertTrue(
             any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in result["skipped"])
+        )
+        settings["api_profiles"] = {
+            "dot": {
+                "endpoint": "http://169.254.169.254./latest/meta-data/",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "private",
+                "allow_private_endpoint": True,
+            }
+        }
+        dotted = materialize_api_profiles(self.home, settings)
+        self.assertEqual(dotted["created"], [])
+        self.assertTrue(
+            any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in dotted["skipped"])
         )
         with self.assertRaisesRegex(ValueError, "metadata and link-local"):
             add_route(

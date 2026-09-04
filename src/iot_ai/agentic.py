@@ -28,8 +28,11 @@ from .runtime_gates import (
     build_effort_receipt,
     evaluate_minimum_change_gate,
     finalize_skill_state,
+    live_task_identity,
+    persist_accepted_plan,
     resolve_dispatch_effort,
 )
+from .task_backends import SuiteTaskBackend
 from .settings import effective_settings, load as load_settings
 from .skill_router import context_blocks, detect_host_native_image_tool, is_visual_task, select_skills
 from .tool_router import build_tool_decision, validate_provider_binding
@@ -707,6 +710,14 @@ def run_goal(
             intake = inputs.get("intake", {}).get("output") or {}
             if isinstance(intake, dict):
                 acceptance = str(intake.get("acceptance") or "")
+            try:
+                current_task = SuiteTaskBackend(user_home).snapshot(task_id)
+                acceptance = current_task.acceptance_criteria or acceptance or goal
+                current_revision = current_task.revision
+                current_risk = current_task.risk_class or risk_class
+            except Exception:
+                current_revision = _task_revision(user_home, task_id)
+                current_risk = risk_class
             synthesis_context = str(
                 synthesis_result.get("context_digest")
                 or ((synthesis_result.get("_runtime_decisions") or {}).get("context_decision") or {}).get("context_digest")
@@ -716,10 +727,10 @@ def run_goal(
                 synthesis,
                 goal=goal,
                 task_id=task_id,
-                risk_class=risk_class,
+                risk_class=current_risk,
                 acceptance=acceptance or goal,
                 context_digest=synthesis_context,
-                revision=_task_revision(user_home, task_id),
+                revision=current_revision,
             )
             hard_gates["minimum_change_assessment_valid"] = bool(mncg.get("valid"))
             decision = "accept" if all(hard_gates.values()) else "needs-review"
@@ -745,17 +756,20 @@ def run_goal(
                 chosen = first
                 selected_round = 1
             decision = "accept" if chosen.get("decision") == "accept" else "needs-review"
+            output = {
+                "decision": decision,
+                "plan_digest": chosen.get("plan_digest"),
+                "acceptance_matrix": chosen.get("acceptance_matrix", {}),
+                "hard_gates": chosen.get("hard_gates", {}),
+                "dissent": chosen.get("dissent", []),
+                "selected_round": selected_round,
+                "mncg": chosen.get("mncg"),
+            }
+            if decision == "accept":
+                output["accepted_plan_receipt"] = persist_accepted_plan(user_home, output)
             return {
                 "status": "pass",
-                "output": {
-                    "decision": decision,
-                    "plan_digest": chosen.get("plan_digest"),
-                    "acceptance_matrix": chosen.get("acceptance_matrix", {}),
-                    "hard_gates": chosen.get("hard_gates", {}),
-                    "dissent": chosen.get("dissent", []),
-                    "selected_round": selected_round,
-                    "mncg": chosen.get("mncg"),
-                },
+                "output": output,
             }
         if node.node_id == "deterministic-tests":
             implementation = inputs.get("implement", {})
@@ -877,7 +891,7 @@ def run_goal(
         }
         if node.node_id == "implement":
             accepted_plan = (inputs.get("final-plan-gate") or {}).get("output") or {}
-            pre_bind = accepted_plan_allows_implement(accepted_plan)
+            pre_bind = accepted_plan_allows_implement(accepted_plan, user_home=user_home)
             node_contract["accepted_mncg_rung"] = pre_bind.get("selected_rung")
             if not pre_bind.get("valid"):
                 return {
@@ -1075,15 +1089,31 @@ def run_goal(
         )
         if node.node_id == "implement":
             accepted = (inputs.get("final-plan-gate") or {}).get("output") or {}
+            backend = SuiteTaskBackend(user_home)
+            try:
+                current = backend.snapshot(task_id).to_dict()
+            except Exception:
+                value["status"] = "blocked"
+                value["failure_class"] = "implementation-not-bound-to-accepted-mncg"
+                runtime_decisions["mncg_writer_bind"] = {
+                    "valid": False,
+                    "decision": "block",
+                    "errors": ["minimum-change-current-task-unresolved"],
+                }
+                return value
+            identity = live_task_identity(current, task_id=task_id, risk_class=risk_class)
             bind = bind_implementation_to_accepted_plan(
                 parsed,
                 accepted,
                 goal=goal,
-                task_id=task_id,
-                risk_class=risk_class,
-                acceptance=str((accepted.get("mncg") or {}).get("acceptance") or goal),
-                context_digest=str((accepted.get("mncg") or {}).get("context_digest") or ""),
-                revision=int((accepted.get("mncg") or {}).get("task_revision") or _task_revision(user_home, task_id)),
+                task_id=str(identity.get("task_id") or task_id),
+                risk_class=str(identity.get("risk_class") or risk_class),
+                acceptance=str(identity.get("acceptance_criteria") or ""),
+                context_digest=identity.get("context_digest"),
+                revision=int(identity.get("revision") or 0),
+                current_task=identity,
+                backend=backend,
+                policy_scope=str(identity.get("policy_scope") or ""),
             )
             runtime_decisions["mncg_writer_bind"] = bind
             if not bind.get("valid"):

@@ -584,6 +584,30 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
             endpoint_is_forbidden("https://2852039166.nip.io/", allow_private=True),
             "metadata and link-local endpoints are forbidden",
         )
+        packed_three = "169.254.43518.nip.io"
+        packed_two = "169.16689150.nip.io"
+        packed_hex = "169.254.0xa9fe.nip.io"
+        self.assertTrue(host_is_never_allowed(packed_three, resolve_dns=False))
+        self.assertTrue(host_is_never_allowed(packed_two, resolve_dns=False))
+        self.assertTrue(host_is_never_allowed(packed_hex, resolve_dns=False))
+        for packed_host in (packed_three, packed_two, packed_hex):
+            self.assertEqual(
+                endpoint_is_forbidden("https://" + packed_host + "/v1", allow_private=True),
+                "metadata and link-local endpoints are forbidden",
+                packed_host,
+            )
+        loopback_dword = "2130706433.nip.io"
+        self.assertFalse(host_is_never_allowed(loopback_dword, resolve_dns=False))
+        self.assertTrue(host_requires_private_allow(loopback_dword, resolve_dns=False))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + loopback_dword + "/v1", allow_private=False),
+            "private provider endpoint requires allow_private_endpoint",
+        )
+        self.assertIsNone(endpoint_is_forbidden("https://" + loopback_dword + "/v1", allow_private=True))
+        self.assertTrue(host_requires_private_allow("127.1", resolve_dns=False))
+        public_suffix = "8.8.8.8.example.invalid"
+        self.assertFalse(host_is_never_allowed(public_suffix, resolve_dns=False))
+        self.assertFalse(host_requires_private_allow(public_suffix, resolve_dns=False))
         self.assertEqual(
             endpoint_is_forbidden("https://metadata.google.internal.attacker.example/", allow_private=True),
             "metadata and link-local endpoints are forbidden",
@@ -691,6 +715,21 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         self.assertEqual(sixto4["created"], [])
         self.assertTrue(
             any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in sixto4["skipped"])
+        )
+        settings["api_profiles"] = {
+            "packed": {
+                "endpoint": "https://169.254.43518.nip.io/v1",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "cloud",
+                "allow_private_endpoint": True,
+            }
+        }
+        packed = materialize_api_profiles(self.home, settings)
+        self.assertEqual(packed["created"], [])
+        self.assertTrue(
+            any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in packed["skipped"])
         )
 
 

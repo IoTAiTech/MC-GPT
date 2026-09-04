@@ -178,49 +178,77 @@ def _ipv4s_from_ipv6(address: ipaddress.IPv6Address) -> list[ipaddress.IPv4Addre
     return found
 
 
+def _parse_numeric_label(part: str) -> int | None:
+    try:
+        lowered = part.casefold()
+        if lowered.startswith("0x"):
+            value = int(part, 16)
+        elif len(part) > 1 and part.startswith("0") and all(ch in "01234567" for ch in part):
+            value = int(part, 8)
+        elif part.isdigit():
+            value = int(part, 10)
+        else:
+            return None
+    except ValueError:
+        return None
+    if value < 0:
+        return None
+    return value
+
+
+def _ipv4_from_numeric_parts(parts: list[int]) -> ipaddress.IPv4Address | None:
+    if not parts or len(parts) > 4:
+        return None
+    if len(parts) == 4:
+        if any(item > 255 for item in parts):
+            return None
+        octets = parts
+    elif len(parts) == 3:
+        first, second, packed = parts
+        if first > 255 or second > 255 or packed > 0xFFFF:
+            return None
+        octets = [first, second, (packed >> 8) & 0xFF, packed & 0xFF]
+    elif len(parts) == 2:
+        first, packed = parts
+        if first > 255 or packed > 0xFFFFFF:
+            return None
+        octets = [first, (packed >> 16) & 0xFF, (packed >> 8) & 0xFF, packed & 0xFF]
+    else:
+        packed = parts[0]
+        if packed > 0xFFFFFFFF:
+            return None
+        octets = [(packed >> 24) & 0xFF, (packed >> 16) & 0xFF, (packed >> 8) & 0xFF, packed & 0xFF]
+    try:
+        return ipaddress.IPv4Address(bytes(octets))
+    except ValueError:
+        return None
+
+
 def _ipv4s_from_hostname(raw: str) -> list[ipaddress.IPv4Address]:
     labels = [part for part in raw.split(".") if part]
+    values = [_parse_numeric_label(part) for part in labels]
     found: list[ipaddress.IPv4Address] = []
-    if not labels:
-        return found
-    first = labels[0]
-    if first.isdigit():
-        try:
-            number = int(first)
-            if 0 <= number <= 0xFFFFFFFF:
-                found.append(ipaddress.IPv4Address(number))
-        except ValueError:
-            pass
-    lowered_first = first.casefold()
-    if lowered_first.startswith("0x"):
-        try:
-            number = int(first, 16)
-            if 0 <= number <= 0xFFFFFFFF:
-                found.append(ipaddress.IPv4Address(number))
-        except ValueError:
-            pass
-    if len(labels) >= 4:
-        group = labels[:4]
-        octets: list[int] = []
-        for part in group:
-            try:
-                if part.casefold().startswith("0x"):
-                    octets.append(int(part, 16))
-                elif len(part) > 1 and part.startswith("0") and all(ch in "01234567" for ch in part):
-                    octets.append(int(part, 8))
-                elif part.isdigit():
-                    octets.append(int(part, 10))
-                else:
-                    octets = []
-                    break
-            except ValueError:
-                octets = []
-                break
-        if len(octets) == 4 and all(0 <= item <= 255 for item in octets):
-            try:
-                found.append(ipaddress.IPv4Address(bytes(octets)))
-            except ValueError:
-                pass
+    seen: set[ipaddress.IPv4Address] = set()
+    index = 0
+    while index < len(values):
+        if values[index] is None:
+            index += 1
+            continue
+        end = index
+        while end < len(values) and values[end] is not None:
+            end += 1
+        run = [int(item) for item in values[index:end]]
+        for width in (4, 3, 2, 1):
+            if len(run) < width:
+                continue
+            address = _ipv4_from_numeric_parts(run[:width])
+            if address is None:
+                continue
+            if address not in seen:
+                seen.add(address)
+                found.append(address)
+            break
+        index = end
     return found
 
 
@@ -323,13 +351,16 @@ def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
             if _ip_requires_private_allow(address):
                 return True
     lowered = raw.casefold()
+    embedded = _ipv4s_from_hostname(raw)
     if never_allowed:
         if _metadata_host_match(lowered):
             return True
-        for embedded in _ipv4s_from_hostname(raw):
-            if _ipv4_never_allowed(embedded):
+        for address in embedded:
+            if _ipv4_never_allowed(address):
                 return True
     elif lowered in {"localhost"} or lowered.endswith((".local", ".internal", ".localhost")) or _metadata_host_match(lowered):
+        return True
+    elif any(_ip_requires_private_allow(address) for address in embedded):
         return True
     try:
         address = ipaddress.ip_address(raw)

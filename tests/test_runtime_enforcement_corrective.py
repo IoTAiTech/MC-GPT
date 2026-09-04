@@ -459,6 +459,12 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
             endpoint_is_forbidden("https://" + aliyun + "/latest/meta-data/", allow_private=False),
             "metadata and link-local endpoints are forbidden",
         )
+        encoded = "http://169%2e254%2e169%2e254/latest/meta-data/"
+        self.assertEqual(
+            endpoint_is_forbidden(encoded, allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
+        self.assertTrue(host_is_never_allowed("metadata.tencentyun.com"))
 
     def test_private_api_profile_is_not_materialized(self) -> None:
         settings = load(self.home)

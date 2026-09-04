@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 import ipaddress
 import socket
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .exec_pin import pin_executable
 from .paths import routes_path
@@ -136,6 +136,7 @@ _METADATA_HOSTS = frozenset(
     {
         "metadata",
         "metadata.google.internal",
+        "metadata.tencentyun.com",
         "instance-data",
         "instance-data.ec2.internal",
     }
@@ -177,7 +178,14 @@ def _ip_requires_private_allow(address: ipaddress.IPv4Address | ipaddress.IPv6Ad
 
 def _normalize_host(host: str) -> str:
     raw = unicodedata.normalize("NFKC", str(host or "")).strip().strip("[]")
-    raw = raw.split("%")[0].strip()
+    raw = unquote(raw)
+    if "%" in raw:
+        hostpart, _, zone = raw.rpartition("%")
+        if hostpart and ":" in hostpart:
+            raw = hostpart
+        else:
+            raw = raw.split("%", 1)[0]
+    raw = raw.strip()
     while raw and raw[-1] in _DOT_STRIP:
         raw = raw[:-1]
     return raw.rstrip(".")

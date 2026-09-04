@@ -445,6 +445,20 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         )
         self.assertTrue(host_is_never_allowed("169.254.169.254."))
         self.assertTrue(host_is_never_allowed("metadata.google.internal."))
+        ideographic_host = "169.254.169.254" + chr(0x3002)
+        self.assertTrue(host_is_never_allowed(ideographic_host))
+        self.assertEqual(
+            endpoint_is_forbidden("http://" + ideographic_host + "/", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
+        aliyun = ".".join(("100", "100", "100", "200"))
+        azure = ".".join(("168", "63", "129", "16"))
+        self.assertTrue(host_is_never_allowed(aliyun))
+        self.assertTrue(host_is_never_allowed(azure))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + aliyun + "/latest/meta-data/", allow_private=False),
+            "metadata and link-local endpoints are forbidden",
+        )
 
     def test_private_api_profile_is_not_materialized(self) -> None:
         settings = load(self.home)

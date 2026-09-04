@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import unicodedata
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -141,6 +142,14 @@ _METADATA_HOSTS = frozenset(
 )
 _AWS_IMDS_V6 = ipaddress.ip_network("fd00:ec2::/32")
 _NEVER_ALLOW_REASON = "metadata and link-local endpoints are forbidden"
+_DOT_STRIP = ".\u3002\uff0e\u2024"
+_CLOUD_IMDS_V4 = frozenset(
+    {
+        ipaddress.IPv4Address("169.254.169.254"),
+        ipaddress.IPv4Address("100.100.100.200"),
+        ipaddress.IPv4Address("168.63.129.16"),
+    }
+)
 
 
 def _canonical_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
@@ -150,6 +159,8 @@ def _canonical_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> ipa
 
 def _ip_is_never_allowed(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     address = _canonical_ip(address)
+    if address in _CLOUD_IMDS_V4:
+        return True
     if address.is_link_local or address.is_multicast or address.is_reserved or address.is_unspecified:
         return True
     if isinstance(address, ipaddress.IPv6Address) and address in _AWS_IMDS_V6:
@@ -165,8 +176,10 @@ def _ip_requires_private_allow(address: ipaddress.IPv4Address | ipaddress.IPv6Ad
 
 
 def _normalize_host(host: str) -> str:
-    raw = str(host or "").strip().strip("[]")
+    raw = unicodedata.normalize("NFKC", str(host or "")).strip().strip("[]")
     raw = raw.split("%")[0].strip()
+    while raw and raw[-1] in _DOT_STRIP:
+        raw = raw[:-1]
     return raw.rstrip(".")
 
 
@@ -197,6 +210,8 @@ def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
             except ValueError:
                 continue
     except OSError:
+        if raw.replace(".", "").isdigit() or ":" in raw:
+            return True
         return False
     return False
 

@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Version: 1.0.0 | Date: 2026-09-05
+name: Runtime boundary qualification
+
+on:
+  pull_request:
+    paths:
+      - src/iot_ai/**
+      - tests/**
+      - .github/workflows/runtime-boundary-qualification.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-boundary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'
+      DO_NOT_TRACK: '1'
+      OPENWIKI_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Verify public source boundaries
+        run: |
+          python tools/public_boundary_check.py .
+          python tools/no_arabic_script_check.py .
+          python tools/check_license_headers.py .
+      - name: Run deterministic boundary regressions
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/runtime-boundary
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          python -m pytest -q tests/test_runtime_boundary_evidence.py tests/test_visual_adapter_failures.py tests/test_runtime_enforcement_corrective.py --junitxml="$EVIDENCE_DIR/junit.xml"
+      - name: Seal reproducible public source evidence
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/runtime-boundary
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          out = Path(os.environ['EVIDENCE_DIR'])
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          tree = subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip()
+          if head != os.environ['EXPECTED_HEAD']:
+              raise SystemExit('candidate-head-mismatch')
+          archive = out / 'public-source.zip'
+          subprocess.run(['git', 'archive', '--format=zip', '--output', str(archive), 'HEAD'], check=True)
+          with zipfile.ZipFile(archive) as data:
+              names = data.namelist()
+              if len(names) != len(set(names)) or data.testzip() is not None:
+                  raise SystemExit('source-archive-integrity-failed')
+              if any(PurePosixPath(name).is_absolute() or '..' in PurePosixPath(name).parts for name in names):
+                  raise SystemExit('source-archive-path-invalid')
+          receipt = {
+              'schema': 'iot-ai.runtime-boundary-qualification.v1',
+              'head': head,
+              'tree': tree,
+              'source_sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
+              'junit_sha256': hashlib.sha256((out / 'junit.xml').read_bytes()).hexdigest(),
+              'scope': 'synthetic-boundary-regressions-not-production',
+              'provider_calls': 0,
+              'production_claim': False,
+          }
+          (out / 'receipt.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(json.dumps(receipt, sort_keys=True))
+          PY
+      - name: Upload public-source qualification evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: runtime-boundary-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/runtime-boundary/
+          retention-days: 14
+          if-no-files-found: error

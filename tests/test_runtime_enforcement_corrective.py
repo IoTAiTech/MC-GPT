@@ -9,7 +9,7 @@ from pathlib import Path
 
 from iot_ai.minimum_change import NON_NEGOTIABLE_CONTROLS, RUNG_DEFINITIONS, ZERO_DEFAULT_BUDGETS
 from iot_ai.provider_catalog import apply_catalog_to_candidate, catalog_version, resolve_model, source_dates, supported_matrix
-from iot_ai.mesh import _validate_endpoint
+from iot_ai.mesh import _build_api_request, _validate_endpoint
 from iot_ai.providers import (
     add_route,
     eligible_routes,
@@ -202,6 +202,59 @@ class EffortReceiptTests(IsolatedHomeTestCase):
         )
         self.assertEqual(community_ok["decision"], "pass")
         self.assertEqual(community_ok["effective_value"], "medium")
+
+    def test_api_adapter_request_carries_effective_effort(self) -> None:
+        route = {
+            "endpoint": "https://example.invalid",
+            "protocol": "openai-compatible",
+            "cloud": True,
+        }
+        plan = _build_api_request(route, "ping", "gpt-5.6", "high")
+        self.assertEqual(plan["body"]["reasoning_effort"], "high")
+        self.assertTrue(plan["effort"]["effort_applied"])
+        self.assertEqual(plan["effort"]["effort_effective"], "high")
+        self.assertEqual(plan["effort"]["effort_field"], "reasoning_effort")
+        anthropic = _build_api_request(
+            {"endpoint": "https://example.invalid", "protocol": "anthropic", "cloud": True, "secret_env": ""},
+            "ping",
+            "claude-sonnet",
+            "low",
+        )
+        self.assertEqual(anthropic["body"]["thinking"]["type"], "enabled")
+        self.assertEqual(anthropic["body"]["thinking"]["budget_tokens"], 1024)
+        self.assertTrue(anthropic["effort"]["effort_applied"])
+        ollama = _build_api_request(
+            {"endpoint": "https://example.invalid", "protocol": "ollama", "cloud": True},
+            "ping",
+            "auto:cloud",
+            "xhigh",
+        )
+        self.assertEqual(ollama["body"]["think"], "xhigh")
+        gemini = _build_api_request(
+            {"endpoint": "https://example.invalid", "protocol": "gemini", "cloud": True, "secret_env": ""},
+            "ping",
+            "gemini-2.5-pro",
+            "medium",
+        )
+        self.assertEqual(gemini["body"]["generationConfig"]["thinkingConfig"]["thinkingLevel"], "medium")
+        receipt = build_effort_receipt(
+            settings_requested="high",
+            candidate={"effective_effort": "high", "requested_effort": "high"},
+            dispatch={"effective_effort": "high", "requested_effort": "high", "effort_source": "candidate"},
+            tool_decision={"effective_effort": "high"},
+            adapter_request_effort=plan["effort"]["effort_effective"],
+            response={"effort_effective": plan["effort"]["effort_effective"]},
+        )
+        self.assertTrue(receipt["consistent"])
+        missing = build_effort_receipt(
+            settings_requested="high",
+            candidate={"effective_effort": "high", "requested_effort": "high"},
+            dispatch={"effective_effort": "high", "requested_effort": "high", "effort_source": "candidate"},
+            tool_decision={"effective_effort": "high"},
+            adapter_request_effort=None,
+            response={"effort_effective": "high"},
+        )
+        self.assertEqual(missing["stages"]["adapter_request"], None)
 
 
 class SkillPrivacyTests(IsolatedHomeTestCase):
@@ -479,6 +532,28 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
             "metadata and link-local endpoints are forbidden",
         )
         self.assertTrue(host_is_never_allowed("metadata.tencentyun.com"))
+        sixto4 = "https://[2002:a9fe:a9fe::]/"
+        teredo = "https://[2001:0:a9fe:a9fe::]/"
+        aliyun_6to4 = "https://[2002:6464:64c8::]/"
+        azure_6to4 = "https://[2002:a83f:8110::]/"
+        for endpoint in (sixto4, teredo, aliyun_6to4, azure_6to4):
+            self.assertEqual(
+                endpoint_is_forbidden(endpoint, allow_private=True),
+                "metadata and link-local endpoints are forbidden",
+                endpoint,
+            )
+        self.assertEqual(
+            endpoint_is_forbidden("https://0xa9.0xfe.0xa9.0xfe.nip.io/", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
+        self.assertEqual(
+            endpoint_is_forbidden("https://2852039166.nip.io/", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
+        self.assertEqual(
+            endpoint_is_forbidden("https://metadata.google.internal.attacker.example/", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
 
     def test_private_api_profile_is_not_materialized(self) -> None:
         settings = load(self.home)
@@ -549,6 +624,21 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
                     "allow_private_endpoint": True,
                 }
             )
+        settings["api_profiles"] = {
+            "sixto4": {
+                "endpoint": "https://[2002:a9fe:a9fe::]/",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "private",
+                "allow_private_endpoint": True,
+            }
+        }
+        sixto4 = materialize_api_profiles(self.home, settings)
+        self.assertEqual(sixto4["created"], [])
+        self.assertTrue(
+            any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in sixto4["skipped"])
+        )
 
 
 class GardenIdLockTests(IsolatedHomeTestCase):

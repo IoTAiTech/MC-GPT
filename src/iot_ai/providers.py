@@ -160,15 +160,93 @@ def _canonical_ip(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> ipa
     return mapped if mapped is not None else address
 
 
-def _ip_is_never_allowed(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    address = _canonical_ip(address)
+def _ipv4s_from_ipv6(address: ipaddress.IPv6Address) -> list[ipaddress.IPv4Address]:
+    packed = address.packed
+    found: list[ipaddress.IPv4Address] = []
+    mapped = address.ipv4_mapped
+    if mapped is not None:
+        found.append(mapped)
+    if packed[0:2] == b"\x20\x02":
+        found.append(ipaddress.IPv4Address(packed[2:6]))
+    if packed[0:12] == bytes.fromhex("0064ff9b0000000000000000"):
+        found.append(ipaddress.IPv4Address(packed[12:16]))
+    if packed[0:4] == bytes.fromhex("20010000"):
+        found.append(ipaddress.IPv4Address(packed[4:8]))
+        found.append(ipaddress.IPv4Address(bytes(byte ^ 0xFF for byte in packed[12:16])))
+        found.append(ipaddress.IPv4Address(packed[12:16]))
+    found.append(ipaddress.IPv4Address(packed[12:16]))
+    return found
+
+
+def _ipv4s_from_hostname(raw: str) -> list[ipaddress.IPv4Address]:
+    labels = [part for part in raw.split(".") if part]
+    found: list[ipaddress.IPv4Address] = []
+    if not labels:
+        return found
+    first = labels[0]
+    if first.isdigit():
+        try:
+            number = int(first)
+            if 0 <= number <= 0xFFFFFFFF:
+                found.append(ipaddress.IPv4Address(number))
+        except ValueError:
+            pass
+    lowered_first = first.casefold()
+    if lowered_first.startswith("0x"):
+        try:
+            number = int(first, 16)
+            if 0 <= number <= 0xFFFFFFFF:
+                found.append(ipaddress.IPv4Address(number))
+        except ValueError:
+            pass
+    if len(labels) >= 4:
+        group = labels[:4]
+        octets: list[int] = []
+        for part in group:
+            try:
+                if part.casefold().startswith("0x"):
+                    octets.append(int(part, 16))
+                elif len(part) > 1 and part.startswith("0") and all(ch in "01234567" for ch in part):
+                    octets.append(int(part, 8))
+                elif part.isdigit():
+                    octets.append(int(part, 10))
+                else:
+                    octets = []
+                    break
+            except ValueError:
+                octets = []
+                break
+        if len(octets) == 4 and all(0 <= item <= 255 for item in octets):
+            try:
+                found.append(ipaddress.IPv4Address(bytes(octets)))
+            except ValueError:
+                pass
+    return found
+
+
+def _metadata_host_match(lowered: str) -> bool:
+    for name in _METADATA_HOSTS:
+        if lowered == name or lowered.startswith(name + ".") or lowered.endswith("." + name):
+            return True
+    return False
+
+
+def _ipv4_never_allowed(address: ipaddress.IPv4Address) -> bool:
     if address in _CLOUD_IMDS_V4:
         return True
-    if address.is_link_local or address.is_multicast or address.is_reserved or address.is_unspecified:
+    return bool(address.is_link_local or address.is_multicast or address.is_reserved or address.is_unspecified)
+
+
+def _ip_is_never_allowed(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    address = _canonical_ip(address)
+    if isinstance(address, ipaddress.IPv4Address):
+        return _ipv4_never_allowed(address)
+    for embedded in _ipv4s_from_ipv6(address):
+        if _ipv4_never_allowed(embedded):
+            return True
+    if address in _AWS_IMDS_V6:
         return True
-    if isinstance(address, ipaddress.IPv6Address) and address in _AWS_IMDS_V6:
-        return True
-    return False
+    return bool(address.is_link_local or address.is_multicast or address.is_reserved or address.is_unspecified)
 
 
 def _ip_requires_private_allow(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
@@ -230,9 +308,12 @@ def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
         return True
     lowered = raw.casefold()
     if never_allowed:
-        if lowered in _METADATA_HOSTS:
+        if _metadata_host_match(lowered):
             return True
-    elif lowered in {"localhost"} or lowered.endswith((".local", ".internal", ".localhost")) or lowered in _METADATA_HOSTS:
+        for embedded in _ipv4s_from_hostname(raw):
+            if _ipv4_never_allowed(embedded):
+                return True
+    elif lowered in {"localhost"} or lowered.endswith((".local", ".internal", ".localhost")) or _metadata_host_match(lowered):
         return True
     try:
         address = ipaddress.ip_address(raw)

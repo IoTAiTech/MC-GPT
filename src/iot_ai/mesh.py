@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.8.0-beta.2 | Date: 2026-08-21
+# Version: 6.8.0-beta.1 | Date: 2026-09-04
 from __future__ import annotations
 
 import json
@@ -223,7 +223,51 @@ def _extract_text(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
-def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int) -> dict[str, Any]:
+_API_THINKING_BUDGETS = {"low": 1024, "medium": 4096, "high": 8192, "xhigh": 16384}
+
+
+def _api_effort_meta(protocol: str, body: dict[str, Any], effort: str) -> dict[str, Any]:
+    """Bind candidate.effective_effort onto the live API adapter request body."""
+
+    applied = _codex_reasoning_effort(effort)
+    if protocol == "openai-compatible":
+        body["reasoning_effort"] = applied
+        field = "reasoning_effort"
+    elif protocol == "anthropic":
+        body["thinking"] = {
+            "type": "enabled",
+            "budget_tokens": _API_THINKING_BUDGETS.get(applied, 4096),
+        }
+        field = "thinking.budget_tokens"
+    elif protocol == "gemini":
+        config = body.setdefault("generationConfig", {})
+        if not isinstance(config, dict):
+            config = {}
+            body["generationConfig"] = config
+        config["thinkingConfig"] = {
+            "thinkingLevel": applied,
+            "thinkingBudget": _API_THINKING_BUDGETS.get(applied, 4096),
+        }
+        field = "generationConfig.thinkingConfig"
+    elif protocol == "ollama":
+        body["think"] = applied
+        field = "think"
+    else:
+        return {
+            "effort_applied": False,
+            "effort_requested": effort,
+            "effort_effective": None,
+            "effort_field": None,
+        }
+    return {
+        "effort_applied": True,
+        "effort_requested": effort,
+        "effort_effective": applied,
+        "effort_field": field,
+    }
+
+
+def _build_api_request(route: dict[str, Any], prompt: str, model: str, effort: str) -> dict[str, Any]:
     endpoint = _validate_endpoint(route)
     protocol = route.get("protocol")
     secret_env = route.get("secret_env")
@@ -234,7 +278,7 @@ def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int) -
 
     if protocol == "openai-compatible":
         url = endpoint + "/v1/chat/completions"
-        body = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False}
+        body: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False}
         if secret:
             headers["Authorization"] = f"Bearer {secret}"
     elif protocol == "anthropic":
@@ -254,15 +298,30 @@ def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int) -
             headers["Authorization"] = f"Bearer {secret}"
     else:
         raise RuntimeError(f"unsupported API protocol: {protocol}")
+    effort_meta = _api_effort_meta(str(protocol), body, effort)
+    return {"url": url, "headers": headers, "body": body, "effort": effort_meta}
 
-    request = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+
+def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int, effort: str = "medium") -> dict[str, Any]:
+    plan = _build_api_request(route, prompt, model, effort)
+    request = urllib.request.Request(
+        plan["url"],
+        data=json.dumps(plan["body"]).encode("utf-8"),
+        headers=plan["headers"],
+        method="POST",
+    )
     opener = urllib.request.build_opener(_NoRedirect())
     with opener.open(request, timeout=timeout) as response:
         raw = response.read(MAX_RESPONSE_BYTES + 1)
         if len(raw) > MAX_RESPONSE_BYTES:
             raise RuntimeError("provider response exceeds maximum size")
         payload = json.loads(raw.decode("utf-8"))
-        return {"payload": payload, "headers": dict(response.headers.items())}
+        return {
+            "payload": payload,
+            "headers": dict(response.headers.items()),
+            "effort": plan["effort"],
+            "adapter_request_effort": plan["effort"].get("effort_effective") if plan["effort"].get("effort_applied") else None,
+        }
 
 
 def _extract_cli_banner_model(text: str) -> str | None:
@@ -323,16 +382,23 @@ def delegate(
         failure_detail = None  # exception message kept beside the class (see handler below)
         status = "failed"
         exit_code = None
+        effort_applied = False
+        adapter_request_effort = None
 
         try:
             if route.get("kind") == "api":
-                response = _api_request(route, safe_prompt, selected_model, timeout)
+                response = _api_request(route, safe_prompt, selected_model, timeout, effort=effort)
                 payload = response["payload"]
                 output = _extract_text(payload)
                 usage = _extract_usage(payload)
                 status = "pass" if output.strip() else "failed"
                 failure_class = None if output.strip() else "empty-output"
                 exit_code = 0
+                effort_meta = response.get("effort") or {}
+                effort_applied = bool(effort_meta.get("effort_applied"))
+                adapter_request_effort = (
+                    str(effort_meta.get("effort_effective")) if effort_applied else None
+                )
             else:
                 template = list(route["command"])
                 command, _stdin_payload, _stdin_used = _prepare_cli_invocation(
@@ -340,6 +406,8 @@ def delegate(
                 )
                 command = pin_command(command, user_home=user_home)
                 command = _with_cli_identity_flags(str(route.get("provider") or provider), command, effort=effort)
+                effort_applied = True
+                adapter_request_effort = _codex_reasoning_effort(effort)
                 child_env = provider_env(route.get("secret_env"), executable=command[0], user_home=user_home)
                 try:
                     completed = subprocess.run(
@@ -487,7 +555,9 @@ def delegate(
             "fallback_used": index > 0,
             "auth_route": route.get("auth_mode"),
             "effort_requested": effort,
-            "effort_effective": effort,
+            "effort_effective": adapter_request_effort if effort_applied else None,
+            "effort_applied": effort_applied,
+            "adapter_request_effort": adapter_request_effort,
         }
         if status == "pass" and usage.get("model_served") and selected_model not in {"auto", "auto:cloud"} and usage.get("model_served") != selected_model:
             result["status"] = status = "failed"
@@ -537,7 +607,8 @@ def delegate(
             "latency_ms": latency,
             "failure_class": failure_class or (None if exact_model else "model-identity-unverified"),
             "effort_supported": ["low", "medium", "high", "xhigh"],
-            "effort_effective": effort,
+            "effort_effective": adapter_request_effort if effort_applied else None,
+            "effort_applied": effort_applied,
             "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "expires_at": expires_at,
         })

@@ -262,7 +262,7 @@ def _default_provider_executor(
                 candidate=candidate,
                 dispatch=dispatch,
                 tool_decision=tool_decision,
-                adapter_request_effort=effective,
+                adapter_request_effort=result.get("adapter_request_effort"),
                 response=result,
             )
             result = {

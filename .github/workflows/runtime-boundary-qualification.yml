@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 1.0.0 | Date: 2026-09-05
+# Version: 1.0.1 | Date: 2026-09-05
 name: Runtime boundary qualification
 
 on:
+  push:
+    branches: [fix/verified-runtime-boundaries-20260904]
   pull_request:
     paths:
       - src/iot_ai/**
@@ -54,6 +56,7 @@ jobs:
         env:
           EVIDENCE_DIR: ${{ runner.temp }}/runtime-boundary
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          REVIEW_BASE: ef19edaacff4160bd930a849dfc68fe64fce6d6e
         run: |
           python - <<'PY'
           import hashlib
@@ -64,8 +67,9 @@ jobs:
           from pathlib import Path, PurePosixPath
 
           out = Path(os.environ['EVIDENCE_DIR'])
-          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
-          tree = subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip()
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          head, tree = git('rev-parse', 'HEAD'), git('rev-parse', 'HEAD^{tree}')
           if head != os.environ['EXPECTED_HEAD']:
               raise SystemExit('candidate-head-mismatch')
           archive = out / 'public-source.zip'
@@ -76,11 +80,21 @@ jobs:
                   raise SystemExit('source-archive-integrity-failed')
               if any(PurePosixPath(name).is_absolute() or '..' in PurePosixPath(name).parts for name in names):
                   raise SystemExit('source-archive-path-invalid')
+          base = os.environ['REVIEW_BASE']
+          if len(base) != 40 or any(c not in '0123456789abcdef' for c in base):
+              raise SystemExit('review-base-invalid')
+          subprocess.run(['git', 'fetch', '--no-tags', 'origin', base], check=True)
+          base_archive = out / 'review-base-source.zip'
+          subprocess.run(['git', 'archive', '--format=zip', '--output', str(base_archive), base], check=True)
           receipt = {
               'schema': 'iot-ai.runtime-boundary-qualification.v1',
               'head': head,
               'tree': tree,
               'source_sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
+              'review_base': base,
+              'review_base_tree': git('rev-parse', base + '^{tree}'),
+              'review_base_source_sha256': hashlib.sha256(base_archive.read_bytes()).hexdigest(),
+              'review_base_status': 'source-snapshot-not-qualified-by-this-run',
               'junit_sha256': hashlib.sha256((out / 'junit.xml').read_bytes()).hexdigest(),
               'scope': 'synthetic-boundary-regressions-not-production',
               'provider_calls': 0,

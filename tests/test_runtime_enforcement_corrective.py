@@ -644,6 +644,13 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
             endpoint_is_forbidden("https://" + aws_style + "/v1", allow_private=True),
             "metadata and link-local endpoints are forbidden",
         )
+        minus = chr(0x2212)
+        packed_minus = minus.join(("169", "254", "169", "254")) + ".nip.io"
+        self.assertTrue(host_is_never_allowed(packed_minus, resolve_dns=False))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + packed_minus + "/v1", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
         self.assertEqual(
             endpoint_is_forbidden("https://metadata.google.internal.attacker.example/", allow_private=True),
             "metadata and link-local endpoints are forbidden",

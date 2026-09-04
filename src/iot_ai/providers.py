@@ -159,6 +159,17 @@ _DOT_SEPARATORS = (
     "\uff65",
 )
 _HYPHEN_IPV4_RUN = re.compile(r"(?<![\dA-Fa-f])(\d{1,10}(?:-\d{1,10}){1,3})(?![\dA-Fa-f])")
+_DASH_SEPARATORS = (
+    "\u00ad",
+    "\u2010",
+    "\u2011",
+    "\u2012",
+    "\u2013",
+    "\u2014",
+    "\u2212",
+    "\ufe63",
+    "\uff0d",
+)
 _CLOUD_IMDS_V4 = frozenset(
     {
         ipaddress.IPv4Address("169.254.169.254"),
@@ -340,6 +351,8 @@ def _normalize_host(host: str) -> str:
     raw = raw.strip()
     for separator in _DOT_SEPARATORS:
         raw = raw.replace(separator, ".")
+    for separator in _DASH_SEPARATORS:
+        raw = raw.replace(separator, "-")
     while raw and raw[-1] in _DOT_STRIP:
         raw = raw[:-1]
     return raw.rstrip(".")

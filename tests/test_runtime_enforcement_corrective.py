@@ -608,6 +608,16 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         public_suffix = "8.8.8.8.example.invalid"
         self.assertFalse(host_is_never_allowed(public_suffix, resolve_dns=False))
         self.assertFalse(host_requires_private_allow(public_suffix, resolve_dns=False))
+        interior = "1.169.254.43518.nip.io"
+        leading_public = "8.8.8.8.169.254.43518.nip.io"
+        self.assertTrue(host_is_never_allowed(interior, resolve_dns=False))
+        self.assertTrue(host_is_never_allowed(leading_public, resolve_dns=False))
+        for packed_host in (interior, leading_public, "1.169.16689150.nip.io"):
+            self.assertEqual(
+                endpoint_is_forbidden("https://" + packed_host + "/v1", allow_private=True),
+                "metadata and link-local endpoints are forbidden",
+                packed_host,
+            )
         self.assertEqual(
             endpoint_is_forbidden("https://metadata.google.internal.attacker.example/", allow_private=True),
             "metadata and link-local endpoints are forbidden",
@@ -730,6 +740,21 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         self.assertEqual(packed["created"], [])
         self.assertTrue(
             any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in packed["skipped"])
+        )
+        settings["api_profiles"] = {
+            "interior": {
+                "endpoint": "https://1.169.254.43518.nip.io/v1",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "cloud",
+                "allow_private_endpoint": False,
+            }
+        }
+        interior = materialize_api_profiles(self.home, settings)
+        self.assertEqual(interior["created"], [])
+        self.assertTrue(
+            any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in interior["skipped"])
         )
 
 

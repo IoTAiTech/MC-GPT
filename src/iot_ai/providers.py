@@ -238,16 +238,34 @@ def _ipv4s_from_hostname(raw: str) -> list[ipaddress.IPv4Address]:
         while end < len(values) and values[end] is not None:
             end += 1
         run = [int(item) for item in values[index:end]]
-        for width in (4, 3, 2, 1):
-            if len(run) < width:
-                continue
-            address = _ipv4_from_numeric_parts(run[:width])
+
+        def remember(address: ipaddress.IPv4Address | None) -> None:
+            if address is None or address in seen:
+                return
+            seen.add(address)
+            found.append(address)
+
+        skip_short: set[int] = set()
+        for start in range(0, len(run) - 3):
+            address = _ipv4_from_numeric_parts(run[start : start + 4])
             if address is None:
                 continue
-            if address not in seen:
-                seen.add(address)
-                found.append(address)
-            break
+            remember(address)
+            skip_short.add(start)
+            skip_short.update(range(start + 1, start + 3))
+        for start in range(len(run)):
+            if start + 3 <= len(run) and run[start + 2] > 255:
+                remember(_ipv4_from_numeric_parts(run[start : start + 3]))
+            if start + 2 <= len(run) and run[start + 1] > 255:
+                remember(_ipv4_from_numeric_parts(run[start : start + 2]))
+            if start in skip_short:
+                continue
+            for width in (3, 2):
+                if start + width > len(run):
+                    continue
+                remember(_ipv4_from_numeric_parts(run[start : start + width]))
+        if len(run) == 1:
+            remember(_ipv4_from_numeric_parts(run))
         index = end
     return found
 

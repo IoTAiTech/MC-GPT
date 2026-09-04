@@ -26,3 +26,12 @@ Version: 6.8.0-beta.1
     third-party script execution. MNCG remains authoritative. Skill text is
     bounded guidance, never a system instruction.
 <!-- IOT-AI-SETTINGS-SKILL-ROUTER:END version=1.0.0 -->
+
+<!-- IOT-AI-RUNTIME-ENFORCEMENT:BEGIN version=1.0.0 -->
+17. Settings v2 and the skill router are runtime-enforced: MNCG must recompute
+    `minimum_change_assessment_valid`; `effective_effort` is the only dispatch
+    source; skill privacy is inherited from source; unknown schemas, boolean
+    integers, and non-transactional migrate/rollback fail closed; Garden lock
+    digest is verified at load; visual acceptance is a hard gate or
+    `VISUAL_ACCEPTANCE_TOOL_UNAVAILABLE`.
+<!-- IOT-AI-RUNTIME-ENFORCEMENT:END version=1.0.0 -->

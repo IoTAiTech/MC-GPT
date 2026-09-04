@@ -8,9 +8,36 @@ import unittest
 from unittest.mock import patch
 
 from iot_ai.agentic import run_goal
+from iot_ai.minimum_change import NON_NEGOTIABLE_CONTROLS, RUNG_DEFINITIONS, ZERO_DEFAULT_BUDGETS
 from iot_ai.roles import ROLE_CATALOG
 
 from tests.common import IsolatedHomeTestCase
+
+
+def _passing_assessment() -> dict:
+    rows = {}
+    selected = "standard-library"
+    selected_index = [item["id"] for item in RUNG_DEFINITIONS].index(selected)
+    for index, item in enumerate(RUNG_DEFINITIONS):
+        rung_id = item["id"]
+        if index < selected_index:
+            rows[rung_id] = {"decision": "rejected", "reason": f"reject {rung_id}", "evidence_refs": [f"e:{rung_id}"]}
+        elif index == selected_index:
+            rows[rung_id] = {"decision": "selected", "reason": "first sufficient", "evidence_refs": ["e:selected"]}
+        else:
+            rows[rung_id] = {"decision": "unassessed", "reason": "", "evidence_refs": []}
+    return {
+        "selected_rung": selected,
+        "rung_assessments": rows,
+        "acceptance_criteria_preserved": True,
+        "controls_preserved": list(NON_NEGOTIABLE_CONTROLS),
+        "rejected_alternatives": [],
+        "estimated_change_surface": {"files": 1, "mutation_required": True},
+        "dependency_service_schema_agent_delta": {key: [] for key in ZERO_DEFAULT_BUDGETS},
+        "budget_exceptions": {},
+        "verification_plan": ["python -m unittest"],
+        "remaining_uncertainty": [],
+    }
 
 
 def fake_node_executor(node, prompt, context):
@@ -29,6 +56,8 @@ def fake_node_executor(node, prompt, context):
             output[field] = [{"name": "unit", "decision": "pass"}]
         elif field in {"kpis", "sla", "5w1h", "acceptance", "constraints"}:
             output[field] = {"defined": True}
+        elif field == "minimum_change_assessment":
+            output[field] = _passing_assessment()
         elif field in {"changed_files", "evidence_refs", "findings", "risks", "unknowns", "disagreements", "missing_evidence", "alternatives", "dependencies", "threats", "controls", "residual_risk", "benchmarks", "bottlenecks", "capacity", "recovery", "journeys", "ia", "widgets", "a11y", "explainability", "dissent", "challenged_findings", "accepted_findings", "new_risks"}:
             output[field] = []
         else:

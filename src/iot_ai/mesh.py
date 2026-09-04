@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.8.0-beta.2 | Date: 2026-08-21
+# Version: 6.8.0-beta.1 | Date: 2026-09-04
 from __future__ import annotations
 
-import ipaddress
+import http.client
 import json
 import os
+import socket
+import ssl
 import subprocess
 import time
 from datetime import datetime, timedelta, timezone
@@ -19,7 +21,7 @@ from typing import Any
 
 from .exec_pin import pin_command, provider_env
 from .privacy import sanitize
-from .providers import eligible_routes
+from .providers import eligible_routes, host_is_never_allowed, host_requires_private_allow
 from .telemetry import record
 from .readiness import save_receipt
 
@@ -92,15 +94,120 @@ def _prepare_cli_invocation(
     return argv, prompt, True
 
 
+_OPENAI_EFFORTS = ("none", "low", "medium", "high", "xhigh", "max")
+_XAI_EFFORTS = ("low", "medium", "high", "xhigh")
+_ANTHROPIC_CURRENT = ("claude-fable-5-1", "claude-fable-5.1", "claude-opus-5", "claude-sonnet-5")
+
+
 def _codex_reasoning_effort(effort: str) -> str:
     value = str(effort or "medium").casefold()
-    if value in {"xhigh", "ultracode", "max"}:
+    if value in {"xhigh", "ultracode"}:
         return "xhigh"
+    if value in {"max"}:
+        return "max"
+    if value in {"none", "minimal"}:
+        return "none" if value == "none" else "low"
     if value in {"high"}:
         return "high"
-    if value in {"low", "minimal"}:
+    if value in {"low"}:
         return "low"
     return "medium"
+
+
+def _openai_reasoning_effort(effort: str, supported: list[str] | tuple[str, ...] | None = None) -> str:
+    value = _codex_reasoning_effort(effort)
+    allowed = [item for item in (supported or _OPENAI_EFFORTS) if item in _OPENAI_EFFORTS]
+    if value in allowed:
+        return value
+    if "medium" in allowed:
+        return "medium"
+    return allowed[0] if allowed else "medium"
+
+
+def _pin_resolved_endpoint(url: str, *, allow_private: bool = False) -> list[str]:
+    """Resolve destination IPs at connection time and reject rebinding/metadata."""
+
+    from .providers import host_is_never_allowed, host_requires_private_allow
+
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.hostname or ""
+    if not host:
+        raise RuntimeError("endpoint host is missing")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except (OSError, socket.gaierror) as exc:
+        raise RuntimeError("endpoint DNS resolution failed") from exc
+    pinned: list[str] = []
+    for info in infos:
+        ip = str(info[4][0]).split("%", 1)[0]
+        if host_is_never_allowed(ip) or host_is_never_allowed(host):
+            raise RuntimeError("metadata and link-local endpoints are forbidden")
+        if host_requires_private_allow(ip) and not allow_private:
+            raise RuntimeError("private provider endpoint requires allow_private_endpoint")
+        if ip not in pinned:
+            pinned.append(ip)
+    if not pinned:
+        raise RuntimeError("endpoint DNS resolution failed")
+    return pinned
+
+
+def _open_pinned_request(
+    url: str,
+    data: bytes,
+    headers: dict[str, str],
+    timeout: int,
+    *,
+    allow_private: bool = False,
+) -> tuple[bytes, dict[str, str], list[str], str]:
+    """Connect to a pinned IP while keeping Host/SNI on the original hostname."""
+
+    parsed = urllib.parse.urlparse(url)
+    hostname = parsed.hostname or ""
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    pinned = _pin_resolved_endpoint(url, allow_private=allow_private)
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    req_headers = {str(key): str(value) for key, value in headers.items()}
+    req_headers["Host"] = hostname
+    last_error: Exception | None = None
+    for ip in pinned:
+        conn: http.client.HTTPConnection | None = None
+        try:
+            if parsed.scheme == "https":
+                context = ssl.create_default_context()
+                sock = socket.create_connection((ip, port), timeout=timeout)
+                try:
+                    wrapped = context.wrap_socket(sock, server_hostname=hostname)
+                except Exception:
+                    sock.close()
+                    raise
+                conn = http.client.HTTPSConnection(ip, port=port, timeout=timeout, context=context)
+                conn.sock = wrapped
+            else:
+                if not allow_private:
+                    raise RuntimeError("cloud API routes require HTTPS")
+                conn = http.client.HTTPConnection(ip, port=port, timeout=timeout)
+            conn.request("POST", path, body=data, headers=req_headers)
+            response = conn.getresponse()
+            raw = response.read(MAX_RESPONSE_BYTES + 1)
+            header_map = {str(key): str(value) for key, value in response.getheaders()}
+            if response.status >= 400:
+                raise urllib.error.HTTPError(url, response.status, response.reason, response.headers, None)
+            return raw, header_map, pinned, ip
+        except urllib.error.HTTPError:
+            raise
+        except (OSError, ssl.SSLError, http.client.HTTPException) as exc:
+            last_error = exc
+            continue
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except OSError:
+                    pass
+    raise RuntimeError(f"pinned endpoint connection failed: {last_error}")
 
 
 def _with_cli_identity_flags(provider: str, argv: list[str], effort: str = "medium") -> list[str]:
@@ -126,10 +233,7 @@ def _with_cli_identity_flags(provider: str, argv: list[str], effort: str = "medi
 
 
 def _is_private_host(host: str) -> bool:
-    try:
-        return ipaddress.ip_address(host).is_private
-    except ValueError:
-        return host.lower() in {"localhost"} or host.lower().endswith(".local")
+    return host_requires_private_allow(host)
 
 
 def _validate_endpoint(route: dict[str, Any]) -> str:
@@ -140,6 +244,8 @@ def _validate_endpoint(route: dict[str, Any]) -> str:
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise RuntimeError("provider endpoint must not contain credentials, query or fragment")
     is_private = _is_private_host(parsed.hostname)
+    if host_is_never_allowed(parsed.hostname):
+        raise RuntimeError("metadata and link-local endpoints are forbidden")
     if route.get("cloud", True) and parsed.scheme != "https":
         raise RuntimeError("cloud API routes require HTTPS")
     if is_private and not route.get("allow_private_endpoint", False):
@@ -225,7 +331,66 @@ def _extract_text(payload: Any) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
-def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int) -> dict[str, Any]:
+_API_THINKING_BUDGETS = {"low": 1024, "medium": 4096, "high": 8192, "xhigh": 16384}
+
+
+def _api_effort_meta(
+    protocol: str,
+    body: dict[str, Any],
+    effort: str,
+    *,
+    model: str = "",
+    supported_efforts: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    """Bind candidate.effective_effort onto the live API adapter request body."""
+
+    if protocol == "openai-compatible":
+        applied = _openai_reasoning_effort(effort, supported_efforts)
+        body["reasoning_effort"] = applied
+        field = "reasoning_effort"
+    elif protocol == "anthropic":
+        applied = _openai_reasoning_effort(effort, supported_efforts or ("low", "medium", "high", "xhigh", "max"))
+        if applied not in {"low", "medium", "high", "xhigh", "max"}:
+            applied = "medium"
+        body.pop("thinking", None)
+        body["thinking"] = {"type": "adaptive"}
+        output_config = body.setdefault("output_config", {})
+        if not isinstance(output_config, dict):
+            output_config = {}
+            body["output_config"] = output_config
+        output_config["effort"] = applied
+        field = "output_config.effort"
+    elif protocol == "gemini":
+        applied = _openai_reasoning_effort(effort, ("low", "medium", "high", "xhigh"))
+        config = body.setdefault("generationConfig", {})
+        if not isinstance(config, dict):
+            config = {}
+            body["generationConfig"] = config
+        config["thinkingConfig"] = {
+            "thinkingLevel": applied,
+            "thinkingBudget": _API_THINKING_BUDGETS.get(applied, 4096),
+        }
+        field = "generationConfig.thinkingConfig"
+    elif protocol == "ollama":
+        applied = _openai_reasoning_effort(effort, _XAI_EFFORTS)
+        body["think"] = applied
+        field = "think"
+    else:
+        return {
+            "effort_applied": False,
+            "effort_requested": effort,
+            "effort_effective": None,
+            "effort_field": None,
+        }
+    return {
+        "effort_applied": True,
+        "effort_requested": effort,
+        "effort_effective": applied,
+        "effort_field": field,
+    }
+
+
+def _build_api_request(route: dict[str, Any], prompt: str, model: str, effort: str) -> dict[str, Any]:
     endpoint = _validate_endpoint(route)
     protocol = route.get("protocol")
     secret_env = route.get("secret_env")
@@ -236,7 +401,7 @@ def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int) -
 
     if protocol == "openai-compatible":
         url = endpoint + "/v1/chat/completions"
-        body = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False}
+        body: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False}
         if secret:
             headers["Authorization"] = f"Bearer {secret}"
     elif protocol == "anthropic":
@@ -256,15 +421,30 @@ def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int) -
             headers["Authorization"] = f"Bearer {secret}"
     else:
         raise RuntimeError(f"unsupported API protocol: {protocol}")
+    effort_meta = _api_effort_meta(str(protocol), body, effort, model=str(model or ""))
+    return {"url": url, "headers": headers, "body": body, "effort": effort_meta}
 
-    request = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
-    opener = urllib.request.build_opener(_NoRedirect())
-    with opener.open(request, timeout=timeout) as response:
-        raw = response.read(MAX_RESPONSE_BYTES + 1)
-        if len(raw) > MAX_RESPONSE_BYTES:
-            raise RuntimeError("provider response exceeds maximum size")
-        payload = json.loads(raw.decode("utf-8"))
-        return {"payload": payload, "headers": dict(response.headers.items())}
+
+def _api_request(route: dict[str, Any], prompt: str, model: str, timeout: int, effort: str = "medium") -> dict[str, Any]:
+    plan = _build_api_request(route, prompt, model, effort)
+    raw, response_headers, pinned, connected_ip = _open_pinned_request(
+        plan["url"],
+        json.dumps(plan["body"]).encode("utf-8"),
+        plan["headers"],
+        timeout,
+        allow_private=bool(route.get("allow_private_endpoint")),
+    )
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise RuntimeError("provider response exceeds maximum size")
+    payload = json.loads(raw.decode("utf-8"))
+    return {
+        "payload": payload,
+        "headers": response_headers,
+        "effort": plan["effort"],
+        "adapter_request_effort": plan["effort"].get("effort_effective") if plan["effort"].get("effort_applied") else None,
+        "pinned_ips": pinned,
+        "connected_ip": connected_ip,
+    }
 
 
 def _extract_cli_banner_model(text: str) -> str | None:
@@ -317,6 +497,30 @@ def delegate(
             raise RuntimeError("cloud privacy gate blocked the request")
         safe_prompt = privacy.text if privacy else prompt
         selected_model = model if model != "auto" else str(route.get("model", "auto"))
+        route_effort = effort
+        from .provider_catalog import apply_catalog_to_candidate, load_catalog, normalize_provider
+
+        family = normalize_provider(str(route.get("provider") or provider))
+        if family in (load_catalog().get("providers") or {}):
+            cataloged = apply_catalog_to_candidate(
+                {
+                    "provider": route.get("provider") or provider,
+                    "model": selected_model,
+                    "requested_effort": route.get("effective_effort") or route.get("default_effort") or effort,
+                    "risk_class": route.get("risk_class"),
+                }
+            )
+            if cataloged.get("catalog_block"):
+                raise RuntimeError(";".join(str(item) for item in (cataloged.get("catalog_errors") or ["catalog-block"])))
+            if cataloged.get("canonical_target_model"):
+                selected_model = str(cataloged["canonical_target_model"])
+            if index > 0:
+                route_effort = str(
+                    cataloged.get("effective_effort")
+                    or route.get("effective_effort")
+                    or route.get("default_effort")
+                    or "medium"
+                )
         started = time.monotonic()
         generated_request_id = f"mesh-{uuid.uuid4().hex}"
         usage = _extract_usage({})
@@ -325,23 +529,32 @@ def delegate(
         failure_detail = None  # exception message kept beside the class (see handler below)
         status = "failed"
         exit_code = None
+        effort_applied = False
+        adapter_request_effort = None
 
         try:
             if route.get("kind") == "api":
-                response = _api_request(route, safe_prompt, selected_model, timeout)
+                response = _api_request(route, safe_prompt, selected_model, timeout, effort=route_effort)
                 payload = response["payload"]
                 output = _extract_text(payload)
                 usage = _extract_usage(payload)
                 status = "pass" if output.strip() else "failed"
                 failure_class = None if output.strip() else "empty-output"
                 exit_code = 0
+                effort_meta = response.get("effort") or {}
+                effort_applied = bool(effort_meta.get("effort_applied"))
+                adapter_request_effort = (
+                    str(effort_meta.get("effort_effective")) if effort_applied else None
+                )
             else:
                 template = list(route["command"])
                 command, _stdin_payload, _stdin_used = _prepare_cli_invocation(
                     template, safe_prompt, selected_model, str(route.get("provider") or provider)
                 )
                 command = pin_command(command, user_home=user_home)
-                command = _with_cli_identity_flags(str(route.get("provider") or provider), command, effort=effort)
+                command = _with_cli_identity_flags(str(route.get("provider") or provider), command, effort=route_effort)
+                effort_applied = True
+                adapter_request_effort = _codex_reasoning_effort(effort)
                 child_env = provider_env(route.get("secret_env"), executable=command[0], user_home=user_home)
                 try:
                     completed = subprocess.run(
@@ -372,7 +585,7 @@ def delegate(
                             force_stdin=True,
                         )
                         command = pin_command(command, user_home=user_home)
-                        command = _with_cli_identity_flags(str(route.get("provider") or provider), command, effort=effort)
+                        command = _with_cli_identity_flags(str(route.get("provider") or provider), command, effort=route_effort)
                         try:
                             completed = subprocess.run(
                                 command,
@@ -414,11 +627,6 @@ def delegate(
                     failure_class = "auth"
                     if not exit_code:
                         exit_code = 1
-                # Ollama CLI executes the exact model supplied as an argv item.
-                # A successful non-empty `ollama run <exact-model>` call is
-                # therefore stronger evidence than a configured default and may
-                # bind the served-model receipt to that exact argument.  Auto
-                # selectors remain unverified and fail closed.
                 if (
                     route.get("provider") == "ollama"
                     and completed.returncode == 0
@@ -428,17 +636,9 @@ def delegate(
                 ):
                     usage["model_served"] = selected_model
                     usage["model_identity_source"] = "ollama-cli-exact-model-argument"
-                if completed.returncode == 0 and output.strip() and not usage.get("model_served") and route.get("kind") != "api":
-                    route_model = str(route.get("model") or "auto")
-                    if selected_model not in {"auto", "auto:cloud"}:
-                        usage["model_served"] = selected_model
-                        usage["model_identity_source"] = "cli-exact-model-argument"
-                    elif route_model not in {"auto", "auto:cloud", ""}:
-                        usage["model_served"] = route_model
-                        usage["model_identity_source"] = "cli-route-configured-model"
-                    else:
-                        usage["model_served"] = None
-                        usage["model_identity_source"] = "unverified-cli-success"
+                elif completed.returncode == 0 and output.strip() and not usage.get("model_served"):
+                    usage["model_served"] = None
+                    usage["model_identity_source"] = "unverified-cli-success"
                 status = "pass" if exit_code == 0 and output.strip() else "failed"
                 if exit_code != 0:
                     low = raw_output.lower()
@@ -489,7 +689,9 @@ def delegate(
             "fallback_used": index > 0,
             "auth_route": route.get("auth_mode"),
             "effort_requested": effort,
-            "effort_effective": effort,
+            "effort_effective": adapter_request_effort if effort_applied else None,
+            "effort_applied": effort_applied,
+            "adapter_request_effort": adapter_request_effort,
         }
         if status == "pass" and usage.get("model_served") and selected_model not in {"auto", "auto:cloud"} and usage.get("model_served") != selected_model:
             result["status"] = status = "failed"
@@ -539,7 +741,8 @@ def delegate(
             "latency_ms": latency,
             "failure_class": failure_class or (None if exact_model else "model-identity-unverified"),
             "effort_supported": ["low", "medium", "high", "xhigh"],
-            "effort_effective": effort,
+            "effort_effective": adapter_request_effort if effort_applied else None,
+            "effort_applied": effort_applied,
             "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "expires_at": expires_at,
         })

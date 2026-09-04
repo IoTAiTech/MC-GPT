@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-09-04
 """Primary natural-language workflow backed by immutable roles and a DAG."""
 from __future__ import annotations
 
@@ -18,16 +18,28 @@ from .graph_runtime import ExecutionGraph, GraphNode, compile_graph, execute_gra
 from .knowledge_plane import coverage, list_artifacts, write_artifact
 from .licensing import current
 from .mesh import delegate
-from .model_policy import clamp_effort, select_candidates
+from .model_policy import select_candidates
 from .prompt_compiler import compile_prompt, validate_prompt
 from .paths import data_root
 from .roles import ROLE_CATALOG
+from .runtime_gates import (
+    accepted_plan_allows_implement,
+    bind_implementation_to_accepted_plan,
+    build_effort_receipt,
+    evaluate_minimum_change_gate,
+    finalize_skill_state,
+    live_task_identity,
+    persist_accepted_plan,
+    resolve_dispatch_effort,
+)
+from .task_backends import SuiteTaskBackend
 from .settings import effective_settings, load as load_settings
-from .skill_router import context_blocks, select_skills
+from .skill_router import context_blocks, detect_host_native_image_tool, is_visual_task, select_skills
 from .tool_router import build_tool_decision, validate_provider_binding
+from .visual_acceptance import UNAVAILABLE, evaluate_visual_acceptance
 from .transparency import record_disclosure, runtime_output_provenance
 from .util import atomic_json, utc_now
-from .workspace import append_event, connect_write, new_id
+from .workspace import append_event, connect_write, new_id, one
 
 ProviderExecutor = Callable[[GraphNode, str, dict[str, Any]], dict[str, Any]]
 
@@ -59,6 +71,20 @@ def _parse_model_output(text: str) -> dict[str, Any]:
         "evidence_refs": [],
         "unstructured": True,
     }
+
+
+def _task_revision(user_home: Path, task_id: str) -> int:
+    connection = connect_write(user_home)
+    try:
+        row = one(connection, "SELECT revision FROM tasks WHERE id=?", (task_id,))
+    finally:
+        connection.close()
+    if not row:
+        return 1
+    try:
+        return int(row.get("revision") or 1)
+    except (TypeError, ValueError):
+        return 1
 
 
 def _five_w_one_h(goal: str) -> dict[str, str]:
@@ -103,7 +129,7 @@ def _default_provider_executor(
     *,
     task_id: str | None = None,
     meeting_id: str | None = None,
-    max_effort: str = "xhigh",
+    max_effort: str = "medium",
 ) -> ProviderExecutor:
     """Create a role executor with explicit route decisions and binding checks."""
     recoverable = {
@@ -141,11 +167,22 @@ def _default_provider_executor(
                     }
                 },
             }
-        ladder = [primary, *list(primary.get("fallback_candidates") or [])]
+        from .provider_catalog import apply_catalog_to_candidate
+
+        ladder = [
+            apply_catalog_to_candidate({**dict(row), "risk_class": row.get("risk_class") or graph.risk_class})
+            for row in [primary, *list(primary.get("fallback_candidates") or [])]
+        ]
+        primary_dispatch = resolve_dispatch_effort(
+            primary,
+            node_effort=node.effort,
+            max_effort=max_effort,
+            role_id=node.role_id,
+        )
         tool_decision = build_tool_decision(
             ladder,
             role_id=node.role_id,
-            requested_effort=node.effort,
+            requested_effort=str(primary_dispatch.get("effective_effort") or node.effort),
             privacy_class=graph.privacy_class,
             selected_candidate_id=str(primary.get("candidate_id") or ""),
             require_live=True,
@@ -169,21 +206,57 @@ def _default_provider_executor(
                     }
                 )
                 continue
-            allowed_efforts = [
-                effort
-                for effort in (candidate.get("receipt") or {}).get("effort_supported", ("low", "medium", "high", "xhigh"))
-                if ("low", "medium", "high", "xhigh").index(effort) <= ("low", "medium", "high", "xhigh").index(max_effort)
-            ]
-            effective, reason = clamp_effort(node.effort, allowed_efforts)
-            if effective != node.effort and not reason:
-                reason = f"edition maximum effort is {max_effort}"
+            dispatch = resolve_dispatch_effort(
+                candidate,
+                node_effort=node.effort,
+                max_effort=max_effort,
+                role_id=node.role_id,
+            )
+            if dispatch.get("decision") == "block":
+                attempts.append(
+                    {
+                        "candidate_id": candidate.get("candidate_id"),
+                        "provider": candidate.get("provider"),
+                        "model_requested": candidate.get("model"),
+                        "status": "blocked",
+                        "failure_class": dispatch.get("block_reason") or "minimum-effort-unsatisfied",
+                    }
+                )
+                continue
+            if candidate.get("catalog_block"):
+                attempts.append(
+                    {
+                        "candidate_id": candidate.get("candidate_id"),
+                        "provider": candidate.get("provider"),
+                        "model_requested": candidate.get("requested_model") or candidate.get("model"),
+                        "status": "blocked",
+                        "failure_class": "catalog-model-blocked",
+                        "reasons": list(candidate.get("catalog_errors") or []),
+                    }
+                )
+                continue
+            skill_privacy = list(context.get("included_skill_privacy") or [])
+            candidate_cloud = bool(candidate.get("cloud", True))
+            if candidate_cloud and any(item in {"D2", "D3"} for item in skill_privacy):
+                attempts.append(
+                    {
+                        "candidate_id": candidate.get("candidate_id"),
+                        "provider": candidate.get("provider"),
+                        "model_requested": candidate.get("model"),
+                        "status": "blocked",
+                        "failure_class": "skill-cloud-egress-blocked",
+                    }
+                )
+                continue
+            effective = str(dispatch.get("effective_effort") or node.effort)
+            reason = dispatch.get("clamp_reason")
             try:
                 result = delegate(
                     user_home,
                     str(candidate["provider"]),
                     prompt,
                     node.stage,
-                    model=str(candidate.get("model") or "auto"),
+                    model=str(candidate.get("canonical_target_model") or candidate.get("model") or "auto"),
                     auth_mode=str(candidate.get("auth_mode") or "auto"),
                     allow_fallback=False,
                     run_id=graph.graph_id,
@@ -204,11 +277,21 @@ def _default_provider_executor(
                     "model_requested": candidate.get("model"),
                     "model_served": None,
                 }
+            effort_receipt = build_effort_receipt(
+                settings_requested=candidate.get("requested_effort"),
+                candidate=candidate,
+                dispatch=dispatch,
+                tool_decision=tool_decision,
+                adapter_request_effort=result.get("adapter_request_effort"),
+                response=result,
+            )
             result = {
                 **result,
-                "effort_requested": node.effort,
+                "effort_requested": dispatch.get("requested_effort") or candidate.get("requested_effort") or node.effort,
                 "effort_effective": effective,
+                "effort_source": dispatch.get("effort_source"),
                 "effort_clamp_reason": reason,
+                "effort_receipt": effort_receipt,
                 "candidate_id": candidate.get("candidate_id"),
                 "fallback_used": index > 0,
             }
@@ -501,6 +584,7 @@ def run_goal(
         max_providers=entitlements.max_providers,
         required_provider_families=required_provider_families,
         settings=settings,
+        risk_class=risk_class,
     )
     skill_selection = select_skills(
         user_home,
@@ -508,6 +592,7 @@ def run_goal(
         role_id=role_ids[0] if role_ids else None,
         stage="agentic-execution",
         settings=settings,
+        host_native_image_tool=detect_host_native_image_tool(),
     )
     effective = effective_settings(user_home, settings)
     task_id, meeting_id = _register_run(user_home, graph, goal, len(role_ids), execute, existing_task_id)
@@ -621,6 +706,33 @@ def run_goal(
                     if key.startswith("plan-review") or key in {"plan-synthesis", "plan-revision"}
                 ),
             }
+            acceptance = ""
+            intake = inputs.get("intake", {}).get("output") or {}
+            if isinstance(intake, dict):
+                acceptance = str(intake.get("acceptance") or "")
+            try:
+                current_task = SuiteTaskBackend(user_home).snapshot(task_id)
+                acceptance = current_task.acceptance_criteria or acceptance or goal
+                current_revision = current_task.revision
+                current_risk = current_task.risk_class or risk_class
+            except Exception:
+                current_revision = _task_revision(user_home, task_id)
+                current_risk = risk_class
+            synthesis_context = str(
+                synthesis_result.get("context_digest")
+                or ((synthesis_result.get("_runtime_decisions") or {}).get("context_decision") or {}).get("context_digest")
+                or ""
+            )
+            mncg = evaluate_minimum_change_gate(
+                synthesis,
+                goal=goal,
+                task_id=task_id,
+                risk_class=current_risk,
+                acceptance=acceptance or goal,
+                context_digest=synthesis_context,
+                revision=current_revision,
+            )
+            hard_gates["minimum_change_assessment_valid"] = bool(mncg.get("valid"))
             decision = "accept" if all(hard_gates.values()) else "needs-review"
             return {
                 "status": "pass",
@@ -630,6 +742,7 @@ def run_goal(
                     "acceptance_matrix": acceptance_matrix,
                     "hard_gates": hard_gates,
                     "dissent": dissent,
+                    "mncg": mncg,
                 },
             }
         if node.node_id == "final-plan-gate":
@@ -643,16 +756,20 @@ def run_goal(
                 chosen = first
                 selected_round = 1
             decision = "accept" if chosen.get("decision") == "accept" else "needs-review"
+            output = {
+                "decision": decision,
+                "plan_digest": chosen.get("plan_digest"),
+                "acceptance_matrix": chosen.get("acceptance_matrix", {}),
+                "hard_gates": chosen.get("hard_gates", {}),
+                "dissent": chosen.get("dissent", []),
+                "selected_round": selected_round,
+                "mncg": chosen.get("mncg"),
+            }
+            if decision == "accept":
+                output["accepted_plan_receipt"] = persist_accepted_plan(user_home, output)
             return {
                 "status": "pass",
-                "output": {
-                    "decision": decision,
-                    "plan_digest": chosen.get("plan_digest"),
-                    "acceptance_matrix": chosen.get("acceptance_matrix", {}),
-                    "hard_gates": chosen.get("hard_gates", {}),
-                    "dissent": chosen.get("dissent", []),
-                    "selected_round": selected_round,
-                },
+                "output": output,
             }
         if node.node_id == "deterministic-tests":
             implementation = inputs.get("implement", {})
@@ -690,7 +807,19 @@ def run_goal(
                     "plan_accepted": plan.get("decision") == "accept",
                     "no_active_failure": result_status(inputs) == "pass",
                 }
-            decision = "accept" if all(hard_gates.values()) else "needs-review"
+            skills_cfg = settings.get("skills") or {}
+            visual = evaluate_visual_acceptance(
+                visual_task=is_visual_task(goal),
+                require_browser_acceptance=bool(skills_cfg.get("require_browser_acceptance")),
+                evidence=(inputs.get("implement", {}).get("parsed") or {}).get("visual_evidence")
+                if isinstance(inputs.get("implement", {}).get("parsed"), dict)
+                else None,
+            )
+            hard_gates["visual_acceptance"] = visual.get("decision") in {"pass", "not-applicable"}
+            hard_gates["visual_acceptance_claim"] = bool(visual.get("visual_acceptance_claim"))
+            if visual.get("decision") in {"block", UNAVAILABLE}:
+                hard_gates["visual_acceptance"] = False
+            decision = "accept" if all(value is True for key, value in hard_gates.items() if key != "visual_acceptance_claim") else "needs-review"
             return {
                 "status": "pass",
                 "output": {
@@ -699,6 +828,7 @@ def run_goal(
                     "hard_gates": hard_gates,
                     "findings": plan.get("dissent", []),
                     "evidence_refs": [],
+                    "visual_acceptance": visual,
                 },
             }
         if node.node_id == "publish-knowledge":
@@ -759,6 +889,17 @@ def run_goal(
             "frozen_plan_digest": plan_digest,
             "effort": node.effort,
         }
+        if node.node_id == "implement":
+            accepted_plan = (inputs.get("final-plan-gate") or {}).get("output") or {}
+            pre_bind = accepted_plan_allows_implement(accepted_plan, user_home=user_home)
+            node_contract["accepted_mncg_rung"] = pre_bind.get("selected_rung")
+            if not pre_bind.get("valid"):
+                return {
+                    "status": "blocked",
+                    "failure_class": "implementation-not-bound-to-accepted-mncg",
+                    "output": {},
+                    "_runtime_decisions": {"mncg_writer_bind": pre_bind},
+                }
         primary_candidate = candidates.get(node.role_id) or {}
         egress = "local" if primary_candidate.get("provider") == "ollama" and not primary_candidate.get("cloud", True) else "cloud"
         runtime_settings = settings.get("agent_runtime", {})
@@ -770,6 +911,7 @@ def run_goal(
             stage=node.stage,
             artifact=node.mission,
             settings=settings,
+            host_native_image_tool=detect_host_native_image_tool(),
         )
         context_manifest = compile_context(
             goal_contract=goal_contract.to_dict(),
@@ -782,6 +924,24 @@ def run_goal(
             egress=egress,
             extra_blocks=context_blocks(node_skills),
         )
+        finalized_skills = finalize_skill_state(
+            node_skills,
+            context_manifest.to_dict(include_payloads=False),
+            egress=egress,
+        )
+        node_skills = {**node_skills, **finalized_skills}
+        skill_state = finalized_skills.get("skill_state") or {}
+        privacy_errors = list(((skill_state.get("privacy") or {}).get("errors") or []))
+        if privacy_errors and egress == "cloud":
+            return {
+                "status": "blocked",
+                "failure_class": "skill-cloud-egress-blocked",
+                "output": {},
+                "_runtime_decisions": {
+                    "skill_state": skill_state,
+                    "tool_decision": {"decision": "block", "reason": "cloud-egress-blocked"},
+                },
+            }
         context_validation = validate_context_manifest(context_manifest)
         node_runtime_root = runtime_root / node.node_id
         atomic_json(node_runtime_root / "context-manifest.json", context_manifest.to_dict(include_payloads=True))
@@ -863,6 +1023,10 @@ def run_goal(
             "prompt_id": prompt_artifact.prompt_id,
             "prompt_sha256": prompt_artifact.sha256,
             "dependency_ids": list(inputs),
+            "included_skill_privacy": [
+                str(row.get("privacy_class") or "")
+                for row in (node_skills.get("selected") or [])
+            ],
         }
         value = provider_executor(node, prompt_artifact.text, provider_context)
         if not isinstance(value, dict):
@@ -911,6 +1075,50 @@ def run_goal(
             parsed["plan_digest"] = hashlib.sha256(
                 json.dumps(body, sort_keys=True, ensure_ascii=False).encode()
             ).hexdigest()
+        if isinstance(value, dict):
+            value["context_digest"] = context_manifest.digest
+            value["task_revision"] = _task_revision(user_home, task_id)
+        runtime_decisions["skill_state"] = (node_skills.get("skill_state") or (node_skills.get("receipt") or {}).get("skill_state"))
+        runtime_decisions.setdefault(
+            "context_decision",
+            {
+                "decision": context_validation.get("decision"),
+                "context_id": context_manifest.context_id,
+                "context_digest": context_manifest.digest,
+            },
+        )
+        if node.node_id == "implement":
+            accepted = (inputs.get("final-plan-gate") or {}).get("output") or {}
+            backend = SuiteTaskBackend(user_home)
+            try:
+                current = backend.snapshot(task_id).to_dict()
+            except Exception:
+                value["status"] = "blocked"
+                value["failure_class"] = "implementation-not-bound-to-accepted-mncg"
+                runtime_decisions["mncg_writer_bind"] = {
+                    "valid": False,
+                    "decision": "block",
+                    "errors": ["minimum-change-current-task-unresolved"],
+                }
+                return value
+            identity = live_task_identity(current, task_id=task_id, risk_class=risk_class)
+            bind = bind_implementation_to_accepted_plan(
+                parsed,
+                accepted,
+                goal=goal,
+                task_id=str(identity.get("task_id") or task_id),
+                risk_class=str(identity.get("risk_class") or risk_class),
+                acceptance=str(identity.get("acceptance_criteria") or ""),
+                context_digest=identity.get("context_digest"),
+                revision=int(identity.get("revision") or 0),
+                current_task=identity,
+                backend=backend,
+                policy_scope=str(identity.get("policy_scope") or ""),
+            )
+            runtime_decisions["mncg_writer_bind"] = bind
+            if not bind.get("valid"):
+                value["status"] = "blocked"
+                value["failure_class"] = "implementation-not-bound-to-accepted-mncg"
         return value
 
     def result_status(values: dict[str, Any]) -> str:

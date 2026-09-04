@@ -110,7 +110,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         )
         bind = bind_implementation_to_accepted_plan(
             {"minimum_change_assessment": passing_assessment("minimum-new-code")},
-            {"mncg": accepted},
+            {"decision": "accept", "mncg": accepted},
             goal="Export inventory",
             task_id="task-1",
             risk_class="R2",
@@ -120,7 +120,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         self.assertIn("implementation-rung-diverges-from-accepted-plan", bind["errors"])
         ok = bind_implementation_to_accepted_plan(
             {"minimum_change_assessment": passing_assessment("standard-library")},
-            {"mncg": accepted},
+            {"decision": "accept", "mncg": accepted},
             goal="Export inventory",
             task_id="task-1",
             risk_class="R2",
@@ -152,7 +152,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         }
         bind = bind_implementation_to_accepted_plan(
             {"minimum_change_assessment": drifted},
-            {"mncg": accepted},
+            {"decision": "accept", "mncg": accepted},
             goal="Export inventory",
             task_id="task-1",
             risk_class="R2",
@@ -163,7 +163,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         self.assertFalse(bind["valid"])
         self.assertTrue(any("drift" in item or "delta" in item for item in bind["errors"]))
 
-    def test_bind_reuses_accepted_context_digest(self) -> None:
+    def test_bind_requires_current_context_digest(self) -> None:
         accepted = evaluate_minimum_change_gate(
             {"minimum_change_assessment": passing_assessment("standard-library")},
             goal="Export inventory",
@@ -181,8 +181,8 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
             acceptance="Tests pass.",
             context_digest=None,
         )
-        self.assertTrue(bind["valid"])
-        self.assertEqual(bind["contract_sha256"], accepted["contract_sha256"])
+        self.assertFalse(bind["valid"])
+        self.assertIn("minimum-change-context-mismatch", bind["errors"])
 
     def test_pre_dispatch_requires_accepted_plan(self) -> None:
         blocked = accepted_plan_allows_implement({"decision": "needs-review", "mncg": {"valid": False}})
@@ -191,7 +191,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         allowed = accepted_plan_allows_implement(
             {"decision": "accept", "mncg": {"valid": True, "selected_rung": "standard-library"}}
         )
-        self.assertTrue(allowed["valid"])
+        self.assertFalse(allowed["valid"])
 
 
 class EffortReceiptTests(IsolatedHomeTestCase):
@@ -493,9 +493,9 @@ class VisualAcceptanceTests(IsolatedHomeTestCase):
                 "browser_version": "test-runner",
             },
         )
-        self.assertEqual(passed["decision"], "pass")
-        self.assertTrue(passed["visual_acceptance_claim"])
-        self.assertEqual(passed["recomputed_screenshot_sha256"], digests)
+        self.assertNotEqual(passed["decision"], "pass")
+        self.assertFalse(passed["visual_acceptance_claim"])
+        self.assertIn("trusted-visual-run-required", passed["missing"])
 
 
 class GardenLockLoadTests(IsolatedHomeTestCase):

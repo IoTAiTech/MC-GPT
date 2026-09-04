@@ -13,6 +13,8 @@ import subprocess
 from pathlib import Path
 from typing import Any, Mapping
 
+from .visual_evidence import verify_visual_run
+
 REQUIRED_VIEWPORTS = ("desktop", "tablet", "mobile")
 VIEWPORT_PIXELS = {"desktop": (1280, 800), "tablet": (768, 1024), "mobile": (390, 844)}
 REQUIRED_STATES = ("loading", "empty", "error")
@@ -91,6 +93,9 @@ def evaluate_visual_acceptance(
     require_browser_acceptance: bool,
     tool_available: bool | None = None,
     evidence: Mapping[str, Any] | None = None,
+    runner_evidence: Any = None,
+    expected_run_id: str | None = None,
+    expected_source_sha256: str | None = None,
 ) -> dict[str, Any]:
     required = bool(visual_task and require_browser_acceptance)
     if not required:
@@ -105,88 +110,19 @@ def evaluate_visual_acceptance(
             "real_visual_runner": False,
             "missing": [],
         }
-    probe = visual_runner_probe(explicit=tool_available)
-    if not probe.get("available"):
-        return {
-            "decision": UNAVAILABLE,
-            "required": True,
-            "visual_acceptance_claim": False,
-            "visual_quality_proven": False,
-            "browser_render_required": True,
-            "screenshot_evidence_required": True,
-            "accessibility_required": True,
-            "real_visual_runner": False,
-            "runner": probe,
-            "missing": ["browser-tool"],
-        }
-    payload = dict(evidence or {})
-    missing: list[str] = []
-    recomputed: list[str] = []
-    viewports = payload.get("viewports") or {}
-    paths = payload.get("screenshot_paths") or {}
-    for name in REQUIRED_VIEWPORTS:
-        row = viewports.get(name) if isinstance(viewports, Mapping) else None
-        path_value = None
-        if isinstance(paths, Mapping):
-            path_value = paths.get(name)
-        elif isinstance(row, Mapping):
-            path_value = row.get("path") or row.get("screenshot_path")
-        if not path_value:
-            missing.append(f"viewport-file:{name}")
-            continue
-        path = Path(str(path_value))
-        if not path.is_file() or path.is_symlink() or path.stat().st_size < 32:
-            missing.append(f"viewport-file:{name}")
-            continue
-        digest = _file_sha256(path)
-        recomputed.append(digest)
-        claimed = None
-        if isinstance(row, Mapping):
-            claimed = row.get("screenshot_sha256")
-        if claimed and (not _digest_ok(claimed) or claimed != digest):
-            missing.append(f"viewport-rehash:{name}")
-        if isinstance(row, Mapping) and row.get("rendered") is not True:
-            missing.append(f"viewport:{name}")
-    claimed_digests = payload.get("screenshot_digests") or []
-    if isinstance(claimed_digests, list):
-        for item in claimed_digests:
-            if not _digest_ok(item):
-                missing.append("synthetic-screenshot-digest")
-                break
-        if claimed_digests and recomputed and list(claimed_digests) != recomputed:
-            missing.append("screenshot_digests")
-    if len(recomputed) < len(REQUIRED_VIEWPORTS):
-        missing.append("screenshot_digests")
-    for check in ("overflow", "clipping"):
-        if payload.get(check) is not True:
-            missing.append(check)
-    a11y = payload.get("accessibility")
-    if a11y is True and not payload.get("accessibility_executed"):
-        missing.append("accessibility-execution")
-    elif a11y is not True:
-        missing.append("accessibility")
-    states = payload.get("states") or {}
-    for name in REQUIRED_STATES:
-        if not (isinstance(states, Mapping) and states.get(name) is True):
-            missing.append(f"state:{name}")
-    if payload.get("visual_critique") is not True:
-        missing.append("visual_critique")
-    if not payload.get("browser_version") and not probe.get("version"):
-        missing.append("browser-version")
-    passed = not missing
-    return {
-        "decision": "pass" if passed else "block",
-        "required": True,
-        "visual_acceptance_claim": passed,
-        "visual_quality_proven": passed,
-        "browser_render_required": True,
-        "screenshot_evidence_required": True,
-        "accessibility_required": True,
-        "real_visual_runner": True,
-        "runner": probe,
-        "recomputed_screenshot_sha256": recomputed,
-        "missing": missing,
-    }
+    # Tool discovery is not authorization; model-authored evidence is not read.
+    # A configured host adapter must have produced the opaque capability.
+    if runner_evidence is None:
+        return {"decision": UNAVAILABLE if not tool_available else "block", "required": True,
+                "visual_acceptance_claim": False, "visual_quality_proven": False,
+                "browser_render_required": True, "screenshot_evidence_required": True,
+                "accessibility_required": True, "real_visual_runner": False,
+                "missing": ["trusted-visual-run-required"]}
+    verified = verify_visual_run(runner_evidence, run_id=expected_run_id, source_sha256=expected_source_sha256)
+    return {**verified, "required": True, "visual_acceptance_claim": verified["decision"] == "pass",
+            "browser_render_required": True, "screenshot_evidence_required": True,
+            "accessibility_required": True, "real_visual_runner": verified["decision"] == "pass",
+            "visual_quality_proven": False}
 
 
 def capture_viewport_screenshot(url: str, destination: Path, *, viewport: str, runner: str | None = None) -> dict[str, Any]:

@@ -519,6 +519,12 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
             endpoint_is_forbidden("https://" + aliyun_adj + "/v1", allow_private=False),
             "private provider endpoint requires allow_private_endpoint",
         )
+        cgnat_suffix = "https://" + cgnat + ".example.invalid/v1"
+        self.assertEqual(
+            endpoint_is_forbidden(cgnat_suffix, allow_private=False),
+            "private provider endpoint requires allow_private_endpoint",
+        )
+        self.assertIsNone(endpoint_is_forbidden(cgnat_suffix, allow_private=True))
         dotted = "http://169.254.169.254./latest/meta-data/"
         self.assertEqual(
             endpoint_is_forbidden(dotted, allow_private=True),

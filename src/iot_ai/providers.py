@@ -312,6 +312,16 @@ def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
     leading = _leading_ipv4(raw)
     if leading is not None and _ip_is_never_allowed(leading):
         return True
+    if not never_allowed:
+        if leading is not None and _ip_requires_private_allow(leading):
+            return True
+        for match in _IPV4_LABELS.finditer(raw):
+            try:
+                address = ipaddress.IPv4Address(match.group(1))
+            except ValueError:
+                continue
+            if _ip_requires_private_allow(address):
+                return True
     lowered = raw.casefold()
     if never_allowed:
         if _metadata_host_match(lowered):

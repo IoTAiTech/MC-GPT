@@ -22,7 +22,7 @@ SCHEMA_V2 = "iot-ai.settings.v2"
 ROUTER_VERSION = "1.0.0"
 OLLAMA_POLICIES = ("never", "fallback", "prefer", "required", "only")
 EFFORT_ORDER = ("none", "low", "medium", "high", "xhigh", "max")
-SETTINGS_EFFORT_VALUES = ("low", "medium", "high", "xhigh")
+SETTINGS_EFFORT_VALUES = EFFORT_ORDER
 GOVERNED_TOP_LEVEL = frozenset(
     {
         "schema",
@@ -228,7 +228,7 @@ PRESETS: dict[str, dict[str, Any]] = {
 
 
 def canonical_dumps(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), default=str)
 
 
 def sha256_json(value: Any) -> str:
@@ -270,7 +270,9 @@ def _as_policy(value: Any, field: str) -> str:
 def _as_effort(value: Any, field: str, *, allow_none: bool = False) -> str | None:
     if value in (None, "", "null") and allow_none:
         return None
-    text = str(value or "medium").strip().lower()
+    if value is not None and not isinstance(value, str):
+        raise ValueError(f"invalid {field}: expected effort text")
+    text = (value or "medium").strip().lower()
     if text not in SETTINGS_EFFORT_VALUES:
         raise ValueError(f"invalid {field}: {value}; allowed: {', '.join(SETTINGS_EFFORT_VALUES)}")
     return text
@@ -304,8 +306,8 @@ def normalize_role_binding(raw: Any, role_id: str) -> dict[str, Any]:
     data["fallback_sequence"] = _as_str_list(raw.get("fallback_sequence"), f"{role_id}.fallback_sequence")
     family = raw.get("required_provider_family")
     data["required_provider_family"] = None if family in (None, "", "null") else str(family).strip().lower()
-    data["effort"] = _as_effort(raw.get("effort") or raw.get("requested_effort"), f"{role_id}.effort", allow_none=True)
-    data["minimum_effort"] = _as_effort(raw.get("minimum_effort") or raw.get("minimum_acceptable_effort"), f"{role_id}.minimum_effort", allow_none=True)
+    data["effort"] = _as_effort(raw.get("effort", raw.get("requested_effort")), f"{role_id}.effort", allow_none=True)
+    data["minimum_effort"] = _as_effort(raw.get("minimum_effort", raw.get("minimum_acceptable_effort")), f"{role_id}.minimum_effort", allow_none=True)
     reuse = raw.get("allow_reuse", raw.get("reuse_same_candidate", True))
     if not isinstance(reuse, bool):
         raise ValueError(f"invalid {role_id}.allow_reuse")

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 1.0.1 | Date: 2026-09-05
+# Version: 1.1.0 | Date: 2026-09-05
 name: Runtime boundary qualification
 
 on:
@@ -51,62 +51,61 @@ jobs:
           EVIDENCE_DIR: ${{ runner.temp }}/runtime-boundary
         run: |
           mkdir -p "$EVIDENCE_DIR"
-          python -m pytest -q tests/test_runtime_boundary_evidence.py tests/test_visual_adapter_failures.py tests/test_runtime_enforcement_corrective.py --junitxml="$EVIDENCE_DIR/junit.xml"
-      - name: Seal reproducible public source evidence
+          python -m pytest -q tests/test_runtime_boundary_evidence.py tests/test_visual_adapter_failures.py tests/test_runtime_enforcement_corrective.py tests/test_installed_workflow_trace.py tests/test_effort_settings_parity.py --junitxml="$EVIDENCE_DIR/junit.xml"
+      - name: Seal minimal qualification evidence
+        if: always()
         env:
           EVIDENCE_DIR: ${{ runner.temp }}/runtime-boundary
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-          REVIEW_BASE: ef19edaacff4160bd930a849dfc68fe64fce6d6e
         run: |
-          python - <<'PY'
+          python - <<'PYCODE'
           import hashlib
           import json
           import os
           import subprocess
-          import zipfile
-          from pathlib import Path, PurePosixPath
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
 
           out = Path(os.environ['EVIDENCE_DIR'])
+          out.mkdir(parents=True, exist_ok=True)
           def git(*args):
               return subprocess.check_output(['git', *args], text=True).strip()
           head, tree = git('rev-parse', 'HEAD'), git('rev-parse', 'HEAD^{tree}')
           if head != os.environ['EXPECTED_HEAD']:
               raise SystemExit('candidate-head-mismatch')
-          archive = out / 'public-source.zip'
-          subprocess.run(['git', 'archive', '--format=zip', '--output', str(archive), 'HEAD'], check=True)
-          with zipfile.ZipFile(archive) as data:
-              names = data.namelist()
-              if len(names) != len(set(names)) or data.testzip() is not None:
-                  raise SystemExit('source-archive-integrity-failed')
-              if any(PurePosixPath(name).is_absolute() or '..' in PurePosixPath(name).parts for name in names):
-                  raise SystemExit('source-archive-path-invalid')
-          base = os.environ['REVIEW_BASE']
-          if len(base) != 40 or any(c not in '0123456789abcdef' for c in base):
-              raise SystemExit('review-base-invalid')
-          subprocess.run(['git', 'fetch', '--no-tags', 'origin', base], check=True)
-          base_archive = out / 'review-base-source.zip'
-          subprocess.run(['git', 'archive', '--format=zip', '--output', str(base_archive), base], check=True)
+          junit = out / 'junit.xml'
+          if not junit.is_file():
+              raise SystemExit('test-evidence-missing')
+          cases = ET.parse(junit).getroot().findall('.//testcase')
+          totals = {
+              'tests': len(cases),
+              'failures': sum(case.find('failure') is not None for case in cases),
+              'errors': sum(case.find('error') is not None for case in cases),
+              'skipped': sum(case.find('skipped') is not None for case in cases),
+          }
           receipt = {
               'schema': 'iot-ai.runtime-boundary-qualification.v1',
               'head': head,
               'tree': tree,
-              'source_sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
-              'review_base': base,
-              'review_base_tree': git('rev-parse', base + '^{tree}'),
-              'review_base_source_sha256': hashlib.sha256(base_archive.read_bytes()).hexdigest(),
-              'review_base_status': 'source-snapshot-not-qualified-by-this-run',
-              'junit_sha256': hashlib.sha256((out / 'junit.xml').read_bytes()).hexdigest(),
-              'scope': 'synthetic-boundary-regressions-not-production',
+              'junit_sha256': hashlib.sha256(junit.read_bytes()).hexdigest(),
+              'totals': totals,
+              'decision': 'pass' if totals['tests'] and not totals['failures'] and not totals['errors'] else 'block',
+              'scope': 'synthetic-boundary-and-runtime-trace-not-production',
+              'source_archive_uploaded': False,
+              'raw_diagnostics_uploaded': False,
               'provider_calls': 0,
               'production_claim': False,
           }
           (out / 'receipt.json').write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n', encoding='utf-8')
           print(json.dumps(receipt, sort_keys=True))
-          PY
-      - name: Upload public-source qualification evidence
+          if receipt['decision'] != 'pass':
+              raise SystemExit('boundary-tests-failed')
+          PYCODE
+      - name: Upload minimal qualification receipt
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: runtime-boundary-${{ github.event.pull_request.head.sha || github.sha }}
-          path: ${{ runner.temp }}/runtime-boundary/
+          path: ${{ runner.temp }}/runtime-boundary/receipt.json
           retention-days: 14
           if-no-files-found: error

@@ -129,7 +129,9 @@ def capture_visual_run(
     returned = dict(capture(root, dict(VIEWPORTS)))
     if source_digest() != before:
         raise ValueError("visual-source-changed-during-capture")
-    if not isinstance(returned.get("browser_version"), str) or not returned["browser_version"]:
+    if (not isinstance(returned.get("browser_version"), str)
+        or not returned["browser_version"].strip()
+        or len(returned["browser_version"]) > 200):
         raise ValueError("visual-browser-version-missing")
     rows = {}
     for name, dimensions in VIEWPORTS.items():
@@ -174,13 +176,23 @@ def verify_visual_run(handle: Any, *, run_id: str | None, source_sha256: str | N
             report = json.loads(report_data)
             if not isinstance(report, dict):
                 raise ValueError("visual-measurement-object-required")
-            if report.get("viewport") != {"width": dimensions[0], "height": dimensions[1]}:
+            viewport = report.get("viewport")
+            if (not isinstance(viewport, dict)
+                or set(viewport) != {"width", "height"}
+                or any(type(viewport.get(key)) is not int for key in ("width", "height"))
+                or viewport != {"width": dimensions[0], "height": dimensions[1]}):
                 errors.append(f"viewport-measurement:{name}")
             for field in ("overflow_count", "clipping_count"):
                 if type(report.get(field)) is not int or report[field] != 0:
                     errors.append(f"{field}:{name}")
             a11y = report.get("accessibility", {})
-            if not isinstance(a11y, dict) or not a11y.get("engine") or type(a11y.get("checks_run")) is not int or a11y["checks_run"] < 1 or a11y.get("violations") != []:
+            if (not isinstance(a11y, dict)
+                or not isinstance(a11y.get("engine"), str)
+                or not a11y["engine"].strip()
+                or len(a11y["engine"]) > 200
+                or type(a11y.get("checks_run")) is not int
+                or a11y["checks_run"] < 1
+                or a11y.get("violations") != []):
                 errors.append(f"accessibility:{name}")
             states = report.get("states", {})
             if not isinstance(states, dict) or any(states.get(item) != "pass" for item in ("loading", "empty", "error")):

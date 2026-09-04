@@ -349,7 +349,11 @@ def _normalize_host(host: str) -> str:
         hostpart, _, _zone = raw.rpartition("%")
         if hostpart and ":" in hostpart:
             raw = hostpart
+        else:
+            return ""
     raw = raw.strip()
+    if "\ufffd" in raw:
+        return ""
     for separator in _DOT_SEPARATORS:
         raw = raw.replace(separator, ".")
     for separator in _DASH_SEPARATORS:

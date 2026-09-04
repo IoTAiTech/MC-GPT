@@ -658,6 +658,13 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
             endpoint_is_forbidden("https://" + encoded + "/v1", allow_private=True),
             "metadata and link-local endpoints are forbidden",
         )
+        smear = "%" + "25ef%b9%92"
+        smeared = smear.join(("1", "169", "254", "43518")) + ".nip.io"
+        self.assertTrue(host_is_never_allowed(smeared, resolve_dns=False))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + smeared + "/v1", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
         self.assertEqual(
             endpoint_is_forbidden("https://metadata.google.internal.attacker.example/", allow_private=True),
             "metadata and link-local endpoints are forbidden",
@@ -842,6 +849,25 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         self.assertEqual(fe52["created"], [])
         self.assertTrue(
             any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in fe52["skipped"])
+        )
+        smear = "%" + "25ef%b9%92"
+        settings["api_profiles"] = {
+            "smear": {
+                "endpoint": "https://" + smear.join(("1", "169", "254", "43518")) + ".nip.io/v1",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "cloud",
+                "allow_private_endpoint": True,
+            }
+        }
+        smeared = materialize_api_profiles(self.home, settings)
+        self.assertEqual(smeared["created"], [])
+        self.assertTrue(
+            any(
+                row.get("reason") == "metadata and link-local endpoints are forbidden"
+                for row in smeared["skipped"]
+            )
         )
 
 

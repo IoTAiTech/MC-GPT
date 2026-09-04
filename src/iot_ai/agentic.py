@@ -31,12 +31,12 @@ from .runtime_gates import (
     resolve_dispatch_effort,
 )
 from .settings import effective_settings, load as load_settings
-from .skill_router import context_blocks, is_visual_task, select_skills
+from .skill_router import context_blocks, detect_host_native_image_tool, is_visual_task, select_skills
 from .tool_router import build_tool_decision, validate_provider_binding
 from .visual_acceptance import evaluate_visual_acceptance
 from .transparency import record_disclosure, runtime_output_provenance
 from .util import atomic_json, utc_now
-from .workspace import append_event, connect_write, new_id
+from .workspace import append_event, connect_write, new_id, one
 
 ProviderExecutor = Callable[[GraphNode, str, dict[str, Any]], dict[str, Any]]
 
@@ -68,6 +68,20 @@ def _parse_model_output(text: str) -> dict[str, Any]:
         "evidence_refs": [],
         "unstructured": True,
     }
+
+
+def _task_revision(user_home: Path, task_id: str) -> int:
+    connection = connect_write(user_home)
+    try:
+        row = one(connection, "SELECT revision FROM tasks WHERE id=?", (task_id,))
+    finally:
+        connection.close()
+    if not row:
+        return 1
+    try:
+        return int(row.get("revision") or 1)
+    except (TypeError, ValueError):
+        return 1
 
 
 def _five_w_one_h(goal: str) -> dict[str, str]:
@@ -571,6 +585,7 @@ def run_goal(
         role_id=role_ids[0] if role_ids else None,
         stage="agentic-execution",
         settings=settings,
+        host_native_image_tool=detect_host_native_image_tool(),
     )
     effective = effective_settings(user_home, settings)
     task_id, meeting_id = _register_run(user_home, graph, goal, len(role_ids), execute, existing_task_id)
@@ -688,13 +703,19 @@ def run_goal(
             intake = inputs.get("intake", {}).get("output") or {}
             if isinstance(intake, dict):
                 acceptance = str(intake.get("acceptance") or "")
+            synthesis_context = str(
+                synthesis_result.get("context_digest")
+                or ((synthesis_result.get("_runtime_decisions") or {}).get("context_decision") or {}).get("context_digest")
+                or ""
+            )
             mncg = evaluate_minimum_change_gate(
                 synthesis,
                 goal=goal,
                 task_id=task_id,
                 risk_class=risk_class,
                 acceptance=acceptance or goal,
-                context_digest=plan_digest,
+                context_digest=synthesis_context,
+                revision=_task_revision(user_home, task_id),
             )
             hard_gates["minimum_change_assessment_valid"] = bool(mncg.get("valid"))
             decision = "accept" if all(hard_gates.values()) else "needs-review"
@@ -872,6 +893,7 @@ def run_goal(
             stage=node.stage,
             artifact=node.mission,
             settings=settings,
+            host_native_image_tool=detect_host_native_image_tool(),
         )
         context_manifest = compile_context(
             goal_contract=goal_contract.to_dict(),
@@ -1035,7 +1057,18 @@ def run_goal(
             parsed["plan_digest"] = hashlib.sha256(
                 json.dumps(body, sort_keys=True, ensure_ascii=False).encode()
             ).hexdigest()
+        if isinstance(value, dict):
+            value["context_digest"] = context_manifest.digest
+            value["task_revision"] = _task_revision(user_home, task_id)
         runtime_decisions["skill_state"] = (node_skills.get("skill_state") or (node_skills.get("receipt") or {}).get("skill_state"))
+        runtime_decisions.setdefault(
+            "context_decision",
+            {
+                "decision": context_validation.get("decision"),
+                "context_id": context_manifest.context_id,
+                "context_digest": context_manifest.digest,
+            },
+        )
         if node.node_id == "implement":
             accepted = (inputs.get("final-plan-gate") or {}).get("output") or {}
             bind = bind_implementation_to_accepted_plan(
@@ -1045,7 +1078,8 @@ def run_goal(
                 task_id=task_id,
                 risk_class=risk_class,
                 acceptance=str((accepted.get("mncg") or {}).get("acceptance") or goal),
-                context_digest=str((accepted.get("mncg") or {}).get("context_digest") or accepted.get("plan_digest") or ""),
+                context_digest=str((accepted.get("mncg") or {}).get("context_digest") or ""),
+                revision=int((accepted.get("mncg") or {}).get("task_revision") or _task_revision(user_home, task_id)),
             )
             runtime_decisions["mncg_writer_bind"] = bind
             if not bind.get("valid"):

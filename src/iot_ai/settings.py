@@ -152,8 +152,27 @@ def load(
 _SETTINGS_LOCK_HELD: ContextVar[bool] = ContextVar("iot_ai_settings_lock_held", default=False)
 
 
-def save(user_home: Path, value: dict[str, Any]) -> None:
-    from .settings_v2 import assert_no_secrets, validate_settings_document
+def _fsync_parent(path: Path) -> None:
+    try:
+        dir_fd = os.open(str(path.parent), os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(dir_fd)
+    except OSError:
+        pass
+    finally:
+        os.close(dir_fd)
+
+
+def save(
+    user_home: Path,
+    value: dict[str, Any],
+    *,
+    expected_revision: int | None = None,
+    expected_digest: str | None = None,
+) -> None:
+    from .settings_v2 import assert_no_secrets, sha256_json, validate_settings_document
 
     with exclusive_settings_lock(user_home):
         value = deepcopy(value)
@@ -162,8 +181,22 @@ def save(user_home: Path, value: dict[str, Any]) -> None:
         check = validate_settings_document(value)
         if check["decision"] != "pass":
             raise ValueError("; ".join(check["errors"]))
+        path = settings_path(user_home)
+        current = load_json(path, {}) or {}
+        if current:
+            current_revision = int(current.get("revision") or 0)
+            current_digest = sha256_json(current)
+            if expected_revision is None or expected_digest is None:
+                raise ValueError("optimistic-concurrency-required")
+            if int(expected_revision) != current_revision or str(expected_digest) != current_digest:
+                raise ValueError("optimistic-concurrency-conflict")
+            if "revision" not in value:
+                value["revision"] = current_revision + 1
+        else:
+            value.setdefault("revision", 1)
         value["updated_at"] = utc_now()
-        atomic_json(settings_path(user_home), value)
+        atomic_json(path, value)
+        _fsync_parent(path)
 
 
 def _assert_extra_roots_confined(user_home: Path, value: dict[str, Any]) -> None:
@@ -339,9 +372,19 @@ def migrate_v1_to_v2(user_home: Path, *, apply: bool = False) -> dict[str, Any]:
         live = load_json(path, {}) or {}
         if sha256_json(live) != source_digest:
             raise ValueError("settings revision changed during migrate")
-        save(user_home, migrated)
+        save(
+            user_home,
+            migrated,
+            expected_revision=source_revision if live else None,
+            expected_digest=source_digest if live else None,
+        )
         if not _read_back_matches(path, migrated):
-            save(user_home, current or {"schema": "iot-ai.settings.v1"})
+            save(
+                user_home,
+                current or {"schema": "iot-ai.settings.v1"},
+                expected_revision=int(migrated.get("revision") or source_revision + 1),
+                expected_digest=sha256_json(load_json(path, {}) or {}),
+            )
             raise ValueError("settings migrate read-back mismatch")
         on_disk = load_json(path, {}) or {}
         receipt.update(
@@ -386,9 +429,21 @@ def rollback_settings(user_home: Path, rollback_id: str, *, apply: bool = False)
         current = load_json(path, {}) or {}
         restore_id = f"{rollback_id}-restore-{utc_now().replace(':', '').replace('-', '')}"
         atomic_json(backup_dir / f"{restore_id}.json", current)
-        save(user_home, previous)
+        current_digest = sha256_json(current) if current else None
+        current_revision = int(current.get("revision") or 0) if current else None
+        save(
+            user_home,
+            previous,
+            expected_revision=current_revision,
+            expected_digest=current_digest,
+        )
         if not _read_back_matches(path, previous):
-            save(user_home, current)
+            save(
+                user_home,
+                current,
+                expected_revision=int((load_json(path, {}) or {}).get("revision") or 0),
+                expected_digest=sha256_json(load_json(path, {}) or {}),
+            )
             raise ValueError("settings rollback read-back mismatch")
         on_disk = load_json(path, {}) or {}
         receipt.update(
@@ -416,15 +471,44 @@ def apply_preset(user_home: Path, name: str, *, apply: bool = False) -> dict[str
         return result
     if not apply:
         return result
-    with exclusive_settings_lock(user_home):
-        migrate = migrate_v1_to_v2(user_home, apply=True)
-        from .settings_v2 import SCHEMA_V2
+    from .settings_v2 import SCHEMA_V2, migrate_document, sha256_json
 
-        on_disk = load(user_home, normalize=False)
-        proposed = apply_preset_overlay(on_disk, name)
+    path = settings_path(user_home)
+    with exclusive_settings_lock(user_home):
+        current = load_json(path, {}) or {}
+        source_revision = int(current.get("revision") or 0)
+        source_digest = sha256_json(current) if current else None
+        migrated = migrate_document(_merge(DEFAULTS, current))
+        proposed = apply_preset_overlay(migrated, name)
         proposed["schema"] = SCHEMA_V2
-        save(user_home, proposed)
-        result.update({"decision": "pass", "rollback_id": migrate.get("rollback_id"), "backup_path": migrate.get("backup_path")})
+        proposed["revision"] = source_revision + 1
+        backup_dir = settings_backup_root(user_home)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        rollback_id = f"settings-preset-{utc_now().replace(':', '').replace('-', '')}"
+        backup_path = backup_dir / f"{rollback_id}.json"
+        atomic_json(backup_path, current or {"schema": "iot-ai.settings.v1", "revision": source_revision})
+        live = load_json(path, {}) or {}
+        if current and sha256_json(live) != source_digest:
+            raise ValueError("settings revision changed during preset apply")
+        save(user_home, proposed, expected_revision=source_revision if current else None, expected_digest=source_digest)
+        if not _read_back_matches(path, proposed):
+            save(
+                user_home,
+                current or {"schema": "iot-ai.settings.v1"},
+                expected_revision=int(proposed.get("revision") or source_revision + 1),
+                expected_digest=sha256_json(load_json(path, {}) or {}),
+            )
+            raise ValueError("settings preset read-back mismatch")
+        result.update(
+            {
+                "decision": "pass",
+                "rollback_id": rollback_id,
+                "backup_path": str(backup_path),
+                "transactional": True,
+                "writes": 1,
+            }
+        )
+        atomic_json(backup_dir / f"{rollback_id}.receipt.json", result)
         return result
 
 

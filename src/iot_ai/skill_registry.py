@@ -123,13 +123,42 @@ def _reject_escape(path: Path, root: Path) -> None:
         raise ValueError("path traversal")
 
 
-def _load_manifest(directory: Path) -> dict[str, Any]:
-    path = directory / "manifest.json"
+def _opaque_root_id(root: Path) -> str:
+    return hashlib.sha256(str(root.resolve()).encode("utf-8")).hexdigest()[:16]
+
+
+def _sanitize_path(directory: Path, root: Path) -> dict[str, str]:
+    root_id = _opaque_root_id(root)
+    try:
+        relative = directory.resolve().relative_to(root.resolve())
+    except ValueError:
+        relative = Path(directory.name)
+    return {
+        "root_id": root_id,
+        "relative_path": str(relative).replace("\\", "/"),
+        "directory": f"{root_id}:{relative.as_posix()}",
+    }
+
+
+def _regular_file(path: Path, root: Path, *, label: str) -> None:
+    _reject_escape(path, root)
+    if path.is_symlink():
+        raise ValueError(f"{label} must not be a symlink")
     if not path.is_file():
+        raise ValueError(f"{label} missing")
+    size = path.stat().st_size
+    if size > MAX_SKILL_BYTES:
+        raise ValueError(f"oversized {label}")
+
+
+def _load_manifest(directory: Path, root: Path) -> dict[str, Any]:
+    path = directory / "manifest.json"
+    if not path.exists():
         return {}
+    _regular_file(path, root, label="manifest.json")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, UnicodeError, OSError) as exc:
         raise ValueError("malformed manifest.json") from exc
     if not isinstance(data, dict):
         raise ValueError("malformed manifest.json")
@@ -153,13 +182,11 @@ def _scan_body(body: str, mode: str) -> list[str]:
 
 def validate_skill_dir(directory: Path, *, root: Path, source: str, automatic: bool = True) -> dict[str, Any]:
     skill_md = directory / "SKILL.md"
-    _reject_escape(skill_md, root)
-    if not skill_md.is_file():
-        raise ValueError("SKILL.md missing")
-    size = skill_md.stat().st_size
-    if size > MAX_SKILL_BYTES:
-        raise ValueError("oversized instruction file")
-    text = skill_md.read_text(encoding="utf-8")
+    _regular_file(skill_md, root, label="SKILL.md")
+    try:
+        text = skill_md.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise ValueError("unreadable SKILL.md") from exc
     meta, body = parse_frontmatter(text)
     skill_id = str(meta.get("id") or meta.get("name") or directory.name).strip()
     if not ID_RE.match(skill_id):
@@ -167,13 +194,18 @@ def validate_skill_dir(directory: Path, *, root: Path, source: str, automatic: b
     if skill_id not in {directory.name, meta.get("name"), meta.get("id")}:
         if directory.name != skill_id and str(meta.get("name") or "") not in {skill_id, directory.name}:
             raise ValueError("directory/name inconsistency")
-    manifest = _load_manifest(directory)
+    manifest = _load_manifest(directory, root)
     declared_license = meta.get("license") or (manifest.get("license") if isinstance(manifest, dict) else None)
     if not declared_license:
         raise ValueError("license not on the allowlist")
     license_id = str(declared_license)
     if license_id not in LICENSE_ALLOWLIST:
         raise ValueError("license not on the allowlist")
+    compatibility = meta.get("compatibility") or manifest.get("compatibility") or ["mc-gpt"]
+    if isinstance(compatibility, str):
+        compatibility = [compatibility]
+    if not isinstance(compatibility, list) or not any(str(item) in {"mc-gpt", "iot-ai"} for item in compatibility):
+        raise ValueError("incompatible-skill")
     mode = str(meta.get("execution_mode") or "reference-only")
     if mode not in {"reference-only", "host-native"}:
         raise ValueError("invalid execution mode")
@@ -188,15 +220,29 @@ def validate_skill_dir(directory: Path, *, root: Path, source: str, automatic: b
     if scripts.exists() and automatic:
         raise ValueError("executable hooks in automatic mode")
     category = str(meta.get("category") or manifest.get("category") or "general")
+    path_meta = _sanitize_path(directory, root)
+    trust_tier = {
+        "packaged": "packaged-reviewed",
+        "user": "user-unreviewed",
+        "project": "project-local",
+        "configured": "configured-extra",
+    }.get(source, "untrusted")
+    egress_policy = "local-only" if source in {"user", "project", "configured"} else "packaged"
     return {
         "id": skill_id,
-        "directory": str(directory),
+        "directory": path_meta["directory"],
+        "root_id": path_meta["root_id"],
+        "relative_path": path_meta["relative_path"],
         "name": str(meta.get("name") or skill_id),
         "version": str(meta.get("version") or manifest.get("version") or "1.0.0"),
         "description": str(meta.get("description") or ""),
         "category": category,
-        "compatibility": meta.get("compatibility") or manifest.get("compatibility") or ["mc-gpt"],
+        "compatibility": compatibility,
         "source": source,
+        "source_scope": source,
+        "trust_tier": trust_tier,
+        "egress_policy": egress_policy,
+        "content_digest": digest,
         "license": license_id,
         "source_commit": str(meta.get("source_commit") or manifest.get("source_commit") or ""),
         "file_sha256": digest,
@@ -267,14 +313,8 @@ def garden_lock_path(packaged_root: Path | None = None) -> Path | None:
 
 def _is_garden_skill(record: dict[str, Any]) -> bool:
     skill_id = str(record.get("id") or "").casefold()
-    directory = str(record.get("directory") or "").replace("\\", "/")
-    name = Path(directory).name.casefold()
-    return (
-        "garden-" in name
-        or "third-party/garden-" in directory.casefold()
-        or skill_id.startswith("garden-")
-        or "garden-" in skill_id
-    )
+    relative = str(record.get("relative_path") or "").replace("\\", "/").casefold()
+    return skill_id.startswith("garden-") or "/garden-" in f"/{relative}"
 
 
 def verify_garden_lock(record: dict[str, Any], *, packaged_root: Path | None = None) -> str | None:
@@ -294,13 +334,12 @@ def verify_garden_lock(record: dict[str, Any], *, packaged_root: Path | None = N
     if lock.get("script_execution_policy") != "never":
         return "garden-lock-script-policy"
     files = {str(row.get("path")): row for row in lock.get("files") or [] if isinstance(row, dict)}
-    skill_name = Path(str(record.get("directory") or "")).name.casefold()
     skill_id = str(record.get("id") or "").casefold()
     row = next(
         (
             item
             for path, item in files.items()
-            if Path(path).parent.name.casefold() in {skill_name, skill_id} or skill_id in path.casefold()
+            if Path(path).parent.name.casefold() == skill_id or path.replace("\\", "/").casefold().endswith(f"/{skill_id}/skill.md")
         ),
         None,
     )
@@ -339,8 +378,14 @@ def discover(
             directory = Path(dirpath)
             try:
                 record = validate_skill_dir(directory, root=root_resolved, source=source, automatic=True)
-            except ValueError as exc:
-                rejected.append({"directory": str(directory), "reason": str(exc), "source": source})
+            except (ValueError, OSError, UnicodeError) as exc:
+                rejected.append(
+                    {
+                        **_sanitize_path(directory, root_resolved),
+                        "reason": str(exc),
+                        "source": source,
+                    }
+                )
                 continue
             if record["license"] not in allow:
                 rejected.append({"id": record["id"], "reason": "license not on the allowlist", "source": source})

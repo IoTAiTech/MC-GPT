@@ -1,51 +1,312 @@
 {
   "schema": "iot-ai.provider-capability-catalog.v1",
-  "catalog_version": "2026-09-04.1",
+  "catalog_version": "2026-09-04.2",
+  "review_policy": "offline-reviewed-diff-never-auto-merge",
   "source_dates": {
     "openai": "2026-09-04",
     "xai": "2026-09-04",
     "anthropic": "2026-09-04"
   },
+  "source_urls": {
+    "openai": [
+      "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+      "https://developers.openai.com/api/docs/models"
+    ],
+    "xai": [
+      "https://docs.x.ai/developers/models/grok-4.20-beta-0309-reasoning.md",
+      "https://x.ai/docs/build/overview"
+    ],
+    "anthropic": [
+      "https://platform.claude.com/docs/en/models/fable-5-1/whats-new-fable-5-1.md",
+      "https://platform.claude.com/docs/en/build-with-claude/thinking"
+    ]
+  },
+  "source_content_digest": {
+    "openai": "e92c0199984acb22562c23eb2342550ac365d3be300f1b444941eddc6d86b5da",
+    "xai": "76ec8455fbfee037417e9ee9239d513e5384d4657ac434046df8ee15ff95d015",
+    "anthropic": "423998adc8b1f38ea1f296ed0cb3c8ebde98d2bbdb7c5d931e2f38b6f39dd6a5"
+  },
+  "provider_namespaces": {
+    "codex": "openai",
+    "openai": "openai",
+    "grok": "xai",
+    "xai": "xai",
+    "claude": "anthropic",
+    "anthropic": "anthropic"
+  },
   "providers": {
     "openai": {
       "family": "GPT-5.6",
-      "models": {
-        "gpt-5.6": {"status": "ga", "client_products": ["api", "codex"]},
-        "gpt-5.6-sol": {"status": "ga", "client_products": ["codex"], "alias_of": "gpt-5.6"},
-        "gpt-5.6-codex": {"status": "ga", "client_products": ["codex"], "alias_of": "gpt-5.6"},
-        "gpt-6-astra": {
-          "status": "limited-access",
-          "client_products": ["api"],
-          "requires": ["limited-access-entitlement"]
-        }
-      },
+      "unsupported_sampling_parameters": ["temperature", "top_p", "presence_penalty"],
       "clients": {
-        "codex": {"minimum_version": "0.148.0"}
+        "codex": {"minimum_version": "0.144.0", "client_product": "codex"},
+        "api": {"minimum_version": "0.0.0", "client_product": "api"}
       },
-      "unsupported_sampling_parameters": ["temperature", "top_p", "presence_penalty"]
+      "models": {
+        "gpt-5.6-sol": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "gpt-5.6-sol",
+          "aliases": ["gpt-5.6"],
+          "client_products": ["api", "codex"],
+          "supported_efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+          "context_window": 1050000,
+          "max_output": 128000,
+          "modalities": ["text", "image"],
+          "reasoning_mode": "reasoning",
+          "tools": ["functions", "web_search", "file_search", "computer_use"],
+          "unsupported_params": ["temperature", "top_p", "presence_penalty"],
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+          "source_checked_at": "2026-09-04"
+        },
+        "gpt-5.6": {
+          "status": "alias",
+          "lifecycle": "alias",
+          "alias_of": "gpt-5.6-sol",
+          "classification": "alias",
+          "client_products": ["api", "codex"],
+          "supported_efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+          "source_checked_at": "2026-09-04"
+        },
+        "gpt-5.6-terra": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "gpt-5.6-terra",
+          "aliases": [],
+          "client_products": ["api", "codex"],
+          "supported_efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+          "context_window": 1050000,
+          "max_output": 128000,
+          "modalities": ["text", "image"],
+          "reasoning_mode": "reasoning",
+          "source_url": "https://developers.openai.com/api/docs/models",
+          "source_checked_at": "2026-09-04"
+        },
+        "gpt-5.6-luna": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "gpt-5.6-luna",
+          "aliases": [],
+          "client_products": ["api", "codex"],
+          "supported_efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+          "context_window": 1050000,
+          "max_output": 128000,
+          "modalities": ["text", "image"],
+          "reasoning_mode": "reasoning",
+          "source_url": "https://developers.openai.com/api/docs/models",
+          "source_checked_at": "2026-09-04"
+        },
+        "gpt-5.6-codex": {
+          "status": "unverified",
+          "lifecycle": "client-product-label",
+          "classification": "client_product_label",
+          "not_an_api_id": true,
+          "maps_to_client_product": "codex",
+          "canonical_if_codex_client": "gpt-5.6-sol",
+          "client_products": ["codex"],
+          "source_url": "https://developers.openai.com/api/docs/models",
+          "source_checked_at": "2026-09-04"
+        },
+        "gpt-6-astra": {
+          "status": "limited-rollout",
+          "lifecycle": "limited-rollout",
+          "model_id": "gpt-6-astra",
+          "client_products": ["api"],
+          "requires": ["limited-access-entitlement"],
+          "supported_efforts": ["none", "low", "medium", "high", "xhigh", "max"],
+          "unconditional_default": false,
+          "source_url": "https://developers.openai.com/api/docs/models",
+          "source_checked_at": "2026-09-04"
+        }
+      }
     },
     "xai": {
+      "family": "Grok",
+      "clients": {
+        "grok-cli": {"minimum_version": "0.0.0", "client_product": "grok-cli"},
+        "api": {"minimum_version": "0.0.0", "client_product": "api"}
+      },
       "models": {
-        "grok-4.6": {"status": "ga", "client_products": ["api", "grok-cli"]},
-        "grok-4.6-build": {"status": "ga", "alias_of": "grok-4.6", "client_products": ["grok-cli"]},
-        "grok-4.20": {"status": "alias", "alias_of": "grok-4.6", "multi_agent": true},
-        "grok-2": {"status": "retired", "redirect_to": "grok-4.6"},
-        "grok-beta": {"status": "retired", "redirect_to": "grok-4.6"}
+        "grok-4.6": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "grok-4.6",
+          "aliases": [],
+          "client_products": ["api", "grok-cli"],
+          "supported_efforts": ["low", "medium", "high", "xhigh"],
+          "context_window": 500000,
+          "modalities": ["text", "image"],
+          "reasoning_mode": "reasoning",
+          "source_url": "https://x.ai/docs/build/overview",
+          "source_checked_at": "2026-09-04"
+        },
+        "grok-4.20-0309-reasoning": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "grok-4.20-0309-reasoning",
+          "aliases": ["grok-4.20", "grok-4.20-reasoning", "grok-4.20-0309", "grok-4.20-reasoning-latest"],
+          "client_products": ["api", "grok-cli"],
+          "supported_efforts": ["low", "medium", "high", "xhigh"],
+          "context_window": 1000000,
+          "modalities": ["text", "image"],
+          "reasoning_mode": "reasoning",
+          "source_url": "https://docs.x.ai/developers/models/grok-4.20-beta-0309-reasoning.md",
+          "source_checked_at": "2026-09-04"
+        },
+        "grok-4.20": {
+          "status": "alias",
+          "lifecycle": "alias",
+          "alias_of": "grok-4.20-0309-reasoning",
+          "classification": "alias",
+          "client_products": ["api", "grok-cli"],
+          "supported_efforts": ["low", "medium", "high", "xhigh"],
+          "source_url": "https://docs.x.ai/developers/models/grok-4.20-beta-0309-reasoning.md",
+          "source_checked_at": "2026-09-04"
+        },
+        "grok-4.20-0309-non-reasoning": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "grok-4.20-0309-non-reasoning",
+          "aliases": ["grok-4.20-non-reasoning"],
+          "client_products": ["api", "grok-cli"],
+          "supported_efforts": ["low", "medium", "high", "xhigh"],
+          "reasoning_mode": "none",
+          "source_url": "https://docs.x.ai/developers/models/grok-4.20-beta-0309-reasoning.md",
+          "source_checked_at": "2026-09-04"
+        },
+        "grok-4.20-multi-agent-0309": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "grok-4.20-multi-agent-0309",
+          "aliases": ["grok-4.20-multi-agent-beta-0309"],
+          "client_products": ["api"],
+          "multi_agent": true,
+          "effort_axis": "agent_count",
+          "supported_efforts": ["low", "medium", "high", "xhigh"],
+          "reasoning_mode": "multi-agent",
+          "source_url": "https://docs.x.ai/developers/models/grok-4.20-beta-0309-reasoning.md",
+          "source_checked_at": "2026-09-04"
+        },
+        "grok-build-0.1": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "grok-build-0.1",
+          "aliases": [],
+          "client_products": ["api", "grok-cli"],
+          "classification": "coding",
+          "supported_efforts": ["low", "medium", "high", "xhigh"],
+          "context_window": 256000,
+          "reasoning_mode": "reasoning",
+          "source_url": "https://x.ai/docs/build/overview",
+          "source_checked_at": "2026-09-04"
+        },
+        "grok-4.6-build": {
+          "status": "unverified",
+          "lifecycle": "not-an-api-id",
+          "classification": "client_product_label",
+          "not_an_api_id": true,
+          "canonical_if_coding": "grok-build-0.1",
+          "source_checked_at": "2026-09-04"
+        },
+        "grok-2": {
+          "status": "retired",
+          "lifecycle": "retired",
+          "redirect_to": "grok-4.6",
+          "client_products": ["api", "grok-cli"],
+          "source_checked_at": "2026-09-04"
+        },
+        "grok-beta": {
+          "status": "retired",
+          "lifecycle": "retired",
+          "redirect_to": "grok-4.6",
+          "client_products": ["api", "grok-cli"],
+          "source_checked_at": "2026-09-04"
+        }
       }
     },
     "anthropic": {
-      "models": {
-        "claude-fable-5.1": {"status": "ga", "adaptive_thinking": true, "client_products": ["api", "claude-code"]},
-        "claude-sonnet-4": {"status": "ga", "adaptive_thinking": true}
-      },
+      "family": "Claude",
+      "unsupported_sampling_parameters": ["temperature"],
       "clients": {
-        "claude-code": {"minimum_version": "2.1.0", "vulnerable_versions": ["2.0.0", "2.0.1", "2.0.2"]}
+        "claude-code": {
+          "minimum_version": "2.1.255",
+          "vulnerable_versions": ["2.0.0", "2.0.1", "2.0.2"],
+          "client_product": "claude-code"
+        },
+        "api": {"minimum_version": "0.0.0", "client_product": "api"}
       },
       "privacy": {
         "zero_data_retention": "required-for-customer-content",
-        "unsupported_when_zdr": ["training-retention"]
+        "unsupported_when_zdr": ["training-retention"],
+        "zdr_policy": "hard-block"
       },
-      "unsupported_sampling_parameters": ["temperature"]
+      "models": {
+        "claude-fable-5-1": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "claude-fable-5-1",
+          "aliases": ["claude-fable-5.1"],
+          "client_products": ["api", "claude-code"],
+          "adaptive_thinking": true,
+          "thinking_always_on": true,
+          "rejects_budget_tokens": true,
+          "supported_efforts": ["low", "medium", "high", "xhigh", "max"],
+          "context_window": 1000000,
+          "max_output": 128000,
+          "reasoning_mode": "adaptive-thinking",
+          "source_url": "https://platform.claude.com/docs/en/models/fable-5-1/whats-new-fable-5-1.md",
+          "source_checked_at": "2026-09-04"
+        },
+        "claude-fable-5.1": {
+          "status": "alias",
+          "lifecycle": "alias",
+          "alias_of": "claude-fable-5-1",
+          "classification": "alias",
+          "not_the_api_id": true,
+          "client_products": ["api", "claude-code"],
+          "adaptive_thinking": true,
+          "rejects_budget_tokens": true,
+          "source_url": "https://platform.claude.com/docs/en/models/fable-5-1/whats-new-fable-5-1.md",
+          "source_checked_at": "2026-09-04"
+        },
+        "claude-opus-5": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "claude-opus-5",
+          "aliases": [],
+          "client_products": ["api", "claude-code"],
+          "adaptive_thinking": true,
+          "rejects_budget_tokens": true,
+          "supported_efforts": ["low", "medium", "high", "xhigh", "max"],
+          "reasoning_mode": "adaptive-thinking",
+          "source_url": "https://platform.claude.com/docs/en/build-with-claude/thinking",
+          "source_checked_at": "2026-09-04"
+        },
+        "claude-sonnet-5": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "claude-sonnet-5",
+          "aliases": [],
+          "client_products": ["api", "claude-code"],
+          "adaptive_thinking": true,
+          "rejects_budget_tokens": true,
+          "supported_efforts": ["low", "medium", "high", "xhigh"],
+          "reasoning_mode": "adaptive-thinking",
+          "source_url": "https://platform.claude.com/docs/en/build-with-claude/thinking",
+          "source_checked_at": "2026-09-04"
+        },
+        "claude-sonnet-4": {
+          "status": "ga",
+          "lifecycle": "ga",
+          "model_id": "claude-sonnet-4",
+          "aliases": [],
+          "client_products": ["api", "claude-code"],
+          "adaptive_thinking": true,
+          "supported_efforts": ["low", "medium", "high", "xhigh"],
+          "source_checked_at": "2026-09-04"
+        }
+      }
     }
   }
 }

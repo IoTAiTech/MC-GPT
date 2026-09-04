@@ -25,7 +25,19 @@ ROLE_PREFERENCES: dict[str, tuple[str, ...]] = {
     "independent-judge": ("grok", "codex", "ollama", "claude", "gemini"),
 }
 
-EFFORT_ORDER = ("low", "medium", "high", "xhigh")
+EFFORT_ORDER = ("none", "low", "medium", "high", "xhigh", "max")
+
+
+class CandidateSelection(dict):
+    """Role-to-candidate map plus typed selection errors. Extra keys stay off .values()."""
+
+    errors: list[dict[str, Any]]
+    decision: str
+
+    def __init__(self, mapping: dict[str, Any] | None = None) -> None:
+        super().__init__(mapping or {})
+        self.errors = []
+        self.decision = "pass"
 
 
 def clamp_effort(requested: str, supported: list[str] | tuple[str, ...] | None) -> tuple[str, str | None]:
@@ -202,10 +214,8 @@ def select_candidates(
 ) -> dict[str, dict[str, Any]]:
     """Assign candidates to roles with diversity and an explicit fallback ladder."""
     document = settings if settings is not None else load_settings(user_home)
-    from .providers import materialize_api_profiles
-
-    materialize_api_profiles(user_home, document)
     routing = normalize_routing(document.get("routing"))
+    selection_errors: list[dict[str, Any]] = []
     from .provider_catalog import apply_catalog_to_candidate
 
     ladders = rank_candidates(
@@ -350,6 +360,7 @@ def select_candidates(
                     None,
                 )
                 if replacement is None:
+                    selection_errors.append({"code": "model-cap-conflict", "role_id": role_id})
                     selected.pop(role_id, None)
                     continue
                 selected[role_id] = {**replacement, "selection_reason": "community-provider-cap"}
@@ -375,12 +386,14 @@ def select_candidates(
                         None,
                     )
                     if replacement is None:
+                        selection_errors.append({"code": "required-provider-family-unavailable", "role_id": role_id, "family": "ollama"})
                         selected.pop(role_id, None)
                     else:
                         selected[role_id] = {**replacement, "selection_reason": "ollama-local-only"}
         elif local_policy == "required":
             if not local_options:
                 for role_id in list(selected):
+                    selection_errors.append({"code": "required-provider-family-unavailable", "role_id": role_id, "family": "ollama"})
                     selected.pop(role_id, None)
             elif not any(row.get("provider") == "ollama" and not row.get("cloud") for row in selected.values()):
                 role_id = next(iter(selected), None)
@@ -401,6 +414,7 @@ def select_candidates(
                 None,
             )
             if replacement is None:
+                selection_errors.append({"code": "model-cap-conflict", "role_id": role_id})
                 selected.pop(role_id, None)
                 continue
             selected[role_id] = {**replacement, "selection_reason": "max-distinct-models"}
@@ -422,4 +436,17 @@ def select_candidates(
         candidate["effort_source"] = effort["source_layer"]
         candidate["effort_decision"] = effort.get("decision") or "pass"
         candidate["effort_block_reason"] = effort.get("block_reason")
-    return selected
+    for role_id in role_ids:
+        if role_id not in selected:
+            selection_errors.append({"code": "required-role-unsatisfied", "role_id": role_id})
+    if routing.get("require_provider_diversity") and len([role for role in role_ids if role in selected]) >= 2:
+        from .provider_catalog import normalize_provider
+
+        families = {normalize_provider(str(row.get("provider") or "")) for row in selected.values()}
+        families.discard("")
+        if len(families) < 2:
+            selection_errors.append({"code": "provider-diversity-unsatisfied", "families": sorted(families)})
+    result = CandidateSelection(selected)
+    result.errors = selection_errors
+    result.decision = "pass" if not selection_errors else "block"
+    return result

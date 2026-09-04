@@ -21,7 +21,8 @@ SCHEMA_V1 = "iot-ai.settings.v1"
 SCHEMA_V2 = "iot-ai.settings.v2"
 ROUTER_VERSION = "1.0.0"
 OLLAMA_POLICIES = ("never", "fallback", "prefer", "required", "only")
-EFFORT_ORDER = ("low", "medium", "high", "xhigh")
+EFFORT_ORDER = ("none", "low", "medium", "high", "xhigh", "max")
+SETTINGS_EFFORT_VALUES = ("low", "medium", "high", "xhigh")
 GOVERNED_TOP_LEVEL = frozenset(
     {
         "schema",
@@ -269,8 +270,8 @@ def _as_effort(value: Any, field: str, *, allow_none: bool = False) -> str | Non
     if value in (None, "", "null") and allow_none:
         return None
     text = str(value or "medium").strip().lower()
-    if text not in EFFORT_ORDER:
-        raise ValueError(f"invalid {field}: {value}; allowed: {', '.join(EFFORT_ORDER)}")
+    if text not in SETTINGS_EFFORT_VALUES:
+        raise ValueError(f"invalid {field}: {value}; allowed: {', '.join(SETTINGS_EFFORT_VALUES)}")
     return text
 
 
@@ -679,7 +680,14 @@ def compute_effective(document: dict[str, Any], sources: dict[str, str] | None =
         "max_providers": entitlement.max_providers,
         "fields": fields,
     }
-    digest = sha256_json({"routing": payload["routing"], "skills": payload["skills"], "edition": payload["edition"]})
+    digest = sha256_json(
+        {
+            "routing": payload["routing"],
+            "skills": payload["skills"],
+            "api_profiles": payload["api_profiles"],
+            "edition": payload["edition"],
+        }
+    )
     payload["effective_settings_digest"] = digest
     payload["computed_at"] = utc_now()
     return payload

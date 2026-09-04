@@ -12,11 +12,13 @@ from iot_ai.provider_catalog import apply_catalog_to_candidate, catalog_version,
 from iot_ai.mesh import _build_api_request, _validate_endpoint
 from iot_ai.providers import (
     add_route,
+    effective_api_profiles,
     eligible_routes,
     endpoint_is_forbidden,
     host_is_never_allowed,
     host_requires_private_allow,
     materialize_api_profiles,
+    sync_api_profiles,
 )
 from iot_ai.runtime_gates import (
     accepted_plan_allows_implement,
@@ -126,6 +128,41 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         )
         self.assertTrue(ok["valid"])
 
+    def test_same_rung_different_delta_is_drift(self) -> None:
+        accepted = evaluate_minimum_change_gate(
+            {"minimum_change_assessment": passing_assessment("standard-library")},
+            goal="Export inventory",
+            task_id="task-1",
+            risk_class="R2",
+            acceptance="Tests pass.",
+            context_digest="a" * 64,
+            revision=3,
+        )
+        drifted = passing_assessment("standard-library")
+        drifted["dependency_service_schema_agent_delta"] = {
+            **drifted["dependency_service_schema_agent_delta"],
+            "new_dependencies": ["new-package"],
+        }
+        drifted["budget_exceptions"] = {
+            "new_dependencies": {
+                "reason": "Acceptance requires one library already proven missing from earlier rungs.",
+                "evidence_refs": ["evidence:dep"],
+                "acceptance_refs": ["Tests pass."],
+            }
+        }
+        bind = bind_implementation_to_accepted_plan(
+            {"minimum_change_assessment": drifted},
+            {"mncg": accepted},
+            goal="Export inventory",
+            task_id="task-1",
+            risk_class="R2",
+            acceptance="Tests pass.",
+            context_digest="a" * 64,
+            revision=3,
+        )
+        self.assertFalse(bind["valid"])
+        self.assertTrue(any("drift" in item or "delta" in item for item in bind["errors"]))
+
     def test_bind_reuses_accepted_context_digest(self) -> None:
         accepted = evaluate_minimum_change_gate(
             {"minimum_change_assessment": passing_assessment("standard-library")},
@@ -218,23 +255,28 @@ class EffortReceiptTests(IsolatedHomeTestCase):
         anthropic = _build_api_request(
             {"endpoint": "https://example.invalid", "protocol": "anthropic", "cloud": True, "secret_env": ""},
             "ping",
-            "claude-sonnet",
+            "claude-sonnet-5",
             "low",
         )
-        self.assertEqual(anthropic["body"]["thinking"]["type"], "enabled")
-        self.assertEqual(anthropic["body"]["thinking"]["budget_tokens"], 1024)
-        self.assertGreater(anthropic["body"]["max_tokens"], anthropic["body"]["thinking"]["budget_tokens"])
+        self.assertEqual(anthropic["body"]["thinking"]["type"], "adaptive")
+        self.assertNotIn("budget_tokens", anthropic["body"]["thinking"])
+        self.assertEqual(anthropic["body"]["output_config"]["effort"], "low")
         self.assertTrue(anthropic["effort"]["effort_applied"])
         anthropic_high = _build_api_request(
             {"endpoint": "https://example.invalid", "protocol": "anthropic", "cloud": True, "secret_env": ""},
             "ping",
-            "claude-sonnet",
+            "claude-opus-5",
             "high",
         )
-        self.assertGreater(
-            anthropic_high["body"]["max_tokens"],
-            anthropic_high["body"]["thinking"]["budget_tokens"],
+        self.assertEqual(anthropic_high["body"]["thinking"]["type"], "adaptive")
+        self.assertEqual(anthropic_high["body"]["output_config"]["effort"], "high")
+        openai_max = _build_api_request(
+            {"endpoint": "https://example.invalid", "protocol": "openai-compatible", "cloud": True},
+            "ping",
+            "gpt-5.6-sol",
+            "max",
         )
+        self.assertEqual(openai_max["body"]["reasoning_effort"], "max")
         ollama = _build_api_request(
             {"endpoint": "https://example.invalid", "protocol": "ollama", "cloud": True},
             "ping",
@@ -267,6 +309,8 @@ class EffortReceiptTests(IsolatedHomeTestCase):
             response={"effort_effective": "high"},
         )
         self.assertEqual(missing["stages"]["adapter_request"], None)
+        self.assertFalse(missing["consistent"])
+        self.assertIn("adapter_request", missing["missing_stages"])
 
 
 class SkillPrivacyTests(IsolatedHomeTestCase):
@@ -297,6 +341,14 @@ class SkillPrivacyTests(IsolatedHomeTestCase):
         if private:
             self.assertNotEqual(private[0]["privacy_class"], "D0")
 
+    def test_skill_receipts_redact_absolute_paths(self) -> None:
+        payload = discover(user_home=self.home)
+        record = payload["skills"]["garden-web-design"]
+        self.assertNotIn("/home/", str(record.get("directory") or ""))
+        self.assertTrue(record.get("root_id"))
+        self.assertIn("garden-web-design", str(record.get("relative_path") or ""))
+        self.assertEqual(record.get("trust_tier"), "packaged-reviewed")
+
     def test_truncated_skills_are_not_actually_used(self) -> None:
         selection = {
             "discovered_count": 2,
@@ -326,6 +378,37 @@ class SettingsFailClosedTests(IsolatedHomeTestCase):
         with self.assertRaises(ValueError):
             save(self.home, value)
 
+    def test_effective_digest_includes_api_profiles(self) -> None:
+        value = load(self.home)
+        first = effective_settings(self.home, value)
+        value["api_profiles"] = {
+            "lab": {
+                "endpoint": "https://example.invalid/v1",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "cloud",
+            }
+        }
+        second = effective_settings(self.home, value)
+        self.assertNotEqual(first["effective_settings_digest"], second["effective_settings_digest"])
+
+    def test_save_requires_optimistic_concurrency(self) -> None:
+        from iot_ai.settings_v2 import sha256_json
+
+        value = load(self.home)
+        save(self.home, value)
+        current = load(self.home, normalize=False)
+        with self.assertRaises(ValueError) as raised:
+            save(self.home, current)
+        self.assertIn("optimistic-concurrency-required", str(raised.exception))
+        save(
+            self.home,
+            current,
+            expected_revision=int(current.get("revision") or 0),
+            expected_digest=sha256_json(current),
+        )
+
     def test_model_cap_is_independent_of_provider_cap(self) -> None:
         value = load(self.home)
         value["routing"]["max_distinct_models"] = 8
@@ -345,7 +428,8 @@ class SettingsFailClosedTests(IsolatedHomeTestCase):
         rolled = rollback_settings(self.home, applied["rollback_id"], apply=True)
         self.assertEqual(rolled["decision"], "pass")
         self.assertTrue(Path(rolled["pre_restore_backup"]).is_file())
-        self.assertTrue(Path(rolled["pre_restore_backup"]).with_name(Path(rolled["pre_restore_backup"]).stem + ".receipt.json").is_file() or True)
+        receipt = Path(rolled["pre_restore_backup"]).with_name(Path(rolled["pre_restore_backup"]).stem + ".receipt.json")
+        self.assertTrue(receipt.is_file())
 
 
 class VisualAcceptanceTests(IsolatedHomeTestCase):
@@ -363,14 +447,6 @@ class VisualAcceptanceTests(IsolatedHomeTestCase):
             visual_task=True,
             require_browser_acceptance=True,
             tool_available=True,
-            evidence={},
-        )
-        self.assertEqual(blocked["decision"], "block")
-        self.assertFalse(blocked["visual_acceptance_claim"])
-        passed = evaluate_visual_acceptance(
-            visual_task=True,
-            require_browser_acceptance=True,
-            tool_available=True,
             evidence={
                 "viewports": {
                     "desktop": {"rendered": True, "screenshot_sha256": "a" * 64},
@@ -385,8 +461,41 @@ class VisualAcceptanceTests(IsolatedHomeTestCase):
                 "screenshot_digests": ["a" * 64, "b" * 64, "c" * 64],
             },
         )
+        self.assertEqual(blocked["decision"], "block")
+        self.assertFalse(blocked["visual_acceptance_claim"])
+        shots = self.home / "visual"
+        shots.mkdir()
+        digests = []
+        paths = {}
+        for name in ("desktop", "tablet", "mobile"):
+            path = shots / f"{name}.png"
+            path.write_bytes(b"\x89PNG\r\n\x1a\n" + name.encode() + b"0" * 64)
+            digest = __import__("hashlib").sha256(path.read_bytes()).hexdigest()
+            digests.append(digest)
+            paths[name] = str(path)
+        passed = evaluate_visual_acceptance(
+            visual_task=True,
+            require_browser_acceptance=True,
+            tool_available=True,
+            evidence={
+                "viewports": {
+                    name: {"rendered": True, "screenshot_sha256": digest, "path": paths[name]}
+                    for name, digest in zip(("desktop", "tablet", "mobile"), digests)
+                },
+                "screenshot_paths": paths,
+                "overflow": True,
+                "clipping": True,
+                "accessibility": True,
+                "accessibility_executed": True,
+                "states": {"loading": True, "empty": True, "error": True},
+                "visual_critique": True,
+                "screenshot_digests": digests,
+                "browser_version": "test-runner",
+            },
+        )
         self.assertEqual(passed["decision"], "pass")
         self.assertTrue(passed["visual_acceptance_claim"])
+        self.assertEqual(passed["recomputed_screenshot_sha256"], digests)
 
 
 class GardenLockLoadTests(IsolatedHomeTestCase):
@@ -417,11 +526,15 @@ class ApiProfileMaterializationTests(IsolatedHomeTestCase):
                 "secret_env": "OLLAMA_API_KEY",
             }
         }
+        view = effective_api_profiles(settings)
+        self.assertTrue(any(row["route_id"] == "settings-api-lab" for row in view["routes"]))
+        before = __import__("iot_ai.providers", fromlist=["load"]).load(self.home)
+        self.assertNotIn("settings-api-lab", {row.get("route_id") for row in before.get("routes") or []})
+        planned = sync_api_profiles(self.home, settings, apply=False)
+        self.assertEqual(planned["decision"], "plan")
         result = materialize_api_profiles(self.home, settings)
         self.assertIn("settings-api-lab", result["created"])
-        routes = {row["route_id"] for row in eligible_routes(self.home)}
         self.assertIn("settings-api-lab", {row.get("route_id") for row in __import__("iot_ai.providers", fromlist=["load"]).load(self.home)["routes"]})
-        self.assertTrue(routes or "settings-api-lab" in {row.get("route_id") for row in __import__("iot_ai.providers", fromlist=["load"]).load(self.home)["routes"]})
 
 
 class ProviderCatalogTests(IsolatedHomeTestCase):
@@ -433,46 +546,83 @@ class ProviderCatalogTests(IsolatedHomeTestCase):
         self.assertIn("anthropic", dates)
 
     def test_model_lifecycle_matrix(self) -> None:
-        self.assertEqual(resolve_model("openai", "gpt-5.6")["decision"], "pass")
+        gpt = resolve_model("openai", "gpt-5.6")
+        self.assertEqual(gpt["decision"], "pass")
+        self.assertEqual(gpt["canonical_target_model"], "gpt-5.6-sol")
+        self.assertIsNone(gpt["model_served"])
+        terra = resolve_model("openai", "gpt-5.6-terra")
+        self.assertEqual(terra["canonical_target_model"], "gpt-5.6-terra")
+        luna = resolve_model("openai", "gpt-5.6-luna")
+        self.assertEqual(luna["canonical_target_model"], "gpt-5.6-luna")
         astra = resolve_model("openai", "gpt-6-astra")
         self.assertEqual(astra["decision"], "block")
         self.assertIn("limited-access-unentitled", astra["errors"])
         self.assertEqual(resolve_model("openai", "gpt-6-astra", limited_access=True)["decision"], "pass")
+        label = resolve_model("openai", "gpt-5.6-codex")
+        self.assertEqual(label["decision"], "block")
+        self.assertIn("client-product-label-not-api-id", label["errors"])
         codex = resolve_model("openai", "gpt-5.6-sol", client_product="codex", client_version="0.1.0")
         self.assertEqual(codex["decision"], "block")
-        self.assertEqual(resolve_model("xai", "grok-4.6")["served_model"], "grok-4.6")
+        self.assertEqual(resolve_model("openai", "gpt-5.6-sol", client_product="codex", client_version="0.144.0")["decision"], "pass")
+        self.assertEqual(resolve_model("xai", "grok-4.6")["canonical_target_model"], "grok-4.6")
         alias = resolve_model("xai", "grok-4.20")
-        self.assertEqual(alias["served_model"], "grok-4.6")
-        self.assertTrue(alias["multi_agent"])
+        self.assertEqual(alias["canonical_target_model"], "grok-4.20-0309-reasoning")
+        self.assertFalse(alias.get("multi_agent"))
+        self.assertIsNone(alias["model_served"])
+        non_reason = resolve_model("xai", "grok-4.20-0309-non-reasoning")
+        self.assertEqual(non_reason["canonical_target_model"], "grok-4.20-0309-non-reasoning")
+        multi = resolve_model("xai", "grok-4.20-multi-agent-0309")
+        self.assertTrue(multi["multi_agent"])
+        self.assertEqual(resolve_model("xai", "grok-build-0.1")["canonical_target_model"], "grok-build-0.1")
         retired = resolve_model("xai", "grok-2")
-        self.assertEqual(retired["served_model"], "grok-4.6")
+        self.assertEqual(retired["canonical_target_model"], "grok-4.6")
         self.assertEqual(retired["redirected_from"], "grok-2")
-        fable = resolve_model("anthropic", "claude-fable-5.1", client_product="claude-code", client_version="2.1.259")
+        fable = resolve_model("anthropic", "claude-fable-5-1", client_product="claude-code", client_version="2.1.255")
         self.assertEqual(fable["decision"], "pass")
         self.assertTrue(fable["adaptive_thinking"])
-        sampling = resolve_model("anthropic", "claude-fable-5.1", sampling={"temperature": 0.2, "max_tokens": 16})
+        dotted = resolve_model("anthropic", "claude-fable-5.1", client_product="claude-code", client_version="2.1.255")
+        self.assertEqual(dotted["canonical_target_model"], "claude-fable-5-1")
+        self.assertEqual(resolve_model("anthropic", "claude-opus-5")["decision"], "pass")
+        self.assertEqual(resolve_model("anthropic", "claude-sonnet-5")["decision"], "pass")
+        sampling = resolve_model("anthropic", "claude-fable-5-1", sampling={"temperature": 0.2, "max_tokens": 16})
         self.assertNotIn("temperature", sampling["sampling"])
-        zdr = resolve_model("anthropic", "claude-fable-5.1", zero_data_retention=True)
-        self.assertTrue(any("zdr" in item for item in zdr["warnings"]))
+        zdr = resolve_model("anthropic", "claude-fable-5-1", zero_data_retention=True)
+        self.assertEqual(zdr["decision"], "block")
+        self.assertIn("zdr-training-retention-forbidden", zdr["errors"])
         vulnerable = resolve_model(
             "anthropic",
-            "claude-fable-5.1",
+            "claude-fable-5-1",
             client_product="claude-code",
             client_version="2.0.1",
         )
         self.assertIn("client-vulnerable-version", vulnerable["errors"])
-        identity = resolve_model("openai", "gpt-5.6-sol", client_product="codex", client_version="0.148.0")
-        self.assertEqual(identity["identity_separation"]["requested_model"], "gpt-5.6-sol")
-        self.assertEqual(identity["identity_separation"]["served_model"], "gpt-5.6")
+        identity = resolve_model("openai", "gpt-5.6", client_product="codex", client_version="0.144.0")
+        self.assertEqual(identity["identity_separation"]["model_requested"], "gpt-5.6")
+        self.assertEqual(identity["identity_separation"]["canonical_target_model"], "gpt-5.6-sol")
+        self.assertIsNone(identity["identity_separation"]["model_served"])
         self.assertEqual(identity["identity_separation"]["client_product"], "codex")
         matrix = supported_matrix()
         self.assertIn("openai", matrix["providers"])
         self.assertIn("xai", matrix["providers"])
         self.assertIn("anthropic", matrix["providers"])
+        self.assertEqual(matrix["provider_namespaces"]["codex"], "openai")
 
     def test_catalog_rewrites_and_blocks_before_dispatch(self) -> None:
+        from iot_ai.provider_catalog import normalize_provider
+
+        self.assertEqual(normalize_provider("codex"), "openai")
+        self.assertEqual(normalize_provider("grok"), "xai")
+        self.assertEqual(normalize_provider("claude"), "anthropic")
+        runtime = apply_catalog_to_candidate({"provider": "codex", "model": "gpt-5.6"})
+        self.assertEqual(runtime["provider_family"], "openai")
+        self.assertEqual(runtime["canonical_target_model"], "gpt-5.6-sol")
+        self.assertIsNone(runtime["model_served"])
+        grok = apply_catalog_to_candidate({"provider": "grok", "model": "grok-4.20"})
+        self.assertEqual(grok["provider_family"], "xai")
+        self.assertEqual(grok["canonical_target_model"], "grok-4.20-0309-reasoning")
         retired = apply_catalog_to_candidate({"provider": "xai", "model": "grok-2"})
-        self.assertEqual(retired["model"], "grok-4.6")
+        self.assertEqual(retired["canonical_target_model"], "grok-4.6")
+        self.assertIsNone(retired.get("model_served"))
         self.assertFalse(retired.get("catalog_block"))
         astra = apply_catalog_to_candidate({"provider": "openai", "model": "gpt-6-astra"})
         self.assertTrue(astra.get("catalog_block"))

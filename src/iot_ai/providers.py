@@ -527,66 +527,135 @@ def eligible_routes(
     return sorted(rows, key=lambda item: int(item.get("priority", 100)))
 
 
-def materialize_api_profiles(user_home: Path, settings: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Turn credential-free settings API profiles into provider routes."""
+def _profile_route(name: str, profile: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    if profile.get("enabled") is False:
+        return None, "disabled"
+    endpoint = profile.get("endpoint")
+    if not endpoint and profile.get("endpoint_env"):
+        endpoint = os.environ.get(str(profile["endpoint_env"]))
+    if not endpoint:
+        return None, "endpoint-unresolved"
+    allow_private = bool(profile.get("allow_private_endpoint"))
+    classification = str(profile.get("classification") or "cloud")
+    if classification == "private" and not allow_private:
+        return None, "private-endpoint-not-allowed"
+    forbidden = endpoint_is_forbidden(str(endpoint), allow_private=allow_private)
+    if forbidden:
+        return None, forbidden
+    scheme = str(endpoint).split(":", 1)[0].lower()
+    if scheme == "http" and classification != "private" and not allow_private:
+        return None, "http-only-for-private-or-loopback"
+    return {
+        "route_id": f"settings-api-{name}",
+        "provider": str(profile.get("provider") or name),
+        "kind": "api",
+        "auth_mode": "api",
+        "endpoint": str(endpoint),
+        "protocol": str(profile.get("protocol") or "openai-compatible"),
+        "model": profile.get("model") or "auto",
+        "models": list(profile.get("models") or []),
+        "enabled": True,
+        "priority": int(profile.get("priority") or 50),
+        "cloud": classification != "private",
+        "allow_private_endpoint": allow_private,
+        "secret_env": profile.get("secret_env"),
+        "source": "settings-api-profile",
+        "profile_id": str(name),
+    }, None
 
-    from .settings import load as load_settings
 
-    document = settings if settings is not None else load_settings(user_home)
-    profiles = document.get("api_profiles") or {}
-    created: list[str] = []
+def effective_api_profiles(settings: dict[str, Any] | None) -> dict[str, Any]:
+    """Pure in-memory view. Does not write the route store."""
+
+    profiles = (settings or {}).get("api_profiles") or {}
+    routes: list[dict[str, Any]] = []
     skipped: list[dict[str, str]] = []
-    existing = {str(row.get("route_id")) for row in load(user_home).get("routes") or []}
     for name, profile in profiles.items():
         if not isinstance(profile, dict):
             skipped.append({"id": str(name), "reason": "invalid-profile"})
             continue
-        if profile.get("enabled") is False:
-            skipped.append({"id": str(name), "reason": "disabled"})
+        route, reason = _profile_route(str(name), profile)
+        if route is None:
+            skipped.append({"id": str(name), "reason": str(reason)})
             continue
-        route_id = f"settings-api-{name}"
-        if route_id in existing:
-            skipped.append({"id": str(name), "reason": "already-present"})
-            continue
-        endpoint = profile.get("endpoint")
-        if not endpoint and profile.get("endpoint_env"):
-            endpoint = os.environ.get(str(profile["endpoint_env"]))
-        if not endpoint:
-            skipped.append({"id": str(name), "reason": "endpoint-unresolved"})
-            continue
-        allow_private = bool(profile.get("allow_private_endpoint"))
-        classification = str(profile.get("classification") or "cloud")
-        if classification == "private" and not allow_private:
-            skipped.append({"id": str(name), "reason": "private-endpoint-not-allowed"})
-            continue
-        forbidden = endpoint_is_forbidden(str(endpoint), allow_private=allow_private)
-        if forbidden:
-            skipped.append({"id": str(name), "reason": forbidden})
-            continue
-        route = {
-            "route_id": route_id,
-            "provider": str(profile.get("provider") or name),
-            "kind": "api",
-            "auth_mode": "api",
-            "endpoint": str(endpoint),
-            "protocol": str(profile.get("protocol") or "openai-compatible"),
-            "model": profile.get("model") or "auto",
-            "models": list(profile.get("models") or []),
-            "enabled": True,
-            "priority": int(profile.get("priority") or 50),
-            "cloud": classification != "private",
-            "allow_private_endpoint": allow_private,
-            "secret_env": profile.get("secret_env"),
-            "source": "settings-api-profile",
-        }
-        add_route(user_home, route, apply=True)
-        created.append(route_id)
-        existing.add(route_id)
+        routes.append(route)
     return {
-        "schema": "iot-ai.api-profile-materialization.v1",
-        "created": created,
+        "schema": "iot-ai.api-profile-effective.v1",
+        "routes": routes,
         "skipped": skipped,
+        "persisted": False,
     }
+
+
+def sync_api_profiles(user_home: Path, settings: dict[str, Any] | None = None, *, apply: bool = False) -> dict[str, Any]:
+    """Explicit atomic reconciliation of settings API profiles to the route store."""
+
+    from .settings import load as load_settings
+
+    document = settings if settings is not None else load_settings(user_home)
+    view = effective_api_profiles(document)
+    desired = {str(row["route_id"]): row for row in view["routes"]}
+    data = load(user_home)
+    existing_rows = list(data.get("routes") or [])
+    created: list[str] = []
+    updated: list[str] = []
+    removed: list[str] = []
+    disabled: list[str] = []
+    skipped = list(view["skipped"])
+    if not apply:
+        planned_remove = [
+            str(row.get("route_id"))
+            for row in existing_rows
+            if row.get("source") == "settings-api-profile" and str(row.get("route_id")) not in desired
+        ]
+        return {
+            "schema": "iot-ai.api-profile-sync.v1",
+            "decision": "plan",
+            "created": [key for key in desired if key not in {str(row.get("route_id")) for row in existing_rows}],
+            "removed": planned_remove,
+            "skipped": skipped,
+            "apply": False,
+        }
+    kept: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in existing_rows:
+        route_id = str(row.get("route_id"))
+        if row.get("source") != "settings-api-profile":
+            kept.append(row)
+            continue
+        if route_id not in desired:
+            removed.append(route_id)
+            continue
+        incoming = desired[route_id]
+        if incoming != row:
+            kept.append(incoming)
+            updated.append(route_id)
+        else:
+            kept.append(row)
+        seen.add(route_id)
+    for route_id, incoming in desired.items():
+        if route_id not in seen:
+            kept.append(incoming)
+            created.append(route_id)
+    data["routes"] = kept
+    save(user_home, data)
+    return {
+        "schema": "iot-ai.api-profile-sync.v1",
+        "decision": "pass",
+        "created": created,
+        "updated": updated,
+        "removed": removed,
+        "disabled": disabled,
+        "skipped": skipped,
+        "apply": True,
+        "transactional": True,
+    }
+
+
+def materialize_api_profiles(user_home: Path, settings: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Explicit apply path. Selection must use effective_api_profiles instead."""
+
+    return sync_api_profiles(user_home, settings, apply=True)
 
 
 def add_route(user_home: Path, route: dict[str, Any], apply: bool = False) -> dict[str, Any]:

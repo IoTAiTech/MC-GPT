@@ -118,6 +118,18 @@ def _score(skill: dict[str, Any], *, goal: str, role_id: str | None, stage: str 
     return round(score, 3)
 
 
+def detect_host_native_image_tool() -> bool:
+    import os
+    import shutil
+
+    if os.environ.get("IOT_AI_HOST_NATIVE_IMAGE_TOOL") in {"1", "true", "yes"}:
+        return True
+    for name in ("convert", "magick", "ffmpeg"):
+        if shutil.which(name):
+            return True
+    return False
+
+
 def select_skills(
     user_home: Path,
     *,
@@ -127,9 +139,11 @@ def select_skills(
     artifact: str | None = None,
     settings: dict[str, Any] | None = None,
     project_root: Path | None = None,
-    host_native_image_tool: bool = False,
+    host_native_image_tool: bool | None = None,
 ) -> dict[str, Any]:
     document = settings if settings is not None else load_settings(user_home)
+    if host_native_image_tool is None:
+        host_native_image_tool = detect_host_native_image_tool()
     skills_cfg = document.get("skills") or {}
     effective = effective_settings(user_home, document)
     allow = {str(item) for item in skills_cfg.get("allow") or []}
@@ -220,6 +234,12 @@ def select_skills(
                 "guidance": skill.get("body") or "",
                 "privacy_class": inherit_skill_privacy(str(skill.get("source") or "packaged"), skill.get("declared_privacy_class") or skill.get("privacy_class")),
                 "privacy_inherited_from_source": True,
+                "egress_policy": skill.get("egress_policy") or "packaged",
+                "source_scope": skill.get("source_scope") or skill.get("source"),
+                "trust_tier": skill.get("trust_tier") or "untrusted",
+                "root_id": skill.get("root_id"),
+                "relative_path": skill.get("relative_path"),
+                "content_digest": skill.get("content_digest") or skill.get("file_sha256"),
             }
         )
     eligible_ids = [row["id"] for row in selected]

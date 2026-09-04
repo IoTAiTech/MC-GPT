@@ -15,6 +15,7 @@ from iot_ai.providers import (
     eligible_routes,
     endpoint_is_forbidden,
     host_is_never_allowed,
+    host_requires_private_allow,
     materialize_api_profiles,
 )
 from iot_ai.runtime_gates import (
@@ -501,7 +502,23 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         self.assertTrue(host_is_never_allowed("fd00:ec2::254"))
         rfc1918 = ".".join(("10", "0", "0", "8"))
         self.assertFalse(host_is_never_allowed(rfc1918))
+        self.assertTrue(host_requires_private_allow(rfc1918))
+        self.assertIsNotNone(endpoint_is_forbidden("https://" + rfc1918 + "/v1", allow_private=False))
         self.assertIsNone(endpoint_is_forbidden("https://" + rfc1918 + "/v1", allow_private=True))
+        cgnat = ".".join(("100", "64", "0", "1"))
+        aliyun_adj = ".".join(("100", "100", "100", "201"))
+        self.assertFalse(host_is_never_allowed(cgnat))
+        self.assertTrue(host_requires_private_allow(cgnat))
+        self.assertTrue(host_requires_private_allow(aliyun_adj))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + cgnat + "/v1", allow_private=False),
+            "private provider endpoint requires allow_private_endpoint",
+        )
+        self.assertIsNone(endpoint_is_forbidden("https://" + cgnat + "/v1", allow_private=True))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + aliyun_adj + "/v1", allow_private=False),
+            "private provider endpoint requires allow_private_endpoint",
+        )
         dotted = "http://169.254.169.254./latest/meta-data/"
         self.assertEqual(
             endpoint_is_forbidden(dotted, allow_private=True),
@@ -580,6 +597,25 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         result = materialize_api_profiles(self.home, settings)
         self.assertEqual(result["created"], [])
         self.assertTrue(any(row.get("reason") in {"private-endpoint-not-allowed", "private provider endpoint requires allow_private_endpoint", "cloud API routes require HTTPS", "metadata and link-local endpoints are forbidden"} for row in result["skipped"]))
+        cgnat = ".".join(("100", "64", "0", "1"))
+        settings["api_profiles"] = {
+            "cgnat": {
+                "endpoint": "https://" + cgnat + "/v1",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "cloud",
+                "allow_private_endpoint": False,
+            }
+        }
+        cgnat_result = materialize_api_profiles(self.home, settings)
+        self.assertEqual(cgnat_result["created"], [])
+        self.assertTrue(
+            any(
+                row.get("reason") == "private provider endpoint requires allow_private_endpoint"
+                for row in cgnat_result["skipped"]
+            )
+        )
 
     def test_allow_private_profile_still_skips_imds(self) -> None:
         settings = load(self.home)

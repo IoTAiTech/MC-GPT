@@ -253,7 +253,13 @@ def _ip_requires_private_allow(address: ipaddress.IPv4Address | ipaddress.IPv6Ad
     address = _canonical_ip(address)
     if _ip_is_never_allowed(address):
         return True
-    return bool(address.is_private or address.is_loopback)
+    if isinstance(address, ipaddress.IPv6Address):
+        for embedded in _ipv4s_from_ipv6(address):
+            if _ip_requires_private_allow(embedded):
+                return True
+    if address.is_private or address.is_loopback:
+        return True
+    return not address.is_global
 
 
 def _normalize_host(host: str) -> str:

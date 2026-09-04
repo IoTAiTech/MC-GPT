@@ -618,6 +618,13 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
                 "metadata and link-local endpoints are forbidden",
                 packed_host,
             )
+        ideo = chr(0x3002)
+        packed_ideo = ideo.join(("1", "169", "254", "43518")) + ".nip.io"
+        self.assertTrue(host_is_never_allowed(packed_ideo, resolve_dns=False))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + packed_ideo + "/v1", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
         self.assertEqual(
             endpoint_is_forbidden("https://metadata.google.internal.attacker.example/", allow_private=True),
             "metadata and link-local endpoints are forbidden",
@@ -755,6 +762,22 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         self.assertEqual(interior["created"], [])
         self.assertTrue(
             any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in interior["skipped"])
+        )
+        ideo = chr(0x3002)
+        settings["api_profiles"] = {
+            "ideo": {
+                "endpoint": "https://" + ideo.join(("1", "169", "254", "43518")) + ".nip.io/v1",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "cloud",
+                "allow_private_endpoint": False,
+            }
+        }
+        ideo_result = materialize_api_profiles(self.home, settings)
+        self.assertEqual(ideo_result["created"], [])
+        self.assertTrue(
+            any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in ideo_result["skipped"])
         )
 
 

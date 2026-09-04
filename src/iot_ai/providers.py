@@ -144,7 +144,8 @@ _METADATA_HOSTS = frozenset(
 )
 _AWS_IMDS_V6 = ipaddress.ip_network("fd00:ec2::/32")
 _NEVER_ALLOW_REASON = "metadata and link-local endpoints are forbidden"
-_DOT_STRIP = ".\u3002\uff0e\u2024"
+_DOT_STRIP = ".\u3002\uff0e\u2024\uff61"
+_DOT_SEPARATORS = ("\u3002", "\uff0e", "\u2024", "\uff61")
 _CLOUD_IMDS_V4 = frozenset(
     {
         ipaddress.IPv4Address("169.254.169.254"),
@@ -319,6 +320,8 @@ def _normalize_host(host: str) -> str:
         if hostpart and ":" in hostpart:
             raw = hostpart
     raw = raw.strip()
+    for separator in _DOT_SEPARATORS:
+        raw = raw.replace(separator, ".")
     while raw and raw[-1] in _DOT_STRIP:
         raw = raw[:-1]
     return raw.rstrip(".")

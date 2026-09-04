@@ -194,6 +194,62 @@ def eligible_routes(
     return sorted(rows, key=lambda item: int(item.get("priority", 100)))
 
 
+def materialize_api_profiles(user_home: Path, settings: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Turn credential-free settings API profiles into provider routes."""
+
+    from .settings import load as load_settings
+
+    document = settings if settings is not None else load_settings(user_home)
+    profiles = document.get("api_profiles") or {}
+    created: list[str] = []
+    skipped: list[dict[str, str]] = []
+    existing = {str(row.get("route_id")) for row in load(user_home).get("routes") or []}
+    for name, profile in profiles.items():
+        if not isinstance(profile, dict):
+            skipped.append({"id": str(name), "reason": "invalid-profile"})
+            continue
+        if profile.get("enabled") is False:
+            skipped.append({"id": str(name), "reason": "disabled"})
+            continue
+        route_id = f"settings-api-{name}"
+        if route_id in existing:
+            skipped.append({"id": str(name), "reason": "already-present"})
+            continue
+        endpoint = profile.get("endpoint")
+        if not endpoint and profile.get("endpoint_env"):
+            endpoint = os.environ.get(str(profile["endpoint_env"]))
+        if not endpoint:
+            skipped.append({"id": str(name), "reason": "endpoint-unresolved"})
+            continue
+        forbidden = endpoint_is_forbidden(str(endpoint))
+        if forbidden:
+            skipped.append({"id": str(name), "reason": forbidden})
+            continue
+        route = {
+            "route_id": route_id,
+            "provider": str(profile.get("provider") or name),
+            "kind": "api",
+            "auth_mode": "api",
+            "endpoint": str(endpoint),
+            "protocol": str(profile.get("protocol") or "openai-compatible"),
+            "model": profile.get("model") or "auto",
+            "models": list(profile.get("models") or []),
+            "enabled": True,
+            "priority": int(profile.get("priority") or 50),
+            "cloud": str(profile.get("classification") or "cloud") != "private",
+            "secret_env": profile.get("secret_env"),
+            "source": "settings-api-profile",
+        }
+        add_route(user_home, route, apply=True)
+        created.append(route_id)
+        existing.add(route_id)
+    return {
+        "schema": "iot-ai.api-profile-materialization.v1",
+        "created": created,
+        "skipped": skipped,
+    }
+
+
 def add_route(user_home: Path, route: dict[str, Any], apply: bool = False) -> dict[str, Any]:
     data = load(user_home)
     if any(row["route_id"] == route["route_id"] for row in data["routes"]):

@@ -205,6 +205,9 @@ def validate_skill_dir(directory: Path, *, root: Path, source: str, automatic: b
         "body": body,
         "frontmatter": meta,
         "manifest": manifest,
+        "declared_privacy_class": meta.get("privacy_class"),
+        "privacy_class": _skill_privacy(source, meta.get("privacy_class")),
+        "privacy_inherited_from_source": True,
     }
 
 
@@ -242,6 +245,56 @@ def discover_roots(*, user_home: Path, extra_roots: list[str] | None = None, pro
     return roots
 
 
+def _skill_privacy(source: str, declared: Any) -> str:
+    from .runtime_gates import inherit_skill_privacy
+
+    return inherit_skill_privacy(source, str(declared) if declared else None)
+
+
+def garden_lock_path(packaged_root: Path | None = None) -> Path | None:
+    candidates: list[Path] = []
+    root = packaged_root or packaged_skills_root()
+    if root is not None:
+        candidates.append(root.parent / "governance" / "garden-skills.lock.json")
+    here = Path(__file__).resolve()
+    if len(here.parents) >= 3:
+        candidates.append(here.parents[2] / "governance" / "garden-skills.lock.json")
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def verify_garden_lock(record: dict[str, Any], *, packaged_root: Path | None = None) -> str | None:
+    """Fail closed at load for Garden-derived packaged skills."""
+
+    directory = str(record.get("directory") or "").replace("\\", "/")
+    if "garden-" not in Path(directory).name and "third-party/garden-" not in directory:
+        return None
+    lock_file = garden_lock_path(packaged_root)
+    if lock_file is None:
+        return "garden-lock-missing"
+    try:
+        lock = json.loads(lock_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "garden-lock-unreadable"
+    if lock.get("upstream_license") != "MIT":
+        return "garden-lock-license"
+    if lock.get("script_execution_policy") != "never":
+        return "garden-lock-script-policy"
+    files = {str(row.get("path")): row for row in lock.get("files") or [] if isinstance(row, dict)}
+    skill_name = Path(directory).name
+    row = next((item for path, item in files.items() if Path(path).parent.name == skill_name), None)
+    if row is None:
+        return "garden-lock-unlisted"
+    if row.get("sha256") != record.get("file_sha256"):
+        return "garden-lock-digest-mismatch"
+    expected_commit = str(lock.get("upstream_commit") or "")
+    if expected_commit and record.get("source_commit") and record.get("source_commit") != expected_commit:
+        return "garden-lock-commit-mismatch"
+    return None
+
+
 def discover(
     *,
     user_home: Path,
@@ -271,6 +324,10 @@ def discover(
                 continue
             if record["license"] not in allow:
                 rejected.append({"id": record["id"], "reason": "license not on the allowlist", "source": source})
+                continue
+            lock_reason = verify_garden_lock(record, packaged_root=packaged_skills_root())
+            if lock_reason:
+                rejected.append({"id": record["id"], "reason": lock_reason, "source": source})
                 continue
             previous = accepted.get(record["id"])
             if previous:

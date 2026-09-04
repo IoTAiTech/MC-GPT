@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-09-04
 """Primary natural-language workflow backed by immutable roles and a DAG."""
 from __future__ import annotations
 
@@ -18,13 +18,21 @@ from .graph_runtime import ExecutionGraph, GraphNode, compile_graph, execute_gra
 from .knowledge_plane import coverage, list_artifacts, write_artifact
 from .licensing import current
 from .mesh import delegate
-from .model_policy import clamp_effort, select_candidates
+from .model_policy import select_candidates
 from .prompt_compiler import compile_prompt, validate_prompt
 from .paths import data_root
 from .roles import ROLE_CATALOG
+from .runtime_gates import (
+    bind_implementation_to_accepted_plan,
+    build_effort_receipt,
+    evaluate_minimum_change_gate,
+    finalize_skill_state,
+    resolve_dispatch_effort,
+)
 from .settings import effective_settings, load as load_settings
-from .skill_router import context_blocks, select_skills
+from .skill_router import context_blocks, is_visual_task, select_skills
 from .tool_router import build_tool_decision, validate_provider_binding
+from .visual_acceptance import evaluate_visual_acceptance
 from .transparency import record_disclosure, runtime_output_provenance
 from .util import atomic_json, utc_now
 from .workspace import append_event, connect_write, new_id
@@ -142,10 +150,16 @@ def _default_provider_executor(
                 },
             }
         ladder = [primary, *list(primary.get("fallback_candidates") or [])]
+        primary_dispatch = resolve_dispatch_effort(
+            primary,
+            node_effort=node.effort,
+            max_effort=max_effort,
+            role_id=node.role_id,
+        )
         tool_decision = build_tool_decision(
             ladder,
             role_id=node.role_id,
-            requested_effort=node.effort,
+            requested_effort=str(primary_dispatch.get("effective_effort") or node.effort),
             privacy_class=graph.privacy_class,
             selected_candidate_id=str(primary.get("candidate_id") or ""),
             require_live=True,
@@ -169,14 +183,25 @@ def _default_provider_executor(
                     }
                 )
                 continue
-            allowed_efforts = [
-                effort
-                for effort in (candidate.get("receipt") or {}).get("effort_supported", ("low", "medium", "high", "xhigh"))
-                if ("low", "medium", "high", "xhigh").index(effort) <= ("low", "medium", "high", "xhigh").index(max_effort)
-            ]
-            effective, reason = clamp_effort(node.effort, allowed_efforts)
-            if effective != node.effort and not reason:
-                reason = f"edition maximum effort is {max_effort}"
+            dispatch = resolve_dispatch_effort(
+                candidate,
+                node_effort=node.effort,
+                max_effort=max_effort,
+                role_id=node.role_id,
+            )
+            if dispatch.get("decision") == "block":
+                attempts.append(
+                    {
+                        "candidate_id": candidate.get("candidate_id"),
+                        "provider": candidate.get("provider"),
+                        "model_requested": candidate.get("model"),
+                        "status": "blocked",
+                        "failure_class": dispatch.get("block_reason") or "minimum-effort-unsatisfied",
+                    }
+                )
+                continue
+            effective = str(dispatch.get("effective_effort") or node.effort)
+            reason = dispatch.get("clamp_reason")
             try:
                 result = delegate(
                     user_home,
@@ -204,11 +229,21 @@ def _default_provider_executor(
                     "model_requested": candidate.get("model"),
                     "model_served": None,
                 }
+            effort_receipt = build_effort_receipt(
+                settings_requested=candidate.get("requested_effort"),
+                candidate=candidate,
+                dispatch=dispatch,
+                tool_decision=tool_decision,
+                adapter_request_effort=effective,
+                response={**result, "effort_effective": effective},
+            )
             result = {
                 **result,
-                "effort_requested": node.effort,
+                "effort_requested": dispatch.get("requested_effort") or candidate.get("requested_effort") or node.effort,
                 "effort_effective": effective,
+                "effort_source": dispatch.get("effort_source"),
                 "effort_clamp_reason": reason,
+                "effort_receipt": effort_receipt,
                 "candidate_id": candidate.get("candidate_id"),
                 "fallback_used": index > 0,
             }
@@ -621,6 +656,19 @@ def run_goal(
                     if key.startswith("plan-review") or key in {"plan-synthesis", "plan-revision"}
                 ),
             }
+            acceptance = ""
+            intake = inputs.get("intake", {}).get("output") or {}
+            if isinstance(intake, dict):
+                acceptance = str(intake.get("acceptance") or "")
+            mncg = evaluate_minimum_change_gate(
+                synthesis,
+                goal=goal,
+                task_id=task_id,
+                risk_class=risk_class,
+                acceptance=acceptance or goal,
+                context_digest=plan_digest,
+            )
+            hard_gates["minimum_change_assessment_valid"] = bool(mncg.get("valid"))
             decision = "accept" if all(hard_gates.values()) else "needs-review"
             return {
                 "status": "pass",
@@ -630,6 +678,7 @@ def run_goal(
                     "acceptance_matrix": acceptance_matrix,
                     "hard_gates": hard_gates,
                     "dissent": dissent,
+                    "mncg": mncg,
                 },
             }
         if node.node_id == "final-plan-gate":
@@ -652,6 +701,7 @@ def run_goal(
                     "hard_gates": chosen.get("hard_gates", {}),
                     "dissent": chosen.get("dissent", []),
                     "selected_round": selected_round,
+                    "mncg": chosen.get("mncg"),
                 },
             }
         if node.node_id == "deterministic-tests":
@@ -690,7 +740,19 @@ def run_goal(
                     "plan_accepted": plan.get("decision") == "accept",
                     "no_active_failure": result_status(inputs) == "pass",
                 }
-            decision = "accept" if all(hard_gates.values()) else "needs-review"
+            skills_cfg = settings.get("skills") or {}
+            visual = evaluate_visual_acceptance(
+                visual_task=is_visual_task(goal),
+                require_browser_acceptance=bool(skills_cfg.get("require_browser_acceptance")),
+                evidence=(inputs.get("implement", {}).get("parsed") or {}).get("visual_evidence")
+                if isinstance(inputs.get("implement", {}).get("parsed"), dict)
+                else None,
+            )
+            hard_gates["visual_acceptance"] = visual.get("decision") in {"pass", "not-applicable", "VISUAL_ACCEPTANCE_TOOL_UNAVAILABLE"}
+            hard_gates["visual_acceptance_claim"] = bool(visual.get("visual_acceptance_claim"))
+            if visual.get("decision") == "block":
+                hard_gates["visual_acceptance"] = False
+            decision = "accept" if all(value is True for key, value in hard_gates.items() if key != "visual_acceptance_claim") else "needs-review"
             return {
                 "status": "pass",
                 "output": {
@@ -699,6 +761,7 @@ def run_goal(
                     "hard_gates": hard_gates,
                     "findings": plan.get("dissent", []),
                     "evidence_refs": [],
+                    "visual_acceptance": visual,
                 },
             }
         if node.node_id == "publish-knowledge":
@@ -782,6 +845,12 @@ def run_goal(
             egress=egress,
             extra_blocks=context_blocks(node_skills),
         )
+        finalized_skills = finalize_skill_state(
+            node_skills,
+            context_manifest.to_dict(include_payloads=False),
+            egress=egress,
+        )
+        node_skills = {**node_skills, **finalized_skills}
         context_validation = validate_context_manifest(context_manifest)
         node_runtime_root = runtime_root / node.node_id
         atomic_json(node_runtime_root / "context-manifest.json", context_manifest.to_dict(include_payloads=True))
@@ -911,6 +980,21 @@ def run_goal(
             parsed["plan_digest"] = hashlib.sha256(
                 json.dumps(body, sort_keys=True, ensure_ascii=False).encode()
             ).hexdigest()
+        runtime_decisions["skill_state"] = (node_skills.get("skill_state") or (node_skills.get("receipt") or {}).get("skill_state"))
+        if node.node_id == "implement":
+            accepted = (inputs.get("final-plan-gate") or {}).get("output") or {}
+            bind = bind_implementation_to_accepted_plan(
+                parsed,
+                accepted,
+                goal=goal,
+                task_id=task_id,
+                risk_class=risk_class,
+                acceptance=goal,
+            )
+            runtime_decisions["mncg_writer_bind"] = bind
+            if not bind.get("valid"):
+                value["status"] = "blocked"
+                value["failure_class"] = "implementation-not-bound-to-accepted-mncg"
         return value
 
     def result_status(values: dict[str, Any]) -> str:

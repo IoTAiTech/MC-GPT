@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-09-04
 
 from __future__ import annotations
+import os
+from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 from .paths import project_settings_path, settings_backup_root, settings_path
 from .util import atomic_json, load_json, utc_now
 
@@ -244,39 +246,112 @@ def validate_settings(user_home: Path, value: dict[str, Any] | None = None) -> d
     return validate_settings_document(document)
 
 
+@contextmanager
+def exclusive_settings_lock(user_home: Path) -> Iterator[None]:
+    path = settings_path(user_home)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(path.name + ".lock")
+    handle = open(lock_path, "a+b")
+    try:
+        handle.seek(0)
+        if handle.read(1) == b"":
+            handle.write(b"L")
+            handle.flush()
+        handle.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            handle.close()
+
+
+def _without_updated_at(value: dict[str, Any]) -> dict[str, Any]:
+    payload = deepcopy(value)
+    payload.pop("updated_at", None)
+    return payload
+
+
+def _read_back_matches(path: Path, expected: dict[str, Any]) -> bool:
+    from .settings_v2 import sha256_json
+
+    on_disk = load_json(path, {}) or {}
+    return sha256_json(_without_updated_at(on_disk)) == sha256_json(_without_updated_at(expected))
+
+
 def migrate_v1_to_v2(user_home: Path, *, apply: bool = False) -> dict[str, Any]:
     from .settings_v2 import SCHEMA_V2, migrate_document, sha256_json
 
     path = settings_path(user_home)
-    current = load_json(path, {}) or {}
-    source_digest = sha256_json(current)
-    migrated = migrate_document(_merge(DEFAULTS, current))
-    dest_digest = sha256_json(migrated)
-    receipt = {
-        "decision": "plan" if not apply else "pass",
-        "action": "migrate-v1-to-v2",
-        "source_schema": current.get("schema") or "iot-ai.settings.v1",
-        "destination_schema": SCHEMA_V2,
-        "source_sha256": source_digest,
-        "destination_sha256": dest_digest,
-        "backup_path": None,
-        "rollback_id": None,
-    }
-    if not apply:
+    with exclusive_settings_lock(user_home):
+        current = load_json(path, {}) or {}
+        source_revision = int(current.get("revision") or 0)
+        source_digest = sha256_json(current)
+        migrated = migrate_document(_merge(DEFAULTS, current))
+        migrated["revision"] = source_revision + 1
+        dest_digest = sha256_json(migrated)
+        receipt = {
+            "decision": "plan" if not apply else "pass",
+            "action": "migrate-v1-to-v2",
+            "source_schema": current.get("schema") or "iot-ai.settings.v1",
+            "destination_schema": SCHEMA_V2,
+            "source_sha256": source_digest,
+            "destination_sha256": dest_digest,
+            "source_revision": source_revision,
+            "destination_revision": migrated["revision"],
+            "backup_path": None,
+            "rollback_id": None,
+            "transactional": True,
+        }
+        if not apply:
+            return receipt
+        backup_dir = settings_backup_root(user_home)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        rollback_id = f"settings-v2-{utc_now().replace(':', '').replace('-', '')}"
+        backup_path = backup_dir / f"{rollback_id}.json"
+        atomic_json(backup_path, current or {"schema": "iot-ai.settings.v1", "revision": source_revision})
+        live = load_json(path, {}) or {}
+        if sha256_json(live) != source_digest:
+            raise ValueError("settings revision changed during migrate")
+        save(user_home, migrated)
+        if not _read_back_matches(path, migrated):
+            save(user_home, current or {"schema": "iot-ai.settings.v1"})
+            raise ValueError("settings migrate read-back mismatch")
+        on_disk = load_json(path, {}) or {}
+        receipt.update(
+            {
+                "decision": "pass",
+                "backup_path": str(backup_path),
+                "rollback_id": rollback_id,
+                "apply": True,
+                "read_back_sha256": sha256_json(on_disk),
+                "destination_sha256": sha256_json(on_disk),
+            }
+        )
+        atomic_json(backup_dir / f"{rollback_id}.receipt.json", receipt)
         return receipt
-    backup_dir = settings_backup_root(user_home)
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    rollback_id = f"settings-v2-{utc_now().replace(':', '').replace('-', '')}"
-    backup_path = backup_dir / f"{rollback_id}.json"
-    atomic_json(backup_path, current or {"schema": "iot-ai.settings.v1"})
-    save(user_home, migrated)
-    receipt.update({"decision": "pass", "backup_path": str(backup_path), "rollback_id": rollback_id, "apply": True})
-    atomic_json(backup_dir / f"{rollback_id}.receipt.json", receipt)
-    return receipt
 
 
 def rollback_settings(user_home: Path, rollback_id: str, *, apply: bool = False) -> dict[str, Any]:
     import re
+
+    from .settings_v2 import sha256_json
 
     if not re.fullmatch(r"[A-Za-z0-9._:-]{1,120}", str(rollback_id or "")):
         raise ValueError("invalid rollback id")
@@ -287,12 +362,35 @@ def rollback_settings(user_home: Path, rollback_id: str, *, apply: bool = False)
     if not backup_path.is_file():
         raise FileNotFoundError(f"unknown rollback receipt: {rollback_id}")
     previous = load_json(backup_path, {}) or {}
-    receipt = {"decision": "plan" if not apply else "pass", "action": "rollback", "rollback_id": rollback_id, "backup_path": str(backup_path)}
+    receipt = {
+        "decision": "plan" if not apply else "pass",
+        "action": "rollback",
+        "rollback_id": rollback_id,
+        "backup_path": str(backup_path),
+        "transactional": True,
+    }
     if not apply:
         return receipt
-    save(user_home, previous)
-    receipt["decision"] = "pass"
-    return receipt
+    path = settings_path(user_home)
+    with exclusive_settings_lock(user_home):
+        current = load_json(path, {}) or {}
+        restore_id = f"{rollback_id}-restore-{utc_now().replace(':', '').replace('-', '')}"
+        atomic_json(backup_dir / f"{restore_id}.json", current)
+        save(user_home, previous)
+        if not _read_back_matches(path, previous):
+            save(user_home, current)
+            raise ValueError("settings rollback read-back mismatch")
+        on_disk = load_json(path, {}) or {}
+        receipt.update(
+            {
+                "decision": "pass",
+                "pre_restore_backup": str(backup_dir / f"{restore_id}.json"),
+                "read_back_sha256": sha256_json(on_disk),
+                "apply": True,
+            }
+        )
+        atomic_json(backup_dir / f"{restore_id}.receipt.json", receipt)
+        return receipt
 
 
 def apply_preset(user_home: Path, name: str, *, apply: bool = False) -> dict[str, Any]:

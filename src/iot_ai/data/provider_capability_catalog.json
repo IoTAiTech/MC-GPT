@@ -1,0 +1,51 @@
+{
+  "schema": "iot-ai.provider-capability-catalog.v1",
+  "catalog_version": "2026-09-04.1",
+  "source_dates": {
+    "openai": "2026-09-04",
+    "xai": "2026-09-04",
+    "anthropic": "2026-09-04"
+  },
+  "providers": {
+    "openai": {
+      "family": "GPT-5.6",
+      "models": {
+        "gpt-5.6": {"status": "ga", "client_products": ["api", "codex"]},
+        "gpt-5.6-sol": {"status": "ga", "client_products": ["codex"], "alias_of": "gpt-5.6"},
+        "gpt-5.6-codex": {"status": "ga", "client_products": ["codex"], "alias_of": "gpt-5.6"},
+        "gpt-6-astra": {
+          "status": "limited-access",
+          "client_products": ["api"],
+          "requires": ["limited-access-entitlement"]
+        }
+      },
+      "clients": {
+        "codex": {"minimum_version": "0.148.0"}
+      },
+      "unsupported_sampling_parameters": ["temperature", "top_p", "presence_penalty"]
+    },
+    "xai": {
+      "models": {
+        "grok-4.6": {"status": "ga", "client_products": ["api", "grok-cli"]},
+        "grok-4.6-build": {"status": "ga", "alias_of": "grok-4.6", "client_products": ["grok-cli"]},
+        "grok-4.20": {"status": "alias", "alias_of": "grok-4.6", "multi_agent": true},
+        "grok-2": {"status": "retired", "redirect_to": "grok-4.6"},
+        "grok-beta": {"status": "retired", "redirect_to": "grok-4.6"}
+      }
+    },
+    "anthropic": {
+      "models": {
+        "claude-fable-5.1": {"status": "ga", "adaptive_thinking": true, "client_products": ["api", "claude-code"]},
+        "claude-sonnet-4": {"status": "ga", "adaptive_thinking": true}
+      },
+      "clients": {
+        "claude-code": {"minimum_version": "2.1.0", "vulnerable_versions": ["2.0.0", "2.0.1", "2.0.2"]}
+      },
+      "privacy": {
+        "zero_data_retention": "required-for-customer-content",
+        "unsupported_when_zdr": ["training-retention"]
+      },
+      "unsupported_sampling_parameters": ["temperature"]
+    }
+  }
+}

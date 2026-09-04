@@ -202,6 +202,9 @@ def select_candidates(
 ) -> dict[str, dict[str, Any]]:
     """Assign candidates to roles with diversity and an explicit fallback ladder."""
     document = settings if settings is not None else load_settings(user_home)
+    from .providers import materialize_api_profiles
+
+    materialize_api_profiles(user_home, document)
     routing = normalize_routing(document.get("routing"))
     ladders = rank_candidates(
         user_home,
@@ -414,4 +417,6 @@ def select_candidates(
         candidate["effective_effort"] = effort["effective_value"]
         candidate["effort_clamp_reason"] = effort["clamp_reason"]
         candidate["effort_source"] = effort["source_layer"]
+        candidate["effort_decision"] = effort.get("decision") or "pass"
+        candidate["effort_block_reason"] = effort.get("block_reason")
     return selected

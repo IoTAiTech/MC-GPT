@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Temporary transport only. Never executes repository source or changes a ref.
+# Removed from the resulting candidate. Source tests run in separate read-only CI.
+name: Materialize verified runtime correction
+on:
+  push:
+    branches: [fix/verified-runtime-boundaries-20260904]
+    paths: [.github/workflows/runtime-correction-materialize.yml]
+permissions: {}
+jobs:
+  materialize:
+    if: github.repository == 'IoTAiTech/MC-GPT' && github.ref == 'refs/heads/fix/verified-runtime-boundaries-20260904'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Verify public bytes and create an immutable Git tree only
+        env:
+          TREE_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64
+          import gzip
+          import hashlib
+          import io
+          import json
+          import os
+          import subprocess
+          import urllib.request
+          from pathlib import Path
+
+          REPO = 'IoTAiTech/MC-GPT'
+          BASE = '0ce651b32ad5e197db0ee51dc3e48e5db5659ca4'
+          BASE_TREE = '776a769b955047b8b47a69af5086dd10246e2445'
+          TARGET = 'f92ea1fe66c2e70b10d68af94db9b182a07ad16c'
+          WORKFLOW = '.github/workflows/runtime-correction-materialize.yml'
+          PARTS = [
+              ('6960185d986b730b0297be157188e79fdb2678af', 5000),
+              ('bf1f6ae1e112b7cc14d33a57f0f39e3b5e7ea72d', 1800),
+              ('3483aa4e4e22b0188f08392e7da255bf8700ba9e', 1800),
+              ('6c7dc588d4dc209240a92f61112155d74a32922e', 1800),
+              ('d9e4001a88e92122d2f730141582ad0ade93901b', 1800),
+              ('d632f6036161bd2c960e20c4a81172b78bcfc69a', 1800),
+              ('c7fcf58d6e28eeada8f936880716037198dfdb27', 1800),
+              ('15ed5ec45cdba3773b2c23b8508e0aed191d3e34', 1800),
+              ('163d7ba4ced7af6d0d42e16aea2c62bba9fcfe2b', 1627),
+          ]
+          FILES = {
+              'docs/runtime-boundary-validation.md': 'f0f2ace3e69f45e1cb14852d7bd844d43584656c90c5968c7bea1c59cfe99fc2',
+              'src/iot_ai/agentic.py': '812c9793fc14d1287799f02245b8d95e8d561b7c8ffc9bf0f6829b04df60eb8c',
+              'src/iot_ai/control_flow.py': 'ac155d65b421a7f128673c05d0d6099b94daae1f17885fba7b48b8b5d9af1304',
+              'src/iot_ai/runtime_gates.py': '8bf5737eb323a89e8e4a84d868f03f964acd3cb6dd83a8088028925323c76eb3',
+              'src/iot_ai/settings_v2.py': '8e2c27cdcd72d506917c50afa88b8a0fa895cc5271f0693b51174599d758516d',
+              'src/iot_ai/visual_acceptance.py': '32d578141c167b633889bff028ecba2228366da06ab9519d308223eca9ec482c',
+              'src/iot_ai/visual_evidence.py': 'f573ff000f763f99d9482bf534b18ca63443180d5ed22bc4443ab7ef9e9b3e0c',
+              'tests/test_runtime_boundary_evidence.py': '4958843bd05e66e03d8308ee1b3b5d13c2c2201a63d461a712fde353c693207a',
+              'tests/test_runtime_enforcement_corrective.py': '8fc1d4e017e21c3f5f1ba014da6d4cc7c459b2b8c51698a20506c9b7600add7f',
+          }
+          def git(*args, data=None):
+              return subprocess.check_output(['git', *args], input=data).decode().strip()
+          def api(path, payload=None):
+              if not (path.startswith('git/blobs/') or path == 'git/trees'):
+                  raise ValueError('endpoint-outside-allowlist')
+              req = urllib.request.Request(
+                  'https://api.github.com/repos/' + REPO + '/' + path,
+                  data=None if payload is None else json.dumps(payload).encode(),
+                  headers={'Authorization': 'Bearer ' + os.environ['TREE_TOKEN'],
+                           'Accept': 'application/vnd.github+json',
+                           'Content-Type': 'application/json',
+                           'User-Agent': 'MCGPT-bounded-tree-materializer'},
+                  method='GET' if payload is None else 'POST')
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  raw = response.read(2000000)
+              return json.loads(raw)
+          assert git('rev-parse', 'HEAD^') == BASE, 'parent-drift'
+          assert git('rev-parse', BASE + '^{tree}') == BASE_TREE, 'base-tree-drift'
+          pieces = []
+          for sha, size in PARTS:
+              blob = api('git/blobs/' + sha)
+              assert blob['encoding'] == 'base64'
+              data = base64.b64decode(''.join(blob['content'].split()), validate=True)
+              assert len(data) == size
+              assert hashlib.sha1(('blob ' + str(size) + '\0').encode() + data).hexdigest() == sha
+              pieces.append(data)
+          compressed = b''.join(pieces)
+          assert hashlib.sha256(compressed).hexdigest() == '36004628d025cb2b279902e9239196038d48dc7128e0609ce03ef94b0accdecf'
+          with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as stream:
+              patch = stream.read(1000000)
+              assert not stream.read(1), 'patch-size-limit'
+          assert hashlib.sha256(patch).hexdigest() == 'c38e7f08a719a90413ed5f6c606345153d67a49d745f92ca5f995b9c193879d3'
+          git('apply', '--check', data=patch)
+          git('apply', '--index', data=patch)
+          git('rm', '--', WORKFLOW)
+          assert git('write-tree') == TARGET, 'local-tree-not-tested-tree'
+          changed = set(git('diff', '--cached', '--name-only', BASE).splitlines())
+          assert changed == set(FILES), 'write-set-drift'
+          entries = []
+          for name, expected in FILES.items():
+              data = Path(name).read_bytes()
+              assert hashlib.sha256(data).hexdigest() == expected, 'file-digest-drift'
+              entries.append({'path': name, 'mode': '100644', 'type': 'blob',
+                              'content': data.decode('utf-8')})
+          result = api('git/trees', {'base_tree': BASE_TREE, 'tree': entries})
+          assert result['sha'] == TARGET, 'remote-tree-not-tested-tree'
+          print(json.dumps({'decision': 'materialized_not_committed', 'tree': TARGET,
+                            'files': len(FILES), 'repository_source_executed': False,
+                            'refs_changed': False, 'production_claim': False}))
+          PY

@@ -9,6 +9,7 @@ import hashlib
 import os
 import re
 import shutil
+import struct
 import subprocess
 from pathlib import Path
 from typing import Any, Mapping
@@ -85,6 +86,68 @@ def _digest_ok(value: Any) -> bool:
     return bool(HEX64.fullmatch(text)) and not SYNTHETIC_DIGEST.fullmatch(text)
 
 
+def _png_identity(data: bytes) -> tuple[str, int, int] | None:
+    if len(data) < 24 or not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return None
+    length = struct.unpack(">I", data[8:12])[0]
+    if data[12:16] != b"IHDR" or length < 8 or len(data) < 24:
+        return None
+    width, height = struct.unpack(">II", data[16:24])
+    if width < 1 or height < 1:
+        return None
+    return ("png", width, height)
+
+
+def _jpeg_identity(data: bytes) -> tuple[str, int, int] | None:
+    if len(data) < 4 or data[:2] != b"\xff\xd8":
+        return None
+    index = 2
+    while index + 9 < len(data):
+        if data[index] != 0xFF:
+            index += 1
+            continue
+        marker = data[index + 1]
+        if marker in {0xC0, 0xC1, 0xC2}:
+            height, width = struct.unpack(">HH", data[index + 5 : index + 9])
+            if width < 1 or height < 1:
+                return None
+            return ("jpeg", width, height)
+        if marker in {0xD8, 0xD9}:
+            index += 2
+            continue
+        if index + 4 > len(data):
+            break
+        length = struct.unpack(">H", data[index + 2 : index + 4])[0]
+        index += 2 + length
+    return None
+
+
+def decode_image_identity(path: Path) -> dict[str, Any]:
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return {"ok": False, "reason": "unreadable"}
+    identity = _png_identity(data) or _jpeg_identity(data)
+    if not identity:
+        return {"ok": False, "reason": "not-an-image"}
+    fmt, width, height = identity
+    return {"ok": True, "format": fmt, "width": width, "height": height}
+
+
+def _controlled_path(path: Path, controlled_root: Path | None) -> str | None:
+    if path.is_symlink() or not path.is_file():
+        return "viewport-symlink-or-missing"
+    resolved = path.resolve()
+    if not controlled_root:
+        return "runner-output-dir"
+    root = controlled_root.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        return "foreign-artifact"
+    return None
+
+
 def evaluate_visual_acceptance(
     *,
     visual_task: bool,
@@ -124,6 +187,18 @@ def evaluate_visual_acceptance(
     recomputed: list[str] = []
     viewports = payload.get("viewports") or {}
     paths = payload.get("screenshot_paths") or {}
+    controlled_value = payload.get("runner_output_dir") or os.environ.get("IOT_AI_VISUAL_OUTPUT_DIR")
+    controlled_root = Path(str(controlled_value)).resolve() if controlled_value else None
+    if controlled_root is None:
+        missing.append("runner-output-dir")
+    expected_run = payload.get("run_id")
+    captured_run = payload.get("captured_run_id") or probe.get("run_id")
+    if expected_run and captured_run and str(expected_run) != str(captured_run):
+        missing.append("foreign-run")
+    expected_tree = payload.get("source_tree")
+    captured_tree = payload.get("captured_tree")
+    if expected_tree and captured_tree and str(expected_tree) != str(captured_tree):
+        missing.append("stale-tree")
     for name in REQUIRED_VIEWPORTS:
         row = viewports.get(name) if isinstance(viewports, Mapping) else None
         path_value = None
@@ -135,8 +210,20 @@ def evaluate_visual_acceptance(
             missing.append(f"viewport-file:{name}")
             continue
         path = Path(str(path_value))
-        if not path.is_file() or path.is_symlink() or path.stat().st_size < 32:
+        control_error = _controlled_path(path, controlled_root)
+        if control_error:
+            missing.append(f"{control_error}:{name}" if control_error.startswith("viewport") else control_error)
+            continue
+        if path.stat().st_size < 32:
             missing.append(f"viewport-file:{name}")
+            continue
+        identity = decode_image_identity(path)
+        if not identity.get("ok"):
+            missing.append(f"viewport-not-image:{name}")
+            continue
+        expected_size = VIEWPORT_PIXELS[name]
+        if (int(identity["width"]), int(identity["height"])) != expected_size:
+            missing.append(f"viewport-dimensions:{name}")
             continue
         digest = _file_sha256(path)
         recomputed.append(digest)
@@ -145,6 +232,8 @@ def evaluate_visual_acceptance(
             claimed = row.get("screenshot_sha256")
         if claimed and (not _digest_ok(claimed) or claimed != digest):
             missing.append(f"viewport-rehash:{name}")
+        if isinstance(row, Mapping) and row.get("origin") not in {"runner", "authorized-runner"}:
+            missing.append(f"viewport-origin:{name}")
         if isinstance(row, Mapping) and row.get("rendered") is not True:
             missing.append(f"viewport:{name}")
     claimed_digests = payload.get("screenshot_digests") or []
@@ -158,16 +247,22 @@ def evaluate_visual_acceptance(
     if len(recomputed) < len(REQUIRED_VIEWPORTS):
         missing.append("screenshot_digests")
     for check in ("overflow", "clipping"):
-        if payload.get(check) is not True:
+        runner_layout = payload.get("runner_layout") if isinstance(payload.get("runner_layout"), Mapping) else {}
+        if runner_layout.get(check) is True:
+            continue
+        if payload.get(check) is True:
+            missing.append(f"{check}-model-authored")
+        else:
             missing.append(check)
-    a11y = payload.get("accessibility")
-    if a11y is True and not payload.get("accessibility_executed"):
-        missing.append("accessibility-execution")
-    elif a11y is not True:
-        missing.append("accessibility")
+    runner_a11y = payload.get("runner_accessibility") if isinstance(payload.get("runner_accessibility"), Mapping) else {}
+    if not (runner_a11y.get("tool") and runner_a11y.get("decision") == "pass"):
+        missing.append("accessibility-runner")
+    if payload.get("accessibility") is True and not runner_a11y:
+        missing.append("accessibility-forged")
     states = payload.get("states") or {}
+    runner_states = payload.get("runner_states") if isinstance(payload.get("runner_states"), Mapping) else states
     for name in REQUIRED_STATES:
-        if not (isinstance(states, Mapping) and states.get(name) is True):
+        if not (isinstance(runner_states, Mapping) and runner_states.get(name) is True):
             missing.append(f"state:{name}")
     if payload.get("visual_critique") is not True:
         missing.append("visual_critique")

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.7.0-beta.5 | Date: 2026-08-08
+# Version: 6.8.0-beta.1 | Date: 2026-09-05
 """Deterministic control-flow and convergence decisions around model calls."""
 from __future__ import annotations
 
@@ -67,7 +67,11 @@ def continuation_decision(
 ) -> dict[str, Any]:
     """Choose continue/stop/pause using application-owned rules."""
     fingerprint = result_fingerprint(result)
-    state.failure_fingerprints[fingerprint] = state.failure_fingerprints.get(fingerprint, 0) + 1
+    condition_skip = (not node_required and result.get("status") == "skipped"
+                      and result.get("failure_class") == "condition-not-satisfied")
+    is_failure = result.get("status") in {"failed", "blocked"}
+    if is_failure:
+        state.failure_fingerprints[fingerprint] = state.failure_fingerprints.get(fingerprint, 0) + 1
     digest = finding_digest(result)
     if digest and digest not in state.finding_digests:
         state.finding_digests.append(digest)
@@ -76,10 +80,10 @@ def continuation_decision(
         state.no_new_finding_rounds += 1
 
     action = "continue"
-    reason = "node-completed"
+    reason = "condition-not-applicable" if condition_skip else "node-completed"
     if node_required and result.get("status") != "pass":
         action, reason = "stop", "required-node-failed"
-    elif state.failure_fingerprints[fingerprint] >= max_identical_failures and result.get("status") != "pass":
+    elif is_failure and state.failure_fingerprints.get(fingerprint, 0) >= max_identical_failures:
         action, reason = "stop", "repeated-identical-failure"
     elif state.tokens_used > token_budget or state.model_calls > max_model_calls:
         action, reason = "stop", "model-budget"
@@ -93,7 +97,7 @@ def continuation_decision(
         "action": action,
         "reason": reason,
         "failure_fingerprint": fingerprint,
-        "identical_failure_count": state.failure_fingerprints[fingerprint],
+        "identical_failure_count": state.failure_fingerprints.get(fingerprint, 0),
         "no_new_finding_rounds": state.no_new_finding_rounds,
         "tokens_used": state.tokens_used,
         "model_calls": state.model_calls,

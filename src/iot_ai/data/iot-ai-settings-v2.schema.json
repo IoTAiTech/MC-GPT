@@ -36,8 +36,8 @@
               "permitted_models": { "type": "array", "items": { "type": "string" } },
               "fallback_sequence": { "type": "array", "items": { "type": "string" } },
               "required_provider_family": { "type": ["string", "null"] },
-              "effort": { "type": ["string", "null"], "enum": ["low", "medium", "high", "xhigh", null] },
-              "minimum_effort": { "type": ["string", "null"], "enum": ["low", "medium", "high", "xhigh", null] },
+              "effort": { "type": ["string", "null"], "enum": ["none", "low", "medium", "high", "xhigh", "max", null] },
+              "minimum_effort": { "type": ["string", "null"], "enum": ["none", "low", "medium", "high", "xhigh", "max", null] },
               "allow_reuse": { "type": "boolean" }
             }
           }
@@ -45,7 +45,7 @@
         "effort": {
           "type": "object",
           "properties": {
-            "default": { "type": "string", "enum": ["low", "medium", "high", "xhigh"] },
+            "default": { "type": "string", "enum": ["none", "low", "medium", "high", "xhigh", "max"] },
             "by_role": { "type": "object", "additionalProperties": { "type": "string" } },
             "by_provider": { "type": "object", "additionalProperties": { "type": "string" } },
             "by_model": { "type": "object", "additionalProperties": { "type": "string" } }

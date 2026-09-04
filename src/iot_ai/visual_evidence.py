@@ -137,7 +137,8 @@ def capture_visual_run(
         image = _read(root, image_name)
         validate_png(image, dimensions)
         report = _read(root, report_name)
-        json.loads(report)
+        if not isinstance(json.loads(report), dict):
+            raise ValueError("visual-measurement-object-required")
         rows[name] = {"width": dimensions[0], "height": dimensions[1], "image": image_name,
                       "image_sha256": hashlib.sha256(image).hexdigest(), "report": report_name,
                       "report_sha256": hashlib.sha256(report).hexdigest()}
@@ -171,6 +172,8 @@ def verify_visual_run(handle: Any, *, run_id: str | None, source_sha256: str | N
             if hashlib.sha256(image).hexdigest() != row["image_sha256"] or hashlib.sha256(report_data).hexdigest() != row["report_sha256"]:
                 raise ValueError("visual-artifact-changed")
             report = json.loads(report_data)
+            if not isinstance(report, dict):
+                raise ValueError("visual-measurement-object-required")
             if report.get("viewport") != {"width": dimensions[0], "height": dimensions[1]}:
                 errors.append(f"viewport-measurement:{name}")
             for field in ("overflow_count", "clipping_count"):

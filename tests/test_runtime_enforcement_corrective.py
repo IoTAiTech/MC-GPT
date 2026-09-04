@@ -651,6 +651,13 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
             endpoint_is_forbidden("https://" + packed_minus + "/v1", allow_private=True),
             "metadata and link-local endpoints are forbidden",
         )
+        small_dot = "%" + "ef%b9%92"
+        encoded = small_dot.join(("1", "169", "254", "43518")) + ".nip.io"
+        self.assertTrue(host_is_never_allowed(encoded, resolve_dns=False))
+        self.assertEqual(
+            endpoint_is_forbidden("https://" + encoded + "/v1", allow_private=True),
+            "metadata and link-local endpoints are forbidden",
+        )
         self.assertEqual(
             endpoint_is_forbidden("https://metadata.google.internal.attacker.example/", allow_private=True),
             "metadata and link-local endpoints are forbidden",
@@ -819,6 +826,22 @@ class EndpointSafetyTests(IsolatedHomeTestCase):
         self.assertEqual(dash["created"], [])
         self.assertTrue(
             any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in dash["skipped"])
+        )
+        small_dot = "%" + "ef%b9%92"
+        settings["api_profiles"] = {
+            "fe52": {
+                "endpoint": "https://" + small_dot.join(("1", "169", "254", "43518")) + ".nip.io/v1",
+                "protocol": "openai-compatible",
+                "provider": "ollama",
+                "enabled": True,
+                "classification": "cloud",
+                "allow_private_endpoint": True,
+            }
+        }
+        fe52 = materialize_api_profiles(self.home, settings)
+        self.assertEqual(fe52["created"], [])
+        self.assertTrue(
+            any(row.get("reason") == "metadata and link-local endpoints are forbidden" for row in fe52["skipped"])
         )
 
 

@@ -144,12 +144,13 @@ _METADATA_HOSTS = frozenset(
 )
 _AWS_IMDS_V6 = ipaddress.ip_network("fd00:ec2::/32")
 _NEVER_ALLOW_REASON = "metadata and link-local endpoints are forbidden"
-_DOT_STRIP = ".\u3002\uff0e\u2024\uff61"
+_DOT_STRIP = ".\u3002\uff0e\u2024\uff61\ufe52"
 _DOT_SEPARATORS = (
     "\u3002",
     "\uff0e",
     "\u2024",
     "\uff61",
+    "\ufe52",
     "\u00b7",
     "\u2022",
     "\u2027",
@@ -339,11 +340,11 @@ def _ip_requires_private_allow(address: ipaddress.IPv4Address | ipaddress.IPv6Ad
 
 
 def _normalize_host(host: str) -> str:
-    raw = unicodedata.normalize("NFKC", str(host or "")).strip().strip("[]")
+    raw = str(host or "").strip().strip("[]")
     previous = None
     while previous != raw:
         previous = raw
-        raw = unquote(raw)
+        raw = unicodedata.normalize("NFKC", unquote(raw))
     if "%" in raw:
         hostpart, _, _zone = raw.rpartition("%")
         if hostpart and ":" in hostpart:
@@ -430,7 +431,7 @@ def _host_matches(host: str, *, never_allowed: bool, resolve_dns: bool) -> bool:
                     return True
             except ValueError:
                 continue
-    except OSError:
+    except (OSError, UnicodeError):
         if raw.replace(".", "").isdigit() or ":" in raw:
             return True
         return False

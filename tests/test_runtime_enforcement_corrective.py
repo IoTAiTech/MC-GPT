@@ -222,7 +222,18 @@ class EffortReceiptTests(IsolatedHomeTestCase):
         )
         self.assertEqual(anthropic["body"]["thinking"]["type"], "enabled")
         self.assertEqual(anthropic["body"]["thinking"]["budget_tokens"], 1024)
+        self.assertGreater(anthropic["body"]["max_tokens"], anthropic["body"]["thinking"]["budget_tokens"])
         self.assertTrue(anthropic["effort"]["effort_applied"])
+        anthropic_high = _build_api_request(
+            {"endpoint": "https://example.invalid", "protocol": "anthropic", "cloud": True, "secret_env": ""},
+            "ping",
+            "claude-sonnet",
+            "high",
+        )
+        self.assertGreater(
+            anthropic_high["body"]["max_tokens"],
+            anthropic_high["body"]["thinking"]["budget_tokens"],
+        )
         ollama = _build_api_request(
             {"endpoint": "https://example.invalid", "protocol": "ollama", "cloud": True},
             "ping",

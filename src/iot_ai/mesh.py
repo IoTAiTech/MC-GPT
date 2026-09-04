@@ -234,9 +234,11 @@ def _api_effort_meta(protocol: str, body: dict[str, Any], effort: str) -> dict[s
         body["reasoning_effort"] = applied
         field = "reasoning_effort"
     elif protocol == "anthropic":
+        budget = _API_THINKING_BUDGETS.get(applied, 4096)
+        body["max_tokens"] = max(int(body.get("max_tokens") or 0), budget + 4096)
         body["thinking"] = {
             "type": "enabled",
-            "budget_tokens": _API_THINKING_BUDGETS.get(applied, 4096),
+            "budget_tokens": budget,
         }
         field = "thinking.budget_tokens"
     elif protocol == "gemini":

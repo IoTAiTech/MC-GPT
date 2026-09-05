@@ -12,8 +12,7 @@ import json
 import re
 
 from .minimum_change import assess_strategy, compile_contract  # PR #19 overlap: import only; do not edit that module.
-from .model_policy import clamp_effort
-from .settings_v2 import EFFORT_ORDER, resolve_effort
+from .settings_v2 import EFFORT_ORDER, normalize_routing, resolve_effort
 
 MNCG_BIND_FIELDS = (
     "selected_rung",
@@ -243,72 +242,84 @@ def resolve_dispatch_effort(
     role_id: str | None = None,
     routing: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Candidate effective_effort is the only dispatch source."""
+    """Intersect every active ceiling and floor; never choose one instead of another.
 
+    The settings resolver's current entitlement is part of the final allowed set.
+    A later runtime clamp may narrow that set but must never broaden it.
+    """
     row = dict(candidate or {})
-    requested = str(row.get("requested_effort") or row.get("effective_effort") or node_effort or "medium")
+    requested = next((value for value in (
+        row.get("requested_effort"), row.get("effective_effort"), node_effort
+    ) if value is not None), "medium")
     source = str(row.get("effort_source") or "candidate")
+    metadata: dict[str, Any] = {}
+
+    def blocked(reason: str) -> dict[str, Any]:
+        return {"decision": "block", "block_reason": reason,
+                "requested_effort": requested if isinstance(requested, str) else None,
+                "effective_effort": None, "effort_source": source,
+                "clamp_reason": "No effort satisfies all active policy constraints.",
+                **metadata}
+
     supported = row.get("supported_efforts")
-    resolved = resolve_effort(
-        role_id=role_id or str(row.get("role_id") or ""),
-        provider=str(row.get("provider") or ""),
-        model=str(row.get("canonical_target_model") or row.get("model") or ""),
-        routing=dict(routing or {}),
-        requested=requested,
-        supported=list(supported) if isinstance(supported, (list, tuple)) else None,
-    )
-    effective = str(resolved["effective_value"] or row.get("effective_effort") or requested)
-    clamp_reason = resolved.get("clamp_reason") or row.get("effort_clamp_reason")
+    if type(requested) is not str or requested not in EFFORT_ORDER:
+        return blocked("invalid-requested-effort")
+    if type(max_effort) is not str or max_effort not in EFFORT_ORDER:
+        return blocked("invalid-effort-ceiling")
+    if supported is not None and (
+        not isinstance(supported, (list, tuple))
+        or any(type(item) is not str or item not in EFFORT_ORDER for item in supported)
+    ):
+        return blocked("invalid-provider-effort-capabilities")
+    try:
+        normalized_routing = normalize_routing(dict(routing or {}))
+        role = role_id or str(row.get("role_id") or "")
+        resolved = resolve_effort(
+            role_id=role, provider=str(row.get("provider") or ""),
+            model=str(row.get("canonical_target_model") or row.get("model") or ""),
+            routing=normalized_routing, requested=requested, supported=supported,
+        )
+    except (TypeError, ValueError, OverflowError):
+        return blocked("invalid-effort-policy")
     source = str(resolved.get("source_layer") or source)
-    if resolved.get("decision") == "block":
-        return {
-            "decision": "block",
-            "block_reason": resolved.get("block_reason") or "minimum-effort-unsatisfied",
-            "requested_effort": requested,
-            "effective_effort": None,
-            "effort_source": source,
-            "clamp_reason": clamp_reason,
-        }
-    if max_effort not in EFFORT_ORDER:
-        return {"decision": "block", "block_reason": "invalid-effort-ceiling", "effective_effort": None,
-                "requested_effort": requested, "effort_source": source, "clamp_reason": None}
-    ceiling = max_effort
-    allowed = [item for item in EFFORT_ORDER if EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(ceiling)]
-    if supported is not None:
-        if not isinstance(supported, (list, tuple)) or any(item not in EFFORT_ORDER for item in supported):
-            allowed = []
-        else:
-            allowed = [item for item in allowed if item in supported]
-    binding = (dict(routing or {}).get("role_bindings") or {}).get(role_id or str(row.get("role_id") or ""), {})
-    minimum = binding.get("minimum_effort") or row.get("minimum_effort") or row.get("risk_policy_floor")
-    if minimum is not None:
-        allowed = [item for item in allowed if minimum in EFFORT_ORDER and EFFORT_ORDER.index(item) >= EFFORT_ORDER.index(minimum)]
+    actual_ceiling = resolved.get("entitlement_limit")
+    role_floor = normalized_routing["role_bindings"].get(role, {}).get("minimum_effort")
+    floors = (role_floor, row.get("minimum_effort"), row.get("risk_policy_floor"))
+    metadata = {"entitlement_ceiling": actual_ceiling, "runtime_effort_ceiling": max_effort,
+                "role_minimum_effort": role_floor,
+                "candidate_minimum_effort": row.get("minimum_effort"),
+                "risk_policy_floor": row.get("risk_policy_floor")}
+    if any(value is not None and (type(value) is not str or value not in EFFORT_ORDER) for value in floors):
+        # Do not echo malformed provider-controlled objects in diagnostic metadata.
+        metadata = {key: value for key, value in metadata.items() if value is None or type(value) is str}
+        return blocked("invalid-effort-floor")
+    if type(actual_ceiling) is not str or actual_ceiling not in EFFORT_ORDER:
+        return blocked("invalid-entitlement-effort-ceiling")
+    if resolved.get("decision") != "pass":
+        return blocked(str(resolved.get("block_reason") or "effort-policy-intersection-empty"))
+    policy_limit = resolved.get("policy_limit")
+    if not isinstance(policy_limit, list) or any(type(item) is not str or item not in EFFORT_ORDER for item in policy_limit):
+        return blocked("invalid-resolved-effort-policy")
+    allowed = [item for item in EFFORT_ORDER
+               if item in policy_limit
+               and EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(max_effort)
+               and EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(actual_ceiling)
+               and (supported is None or item in supported)
+               and all(value is None or EFFORT_ORDER.index(item) >= EFFORT_ORDER.index(value) for value in floors)]
+    metadata["allowed_efforts"] = allowed
     if not allowed:
-        return {"decision": "block", "block_reason": "effort-policy-intersection-empty",
-                "requested_effort": requested, "effective_effort": None, "effort_source": source,
-                "clamp_reason": "No effort satisfies provider support, entitlement and role policy."}
-    capped, cap_reason = clamp_effort(effective, allowed)
-    if cap_reason:
-        clamp_reason = f"{clamp_reason}; {cap_reason}" if clamp_reason else cap_reason
-        effective = capped
-    block_reason = row.get("effort_block_reason") or row.get("block_reason")
-    if block_reason == "minimum-effort-unsatisfied":
-        return {
-            "decision": "block",
-            "block_reason": "minimum-effort-unsatisfied",
-            "requested_effort": requested,
-            "effective_effort": effective,
-            "effort_source": source,
-            "clamp_reason": clamp_reason,
-        }
-    return {
-        "decision": "pass",
-        "block_reason": None,
-        "requested_effort": requested,
-        "effective_effort": effective,
-        "effort_source": source,
-        "clamp_reason": clamp_reason,
-    }
+        return blocked("effort-policy-intersection-empty")
+    if (row.get("effort_block_reason") or row.get("block_reason")) == "minimum-effort-unsatisfied":
+        return blocked("minimum-effort-unsatisfied")
+    lower = [item for item in allowed if EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(requested)]
+    effective = lower[-1] if lower else allowed[0]
+    clamp_reason = resolved.get("clamp_reason") or row.get("effort_clamp_reason")
+    if effective != resolved.get("effective_value"):
+        extra = "Combined runtime, role, candidate and risk policy adjusted effort."
+        clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
+    return {"decision": "pass", "block_reason": None, "requested_effort": requested,
+            "effective_effort": effective, "effort_source": source,
+            "clamp_reason": clamp_reason, **metadata}
 
 
 def build_effort_receipt(
@@ -330,13 +341,15 @@ def build_effort_receipt(
         "response": (response or {}).get("effort_effective"),
         "final_report": effective,
     }
-    missing = [name for name in required_stages if stages.get(name) in {None, ""}]
-    mismatches = [
-        name
-        for name, value in stages.items()
-        if name != "settings" and value not in {None, ""} and str(value) != effective
-    ]
-    consistent = not mismatches and not missing
+    missing = [name for name in required_stages
+               if stages.get(name) is None or (type(stages.get(name)) is str and not stages[name])]
+    invalid = [name for name, value in stages.items()
+               if name not in missing and (type(value) is not str or value not in EFFORT_ORDER)]
+    mismatches = [name for name, value in stages.items()
+                  if name != "settings" and name not in missing and name not in invalid and value != effective]
+    consistent = effective in EFFORT_ORDER and not mismatches and not missing and not invalid
+    # Preserve the discrepancy class without echoing malformed response objects.
+    stages = {name: (None if name in invalid else value) for name, value in stages.items()}
     row = dict(candidate or {})
     return {
         "schema": EFFORT_RECEIPT_SCHEMA,
@@ -348,7 +361,7 @@ def build_effort_receipt(
         "route_id": row.get("route_id"),
         "model_requested": row.get("model_requested") or row.get("model"),
         "canonical_target_model": row.get("canonical_target_model"),
-        "model_served": row.get("model_served"),
+        "model_served": (response or {}).get("model_served"),
         "configured_effort": settings_requested,
         "requested_effort": dispatch.get("requested_effort"),
         "effective_effort": effective,
@@ -356,10 +369,16 @@ def build_effort_receipt(
         "provider_supported_efforts": list(row.get("supported_efforts") or []),
         "entitlement_ceiling": dispatch.get("entitlement_ceiling"),
         "risk_policy_floor": dispatch.get("risk_policy_floor"),
+        "runtime_effort_ceiling": dispatch.get("runtime_effort_ceiling"),
+        "role_minimum_effort": dispatch.get("role_minimum_effort"),
+        "candidate_minimum_effort": dispatch.get("candidate_minimum_effort"),
+        "allowed_efforts": list(dispatch.get("allowed_efforts") or []),
+        "evidence_scope": "adapter-request-and-response-metadata-not-internal-model-compute",
         "clamp_reason": dispatch.get("clamp_reason"),
         "effort_source": dispatch.get("effort_source"),
         "stages": stages,
         "missing_stages": missing,
+        "invalid_stages": invalid,
         "consistent": consistent,
         "mismatches": mismatches,
     }

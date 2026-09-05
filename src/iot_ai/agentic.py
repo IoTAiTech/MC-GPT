@@ -318,10 +318,14 @@ def _default_provider_executor(
                 adapter_request_effort=result.get("adapter_request_effort"),
                 response=result,
             )
+            if result.get("status") == "pass" and effort_receipt["consistent"] is not True:
+                result = {**result, "status": "blocked", "failure_class": "effort-evidence-mismatch"}
             result = {
                 **result,
                 "effort_requested": dispatch.get("requested_effort") or candidate.get("requested_effort") or node.effort,
-                "effort_effective": effective,
+                "effort_effective": effort_receipt["stages"]["response"],
+                "adapter_request_effort": effort_receipt["stages"]["adapter_request"],
+                "effort_dispatched": effective,
                 "effort_source": dispatch.get("effort_source"),
                 "effort_clamp_reason": reason,
                 "effort_receipt": effort_receipt,

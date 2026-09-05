@@ -1,7 +1,7 @@
 # Runtime correction integration
 
 Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-Version: 1.0.0 | Date: 2026-09-05
+Version: 1.1.0 | Date: 2026-09-05
 Status: review candidate; not a production or deployment approval
 
 ## Concurrent source updates
@@ -73,3 +73,30 @@ excludes a compromised host process or authority database. The executed DOM
 checks are a bounded smoke test, not full accessibility certification or proof
 of design quality. Non-author review and verified final provenance remain
 separate requirements after technical checks.
+
+## Compound effort and dispatch evidence correction
+
+The continuation audit found that applying a second runtime clamp after settings
+resolution could broaden the effective set beyond the current entitlement. A
+role minimum could also mask a stricter candidate minimum or risk floor. The
+dispatch resolver now intersects every active constraint; it never substitutes
+one floor for another. An empty set blocks before the delegate is called.
+Malformed present constraints are rejected rather than treated as absent.
+
+First-class runtime families without a reviewed built-in model catalog preserve
+their declared effort capabilities, including an explicit empty list. Missing
+catalog data does not prove an empty capability set. This preservation does not
+grant readiness, credentials, a model identity, a license or execution authority.
+Unknown providers remain blocked. No model identifier or default was changed.
+
+The real provider executor now rejects a nominally successful result when
+required effort stages are missing, invalid or disagree. It keeps dispatched
+and reported effort separate, preserves a valid discrepancy for diagnosis, and
+redacts malformed effort objects. The receipt uses the response's served-model
+field rather than the pre-dispatch candidate. This proves adapter request and
+response-metadata consistency, not a provider's internal reasoning computation.
+
+Verification includes direct calls through the actual executor and tool router
+with only the provider delegate simulated, an independent compound-policy set
+oracle, and a full installed-distribution combination with the packaging work.
+No live provider, license issuer, customer service or PMD store is contacted.

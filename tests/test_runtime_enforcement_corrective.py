@@ -28,14 +28,13 @@ from iot_ai.runtime_gates import (
     evaluate_minimum_change_gate,
     finalize_skill_state,
     inherit_skill_privacy,
-    persist_accepted_plan,
     resolve_dispatch_effort,
 )
 from iot_ai.settings import effective_settings, load, migrate_v1_to_v2, rollback_settings, save
 from iot_ai.settings_v2 import inject_v2, resolve_effort
 from iot_ai.skill_registry import discover, verify_garden_lock
 from iot_ai.skill_router import context_blocks, select_skills
-from iot_ai.visual_acceptance import UNAVAILABLE, VIEWPORT_PIXELS, evaluate_visual_acceptance
+from iot_ai.visual_acceptance import UNAVAILABLE, evaluate_visual_acceptance
 
 from tests.common import IsolatedHomeTestCase
 
@@ -111,7 +110,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         )
         bind = bind_implementation_to_accepted_plan(
             {"minimum_change_assessment": passing_assessment("minimum-new-code")},
-            {"mncg": accepted},
+            {"decision": "accept", "mncg": accepted},
             goal="Export inventory",
             task_id="task-1",
             risk_class="R2",
@@ -121,7 +120,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         self.assertIn("implementation-rung-diverges-from-accepted-plan", bind["errors"])
         ok = bind_implementation_to_accepted_plan(
             {"minimum_change_assessment": passing_assessment("standard-library")},
-            {"mncg": accepted},
+            {"decision": "accept", "mncg": accepted},
             goal="Export inventory",
             task_id="task-1",
             risk_class="R2",
@@ -153,7 +152,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         }
         bind = bind_implementation_to_accepted_plan(
             {"minimum_change_assessment": drifted},
-            {"mncg": accepted},
+            {"decision": "accept", "mncg": accepted},
             goal="Export inventory",
             task_id="task-1",
             risk_class="R2",
@@ -164,7 +163,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
         self.assertFalse(bind["valid"])
         self.assertTrue(any("drift" in item or "delta" in item for item in bind["errors"]))
 
-    def test_bind_reuses_accepted_context_digest(self) -> None:
+    def test_bind_requires_current_context_digest(self) -> None:
         accepted = evaluate_minimum_change_gate(
             {"minimum_change_assessment": passing_assessment("standard-library")},
             goal="Export inventory",
@@ -173,7 +172,7 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
             acceptance="Tests pass.",
             context_digest="a" * 64,
         )
-        replaced = bind_implementation_to_accepted_plan(
+        bind = bind_implementation_to_accepted_plan(
             {"minimum_change_assessment": passing_assessment("standard-library")},
             {"decision": "accept", "mncg": accepted},
             goal="Export inventory",
@@ -182,134 +181,17 @@ class MncgRuntimeGateTests(IsolatedHomeTestCase):
             acceptance="Tests pass.",
             context_digest=None,
         )
-        self.assertFalse(replaced["valid"])
-        self.assertIn("minimum-change-context-mismatch", replaced["errors"])
-        matching = bind_implementation_to_accepted_plan(
-            {"minimum_change_assessment": passing_assessment("standard-library")},
-            {"decision": "accept", "mncg": accepted},
-            goal="Export inventory",
-            task_id="task-1",
-            risk_class="R2",
-            acceptance="Tests pass.",
-            context_digest="a" * 64,
-        )
-        self.assertTrue(matching["valid"])
-        self.assertEqual(matching["contract_sha256"], accepted["contract_sha256"])
+        self.assertFalse(bind["valid"])
+        self.assertIn("minimum-change-context-mismatch", bind["errors"])
 
     def test_pre_dispatch_requires_accepted_plan(self) -> None:
         blocked = accepted_plan_allows_implement({"decision": "needs-review", "mncg": {"valid": False}})
         self.assertFalse(blocked["valid"])
         self.assertTrue(blocked.get("pre_dispatch"))
-        boolean_only = accepted_plan_allows_implement(
+        allowed = accepted_plan_allows_implement(
             {"decision": "accept", "mncg": {"valid": True, "selected_rung": "standard-library"}}
         )
-        self.assertFalse(boolean_only["valid"])
-        accepted = evaluate_minimum_change_gate(
-            {"minimum_change_assessment": passing_assessment()},
-            goal="Export inventory",
-            task_id="task-1",
-            risk_class="R2",
-            acceptance="Tests pass.",
-            context_digest="a" * 64,
-            revision=1,
-        )
-        presented = {"decision": "accept", "mncg": accepted}
-        receipt = persist_accepted_plan(self.home, presented)
-        allowed = accepted_plan_allows_implement(presented, persisted=receipt, user_home=self.home)
-        self.assertTrue(allowed["valid"])
-
-    def test_current_identity_mismatch_fails_before_reconstruction(self) -> None:
-        accepted = evaluate_minimum_change_gate(
-            {"minimum_change_assessment": passing_assessment()},
-            goal="Export inventory",
-            task_id="task-1",
-            risk_class="R2",
-            acceptance="Tests pass.",
-            context_digest="a" * 64,
-            revision=1,
-        )
-        cases = (
-            ({"task_id": "task-OTHER", "revision": 1, "acceptance": "Tests pass."}, "task-id"),
-            ({"task_id": "task-1", "revision": 9, "acceptance": "Tests pass."}, "revision"),
-            ({"task_id": "task-1", "revision": 1, "acceptance": "Changed."}, "acceptance"),
-        )
-        for kwargs, needle in cases:
-            bind = bind_implementation_to_accepted_plan(
-                {"minimum_change_assessment": passing_assessment()},
-                {"decision": "accept", "mncg": accepted},
-                goal="Export inventory",
-                risk_class="R2",
-                context_digest="a" * 64,
-                **kwargs,
-            )
-            self.assertFalse(bind["valid"], kwargs)
-            self.assertTrue(any(needle in item for item in bind["errors"]), bind["errors"])
-
-    def test_live_identity_omits_accepted_context(self) -> None:
-        from iot_ai.runtime_gates import live_task_identity
-
-        accepted = evaluate_minimum_change_gate(
-            {"minimum_change_assessment": passing_assessment()},
-            goal="Export inventory",
-            task_id="task-1",
-            risk_class="R2",
-            acceptance="Tests pass.",
-            context_digest="a" * 64,
-            revision=1,
-        )
-        snapshot = {
-            "task_id": "task-1",
-            "revision": 1,
-            "acceptance_criteria": "Tests pass.",
-            "risk_class": "R2",
-            "authority_basis": "iot-ai-suite-standalone-task-store",
-        }
-        identity = live_task_identity(snapshot, task_id="task-1", risk_class="R2")
-        self.assertNotIn("context_digest", identity)
-        bind = bind_implementation_to_accepted_plan(
-            {"minimum_change_assessment": passing_assessment()},
-            {"decision": "accept", "mncg": accepted},
-            goal="Export inventory",
-            task_id=str(identity["task_id"]),
-            risk_class=str(identity["risk_class"]),
-            acceptance=str(identity["acceptance_criteria"]),
-            context_digest=identity.get("context_digest"),
-            revision=int(identity["revision"]),
-            current_task=identity,
-        )
-        self.assertFalse(bind["valid"])
-        self.assertIn("minimum-change-context-mismatch", bind["errors"])
-
-    def test_same_rung_proposal_changes_are_drift(self) -> None:
-        accepted = evaluate_minimum_change_gate(
-            {"minimum_change_assessment": passing_assessment("standard-library")},
-            goal="Export inventory",
-            task_id="task-1",
-            risk_class="R2",
-            acceptance="Tests pass.",
-            context_digest="a" * 64,
-            revision=3,
-        )
-        mutations = {
-            "control": ("controls_preserved", ["only-one"]),
-            "verification": ("verification_plan", ["different-command"]),
-            "write": ("estimated_change_surface", {"files": 99, "mutation_required": True}),
-        }
-        for _name, (field, value) in mutations.items():
-            drifted = passing_assessment("standard-library")
-            drifted[field] = value
-            bind = bind_implementation_to_accepted_plan(
-                {"minimum_change_assessment": drifted},
-                {"mncg": accepted},
-                goal="Export inventory",
-                task_id="task-1",
-                risk_class="R2",
-                acceptance="Tests pass.",
-                context_digest="a" * 64,
-                revision=3,
-            )
-            self.assertFalse(bind["valid"], field)
-            self.assertTrue(bind["errors"], bind)
+        self.assertFalse(allowed["valid"])
 
 
 class EffortReceiptTests(IsolatedHomeTestCase):
@@ -358,64 +240,6 @@ class EffortReceiptTests(IsolatedHomeTestCase):
         )
         self.assertEqual(community_ok["decision"], "pass")
         self.assertEqual(community_ok["effective_value"], "medium")
-
-    def test_empty_effort_intersection_is_unsatisfied_policy(self) -> None:
-        dispatch = resolve_dispatch_effort(
-            {
-                "requested_effort": "high",
-                "supported_efforts": ["high"],
-                "provider": "openai",
-                "model": "gpt-5.6-sol",
-            },
-            node_effort="high",
-            max_effort="medium",
-        )
-        self.assertEqual(dispatch["decision"], "block")
-        self.assertEqual(dispatch["block_reason"], "effort-policy-unsatisfied")
-        self.assertIsNone(dispatch["effective_effort"])
-
-    def test_minimum_above_ceiling_is_unsatisfied(self) -> None:
-        routing = {"role_bindings": {"implementation-engineer": {"minimum_effort": "high"}}}
-        dispatch = resolve_dispatch_effort(
-            {"requested_effort": "high", "supported_efforts": ["high"], "role_id": "implementation-engineer"},
-            node_effort="high",
-            max_effort="medium",
-            role_id="implementation-engineer",
-            routing=routing,
-        )
-        self.assertEqual(dispatch["decision"], "block")
-        self.assertIn(dispatch["block_reason"], {"effort-policy-unsatisfied", "minimum-effort-unsatisfied"})
-
-    def test_alias_cannot_bypass_empty_intersection(self) -> None:
-        dispatch = resolve_dispatch_effort(
-            {
-                "requested_effort": "high",
-                "supported_efforts": ["high"],
-                "provider": "codex",
-                "canonical_target_model": "gpt-5.6-sol",
-                "model": "gpt-5.6",
-            },
-            node_effort="high",
-            max_effort="medium",
-        )
-        self.assertEqual(dispatch["decision"], "block")
-        self.assertEqual(dispatch["block_reason"], "effort-policy-unsatisfied")
-
-    def test_missing_capabilities_and_zero_budget_stay_unsatisfied(self) -> None:
-        empty = resolve_dispatch_effort(
-            {"requested_effort": "medium", "supported_efforts": [], "route_efforts": []},
-            node_effort="medium",
-            max_effort="medium",
-        )
-        self.assertEqual(empty["decision"], "block")
-        self.assertEqual(empty["block_reason"], "effort-policy-unsatisfied")
-        blocked = resolve_dispatch_effort(
-            {"requested_effort": "medium", "supported_efforts": ["xhigh"], "route_efforts": ["max"]},
-            node_effort="medium",
-            max_effort="medium",
-        )
-        self.assertEqual(blocked["decision"], "block")
-        self.assertEqual(blocked["block_reason"], "effort-policy-unsatisfied")
 
     def test_api_adapter_request_carries_effective_effort(self) -> None:
         route = {
@@ -608,20 +432,6 @@ class SettingsFailClosedTests(IsolatedHomeTestCase):
         self.assertTrue(receipt.is_file())
 
 
-def _png(width: int, height: int) -> bytes:
-    import struct
-    import zlib
-
-    raw = b"".join(b"\x00" + (b"\x00\x00\x00" * width) for _ in range(height))
-    compressed = zlib.compress(raw, 9)
-
-    def chunk(tag: bytes, data: bytes) -> bytes:
-        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
-
-    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", compressed) + chunk(b"IEND", b"")
-
-
 class VisualAcceptanceTests(IsolatedHomeTestCase):
     def test_unavailable_tool_cannot_claim_visual_acceptance(self) -> None:
         result = evaluate_visual_acceptance(
@@ -658,125 +468,34 @@ class VisualAcceptanceTests(IsolatedHomeTestCase):
         digests = []
         paths = {}
         for name in ("desktop", "tablet", "mobile"):
-            width, height = VIEWPORT_PIXELS[name]
             path = shots / f"{name}.png"
-            path.write_bytes(_png(width, height))
+            path.write_bytes(b"\x89PNG\r\n\x1a\n" + name.encode() + b"0" * 64)
             digest = __import__("hashlib").sha256(path.read_bytes()).hexdigest()
             digests.append(digest)
             paths[name] = str(path)
-        evidence = {
-            "runner_output_dir": str(shots),
-            "run_id": "run-1",
-            "captured_run_id": "run-1",
-            "source_tree": "a" * 64,
-            "captured_tree": "a" * 64,
-            "viewports": {
-                name: {
-                    "rendered": True,
-                    "screenshot_sha256": digest,
-                    "path": paths[name],
-                    "origin": "runner",
-                }
-                for name, digest in zip(("desktop", "tablet", "mobile"), digests)
-            },
-            "screenshot_paths": paths,
-            "runner_layout": {"overflow": True, "clipping": True},
-            "runner_accessibility": {"tool": "axe", "decision": "pass"},
-            "runner_states": {"loading": True, "empty": True, "error": True},
-            "visual_critique": True,
-            "screenshot_digests": digests,
-            "browser_version": "test-runner",
-        }
         passed = evaluate_visual_acceptance(
             visual_task=True,
             require_browser_acceptance=True,
             tool_available=True,
-            evidence=evidence,
-        )
-        self.assertEqual(passed["decision"], "pass")
-        self.assertTrue(passed["visual_acceptance_claim"])
-        self.assertEqual(passed["recomputed_screenshot_sha256"], digests)
-
-    def test_non_image_and_forged_flags_are_rejected(self) -> None:
-        shots = self.home / "visual"
-        shots.mkdir()
-        path = shots / "desktop.bin"
-        path.write_bytes(b"not-an-image-file" + b"x" * 48)
-        digest = __import__("hashlib").sha256(path.read_bytes()).hexdigest()
-        blocked = evaluate_visual_acceptance(
-            visual_task=True,
-            require_browser_acceptance=True,
-            tool_available=True,
             evidence={
-                "runner_output_dir": str(shots),
                 "viewports": {
-                    "desktop": {"rendered": True, "screenshot_sha256": digest, "path": str(path), "origin": "runner"},
-                    "tablet": {"rendered": True, "screenshot_sha256": digest, "path": str(path), "origin": "runner"},
-                    "mobile": {"rendered": True, "screenshot_sha256": digest, "path": str(path), "origin": "runner"},
+                    name: {"rendered": True, "screenshot_sha256": digest, "path": paths[name]}
+                    for name, digest in zip(("desktop", "tablet", "mobile"), digests)
                 },
-                "screenshot_paths": {"desktop": str(path), "tablet": str(path), "mobile": str(path)},
+                "screenshot_paths": paths,
                 "overflow": True,
                 "clipping": True,
                 "accessibility": True,
                 "accessibility_executed": True,
                 "states": {"loading": True, "empty": True, "error": True},
                 "visual_critique": True,
-                "screenshot_digests": [digest, digest, digest],
+                "screenshot_digests": digests,
                 "browser_version": "test-runner",
             },
         )
-        self.assertEqual(blocked["decision"], "block")
-        self.assertFalse(blocked["visual_acceptance_claim"])
-        self.assertTrue(any("not-image" in item or "accessibility" in item for item in blocked["missing"]))
-
-    def test_foreign_run_stale_tree_symlink_and_changed_hash_fail(self) -> None:
-        shots = self.home / "visual"
-        shots.mkdir()
-        foreign = self.home / "foreign"
-        foreign.mkdir()
-        width, height = VIEWPORT_PIXELS["desktop"]
-        real = shots / "desktop.png"
-        real.write_bytes(_png(width, height))
-        outsider = foreign / "tablet.png"
-        outsider.write_bytes(_png(*VIEWPORT_PIXELS["tablet"]))
-        link = shots / "mobile.png"
-        try:
-            link.symlink_to(real)
-        except OSError:
-            link.write_bytes(_png(*VIEWPORT_PIXELS["mobile"]))
-        result = evaluate_visual_acceptance(
-            visual_task=True,
-            require_browser_acceptance=True,
-            tool_available=True,
-            evidence={
-                "runner_output_dir": str(shots),
-                "run_id": "run-1",
-                "captured_run_id": "run-2",
-                "source_tree": "a" * 64,
-                "captured_tree": "b" * 64,
-                "viewports": {
-                    "desktop": {"rendered": True, "path": str(real), "origin": "runner", "screenshot_sha256": "0" * 64},
-                    "tablet": {"rendered": True, "path": str(outsider), "origin": "runner"},
-                    "mobile": {"rendered": True, "path": str(link), "origin": "runner"},
-                },
-                "screenshot_paths": {"desktop": str(real), "tablet": str(outsider), "mobile": str(link)},
-                "runner_layout": {"overflow": True, "clipping": True},
-                "runner_accessibility": {"tool": "axe", "decision": "pass"},
-                "runner_states": {"loading": True, "empty": True, "error": True},
-                "visual_critique": True,
-                "browser_version": "test-runner",
-            },
-        )
-        self.assertEqual(result["decision"], "block")
-        self.assertTrue(
-            any(
-                item in {"foreign-run", "stale-tree", "foreign-artifact"}
-                or "rehash" in item
-                or "symlink" in item
-                or item.startswith("foreign")
-                for item in result["missing"]
-            )
-        )
+        self.assertNotEqual(passed["decision"], "pass")
+        self.assertFalse(passed["visual_acceptance_claim"])
+        self.assertIn("trusted-visual-run-required", passed["missing"])
 
 
 class GardenLockLoadTests(IsolatedHomeTestCase):

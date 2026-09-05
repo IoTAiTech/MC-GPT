@@ -292,7 +292,14 @@ def apply_catalog_to_candidate(
     row["multi_agent"] = bool(resolved.get("multi_agent") or row.get("multi_agent"))
     row["adaptive_thinking"] = bool(resolved.get("adaptive_thinking"))
     row["rejects_budget_tokens"] = bool(resolved.get("rejects_budget_tokens"))
-    row["supported_efforts"] = list(resolved.get("supported_efforts") or [])
+    if family in RUNTIME_WITHOUT_MODEL_CATALOG and family not in catalog_providers:
+        # No built-in model catalog is not evidence of zero runtime capability.
+        # Preserve the route's declaration (including an explicit empty list),
+        # and let dispatch validate it against policy and current readiness.
+        row["capability_source"] = "runtime-route"
+    else:
+        row["supported_efforts"] = list(resolved.get("supported_efforts") or [])
+        row["capability_source"] = "reviewed-model-catalog"
     row["effort_axis"] = resolved.get("effort_axis") or "reasoning_depth"
     return row
 

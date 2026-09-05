@@ -22,7 +22,7 @@ SCHEMA_V2 = "iot-ai.settings.v2"
 ROUTER_VERSION = "1.0.0"
 OLLAMA_POLICIES = ("never", "fallback", "prefer", "required", "only")
 EFFORT_ORDER = ("none", "low", "medium", "high", "xhigh", "max")
-SETTINGS_EFFORT_VALUES = ("low", "medium", "high", "xhigh")
+SETTINGS_EFFORT_VALUES = EFFORT_ORDER
 GOVERNED_TOP_LEVEL = frozenset(
     {
         "schema",
@@ -228,7 +228,7 @@ PRESETS: dict[str, dict[str, Any]] = {
 
 
 def canonical_dumps(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), default=str)
 
 
 def sha256_json(value: Any) -> str:
@@ -270,7 +270,9 @@ def _as_policy(value: Any, field: str) -> str:
 def _as_effort(value: Any, field: str, *, allow_none: bool = False) -> str | None:
     if value in (None, "", "null") and allow_none:
         return None
-    text = str(value or "medium").strip().lower()
+    if value is not None and not isinstance(value, str):
+        raise ValueError(f"invalid {field}: expected effort text")
+    text = (value or "medium").strip().lower()
     if text not in SETTINGS_EFFORT_VALUES:
         raise ValueError(f"invalid {field}: {value}; allowed: {', '.join(SETTINGS_EFFORT_VALUES)}")
     return text
@@ -304,8 +306,8 @@ def normalize_role_binding(raw: Any, role_id: str) -> dict[str, Any]:
     data["fallback_sequence"] = _as_str_list(raw.get("fallback_sequence"), f"{role_id}.fallback_sequence")
     family = raw.get("required_provider_family")
     data["required_provider_family"] = None if family in (None, "", "null") else str(family).strip().lower()
-    data["effort"] = _as_effort(raw.get("effort") or raw.get("requested_effort"), f"{role_id}.effort", allow_none=True)
-    data["minimum_effort"] = _as_effort(raw.get("minimum_effort") or raw.get("minimum_acceptable_effort"), f"{role_id}.minimum_effort", allow_none=True)
+    data["effort"] = _as_effort(raw.get("effort", raw.get("requested_effort")), f"{role_id}.effort", allow_none=True)
+    data["minimum_effort"] = _as_effort(raw.get("minimum_effort", raw.get("minimum_acceptable_effort")), f"{role_id}.minimum_effort", allow_none=True)
     reuse = raw.get("allow_reuse", raw.get("reuse_same_candidate", True))
     if not isinstance(reuse, bool):
         raise ValueError(f"invalid {role_id}.allow_reuse")
@@ -586,51 +588,33 @@ def resolve_effort(
         configured = requested
         source = "requested"
     entitlement = current_entitlements()
-    effective, entitlement_reason = _clamp_effort(str(configured), entitlement.max_effort)
-    clamp_reason = entitlement_reason
-    entitlement_limit = entitlement.max_effort
-    policy_limit = None
-    if supported:
-        allowed = [item for item in supported if item in EFFORT_ORDER]
-        if allowed and effective not in allowed:
-            idx = EFFORT_ORDER.index(effective)
-            lower = [item for item in allowed if EFFORT_ORDER.index(item) <= idx]
-            previous = effective
-            effective = max(lower, key=EFFORT_ORDER.index) if lower else min(allowed, key=EFFORT_ORDER.index)
-            policy_limit = ",".join(allowed)
-            extra = f"provider-supported effort clamped {previous} to {effective}"
-            clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
-    decision = "pass"
-    block_reason = None
-    if isinstance(binding, dict) and binding.get("minimum_effort"):
-        minimum = binding["minimum_effort"]
-        if EFFORT_ORDER.index(effective) < EFFORT_ORDER.index(minimum):
-            entitlement_ok = EFFORT_ORDER.index(minimum) <= EFFORT_ORDER.index(entitlement.max_effort)
-            supported_ok = True
-            if supported:
-                allowed = [item for item in supported if item in EFFORT_ORDER]
-                supported_ok = minimum in allowed
-            if entitlement_ok and supported_ok:
-                previous = effective
-                effective = minimum
-                extra = f"raised to role minimum {minimum} from {previous}"
-                clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
-            else:
-                extra = "minimum-effort-unsatisfied"
-                clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
-                decision = "block"
-                block_reason = "minimum-effort-unsatisfied"
-    return {
-        "configured_value": configured,
-        "effective_value": effective,
-        "source_layer": source,
-        "clamp_reason": clamp_reason,
-        "entitlement_limit": entitlement_limit,
-        "policy_limit": policy_limit,
-        "requested_effort": requested or configured,
-        "decision": decision,
-        "block_reason": block_reason,
-    }
+    ceiling = entitlement.max_effort
+    minimum = binding.get("minimum_effort") if isinstance(binding, dict) else None
+    errors = []
+    if configured not in EFFORT_ORDER or ceiling not in EFFORT_ORDER or (minimum is not None and minimum not in EFFORT_ORDER):
+        errors.append("invalid-effort-policy")
+    allowed = list(EFFORT_ORDER)
+    if supported is not None:
+        if not isinstance(supported, (list, tuple)) or any(item not in EFFORT_ORDER for item in supported):
+            errors.append("invalid-provider-effort-capabilities")
+            allowed = []
+        else:
+            allowed = [item for item in allowed if item in supported]
+    if not errors:
+        allowed = [item for item in allowed if EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(ceiling)]
+        if minimum is not None:
+            allowed = [item for item in allowed if EFFORT_ORDER.index(item) >= EFFORT_ORDER.index(minimum)]
+    if errors or not allowed:
+        return {"configured_value": configured, "effective_value": None, "source_layer": source,
+                "clamp_reason": "No effort satisfies the combined policy.", "entitlement_limit": ceiling,
+                "policy_limit": list(allowed), "requested_effort": requested or configured,
+                "decision": "block", "block_reason": errors[0] if errors else ("minimum-effort-unsatisfied" if minimum else "effort-policy-intersection-empty")}
+    lower = [item for item in allowed if EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(configured)]
+    effective = lower[-1] if lower else allowed[0]
+    return {"configured_value": configured, "effective_value": effective, "source_layer": source,
+            "clamp_reason": None if configured == effective else (f"requested effort {configured} exceeds {ceiling}" if EFFORT_ORDER.index(configured) > EFFORT_ORDER.index(ceiling) else "Provider/entitlement/role intersection adjusted effort."),
+            "entitlement_limit": ceiling, "policy_limit": list(allowed),
+            "requested_effort": requested or configured, "decision": "pass", "block_reason": None}
 
 
 def describe_field(configured: Any, effective: Any, source_layer: str, clamp_reason: str | None = None, entitlement_limit: Any = None, policy_limit: Any = None) -> dict[str, Any]:

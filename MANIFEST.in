@@ -15,3 +15,6 @@ recursive-include governance *.json
 include LEGACY_IDENTITY_ALLOWLIST.json
 
 recursive-include scripts *.sh
+
+include setup.py
+include tools/package_assets.py

@@ -5,7 +5,6 @@
 """Runtime hard gates for MNCG, effort receipts, and skill-state truth."""
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Mapping
 
 import hashlib
@@ -13,8 +12,7 @@ import json
 import re
 
 from .minimum_change import assess_strategy, compile_contract  # PR #19 overlap: import only; do not edit that module.
-from .model_policy import clamp_effort
-from .settings_v2 import EFFORT_ORDER, resolve_effort
+from .settings_v2 import EFFORT_ORDER, normalize_routing, resolve_effort
 
 MNCG_BIND_FIELDS = (
     "selected_rung",
@@ -31,19 +29,7 @@ MNCG_BIND_FIELDS = (
 
 MNCG_GATE = "minimum_change_assessment_valid"
 EFFORT_RECEIPT_SCHEMA = "iot-ai.effort-receipt.v1"
-ACCEPTED_PLAN_SCHEMA = "iot-ai.accepted-plan-receipt.v1"
 SKILL_STATE_SCHEMA = "iot-ai.skill-state.v1"
-HEX64 = re.compile(r"^[0-9a-f]{64}$")
-SYNTHETIC_DIGEST = re.compile(r"^([0-9a-f])\1{63}$")
-PLAN_AUTHORITY_FIELDS = (
-    "task_id",
-    "task_revision",
-    "acceptance_digest",
-    "assessment_sha256",
-    "contract_sha256",
-    "context_digest",
-    "policy_scope",
-)
 SOURCE_PRIVACY = {
     "packaged": "D0",
     "user": "D1",
@@ -61,6 +47,16 @@ def compile_runtime_mncg_contract(
     context_digest: str | None = None,
     revision: int = 1,
 ) -> dict[str, Any]:
+    if not isinstance(task_id, str) or not task_id.strip():
+        raise ValueError("minimum-change-task-id-invalid")
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise ValueError("minimum-change-task-revision-invalid")
+    if not isinstance(goal, str) or not goal.strip() or not isinstance(acceptance, str):
+        raise ValueError("minimum-change-authority-invalid")
+    if risk_class not in {"R1", "R2", "R3", "R4"}:
+        raise ValueError("minimum-change-risk-class-invalid")
+    if context_digest is not None and not re.fullmatch(r"[a-f0-9]{64}", str(context_digest)):
+        raise ValueError("minimum-change-context-invalid")
     task = {
         "id": task_id or "task-runtime",
         "revision": revision,
@@ -87,11 +83,10 @@ def evaluate_minimum_change_gate(
     acceptance: str,
     context_digest: str | None = None,
     revision: int = 1,
-    policy_scope: str = "iot-ai-suite-standalone-task-store",
 ) -> dict[str, Any]:
     """Recompute MNCG semantically. Field presence is not validity."""
 
-    payload = dict(synthesis or {})
+    payload = dict(synthesis) if isinstance(synthesis, Mapping) else {}
     assessment = payload.get("minimum_change_assessment")
     if not isinstance(assessment, Mapping):
         return {
@@ -103,15 +98,14 @@ def evaluate_minimum_change_gate(
             "contract_sha256": None,
             "normalized": None,
         }
-    contract = compile_runtime_mncg_contract(
-        goal=goal,
-        task_id=task_id,
-        risk_class=risk_class,
-        acceptance=acceptance,
-        context_digest=context_digest,
-        revision=revision,
-    )
-    result = assess_strategy(contract, assessment)
+    try:
+        contract = compile_runtime_mncg_contract(
+            goal=goal, task_id=task_id, risk_class=risk_class,
+            acceptance=acceptance, context_digest=context_digest, revision=revision,
+        )
+        result = assess_strategy(contract, assessment)
+    except (TypeError, ValueError, OverflowError, RecursionError):
+        return {"valid": False, "decision": "block", "errors": ["minimum-change-authority-invalid"]}
     errors = list(result.get("errors") or [])
     if result.get("decision") != "pass":
         errors = ["minimum-change-assessment-invalid", *errors]
@@ -123,6 +117,8 @@ def evaluate_minimum_change_gate(
         "selected_rung": result.get("selected_rung"),
         "assessment_sha256": result.get("assessment_sha256"),
         "contract_sha256": result.get("contract_sha256"),
+        "goal": goal,
+        "risk_class": risk_class,
         "context_digest": context_digest,
         "acceptance": acceptance,
         "acceptance_digest": acceptance_digest,
@@ -137,187 +133,56 @@ def evaluate_minimum_change_gate(
             "assessment_sha256": result.get("assessment_sha256"),
             "contract_sha256": result.get("contract_sha256"),
             "selected_rung": result.get("selected_rung"),
-            "policy_scope": policy_scope,
         },
-        "policy_scope": policy_scope,
     }
 
 
-def _digest_ok(value: Any) -> bool:
-    text = str(value or "")
-    return bool(HEX64.fullmatch(text)) and not SYNTHETIC_DIGEST.fullmatch(text)
-
-
-def _as_revision(value: Any, default: int = 1) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _acceptance_digest(value: Any) -> str:
-    return hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()
-
-
-def _mncg_payload(accepted_plan: Mapping[str, Any] | None) -> dict[str, Any]:
-    accepted = dict(accepted_plan or {})
-    nested = accepted.get("mncg")
-    if isinstance(nested, Mapping):
-        return dict(nested)
-    return accepted
-
-
-def plan_authority_fields(accepted_plan: Mapping[str, Any] | None) -> dict[str, Any]:
-    accepted = dict(accepted_plan or {})
-    mncg = _mncg_payload(accepted)
-    bind = dict(mncg.get("bind") or {}) if isinstance(mncg.get("bind"), Mapping) else {}
-    source = {**mncg, **bind, **accepted}
-    return {
-        "task_id": str(source.get("task_id") or ""),
-        "task_revision": _as_revision(source.get("task_revision") if source.get("task_revision") is not None else source.get("revision"), 0),
-        "acceptance_digest": str(source.get("acceptance_digest") or _acceptance_digest(source.get("acceptance"))),
-        "assessment_sha256": str(source.get("assessment_sha256") or ""),
-        "contract_sha256": str(source.get("contract_sha256") or ""),
-        "context_digest": str(source.get("context_digest") or ""),
-        "policy_scope": str(source.get("policy_scope") or source.get("authority_basis") or "iot-ai-suite-standalone-task-store"),
-        "selected_rung": source.get("selected_rung"),
-        "decision": str(accepted.get("decision") or mncg.get("decision") or ""),
-    }
-
-
-def accepted_plan_receipt_path(user_home: Path, task_id: str, revision: int) -> Path:
-    from .paths import data_root
-
-    return data_root(user_home) / "accepted-plans" / f"{task_id}.r{revision}.json"
-
-
-def persist_accepted_plan(
-    user_home: Path,
-    accepted_plan: Mapping[str, Any],
-    *,
-    policy_scope: str = "iot-ai-suite-standalone-task-store",
-) -> dict[str, Any]:
-    from .util import atomic_json
-
-    fields = plan_authority_fields(accepted_plan)
-    fields["policy_scope"] = fields["policy_scope"] or policy_scope
-    receipt = {
-        "schema": ACCEPTED_PLAN_SCHEMA,
-        **{key: fields[key] for key in PLAN_AUTHORITY_FIELDS},
-        "selected_rung": fields.get("selected_rung"),
-        "decision": "accept",
-    }
-    canonical = json.dumps(receipt, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
-    receipt["receipt_sha256"] = hashlib.sha256(canonical).hexdigest()
-    path = accepted_plan_receipt_path(user_home, str(receipt["task_id"]), int(receipt["task_revision"]))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_json(path, receipt)
-    return receipt
-
-
-def load_persisted_accepted_plan(user_home: Path, task_id: str, revision: int) -> dict[str, Any] | None:
-    path = accepted_plan_receipt_path(user_home, task_id, revision)
-    if not path.is_file() or path.is_symlink():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    if not isinstance(payload, dict) or payload.get("schema") != ACCEPTED_PLAN_SCHEMA:
-        return None
-    return payload
+def plan_output_digest(plan: Mapping[str, Any]) -> str:
+    """Match the existing graph_nodes output digest; a digest is not a signature."""
+    return hashlib.sha256(json.dumps(plan, sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()
 
 
 def accepted_plan_allows_implement(
     accepted_plan: Mapping[str, Any] | None,
     *,
-    persisted: Mapping[str, Any] | None = None,
-    user_home: Path | None = None,
+    persisted_output_sha256: str | None = None,
+    require_persistence: bool = False,
 ) -> dict[str, Any]:
-    """Pre-dispatch guard. Presented booleans are not execution authority."""
+    """Recompute the accepted assessment. Runtime additionally verifies its ledger hash.
 
-    accepted = dict(accepted_plan or {})
-    accepted_mncg = _mncg_payload(accepted)
+    This pure checker grants no lease or Founder authority. The caller must obtain
+    the expected digest from the existing graph ledger, never from model output.
+    """
+    accepted = dict(accepted_plan) if isinstance(accepted_plan, Mapping) else {}
+    mncg = accepted.get("mncg")
     errors: list[str] = []
-    if accepted.get("decision") != "accept":
-        errors.append("accepted-plan-not-accepted")
-    fields = plan_authority_fields(accepted)
-    if not accepted_mncg.get("valid"):
-        errors.append("accepted-plan-mncg-missing")
-    for name in PLAN_AUTHORITY_FIELDS:
-        value = fields.get(name)
-        if name in {"assessment_sha256", "contract_sha256"}:
-            if not _digest_ok(value):
-                errors.append(f"accepted-plan-evidence-missing:{name}")
-        elif name in {"acceptance_digest", "context_digest"}:
-            if not HEX64.fullmatch(str(value or "")):
-                errors.append(f"accepted-plan-evidence-missing:{name}")
-        elif name == "task_revision":
-            if int(value or 0) < 1:
-                errors.append("accepted-plan-evidence-missing:task_revision")
-        elif not value:
-            errors.append(f"accepted-plan-evidence-missing:{name}")
-    stored = dict(persisted or {})
-    if not stored and user_home is not None and fields.get("task_id"):
-        loaded = load_persisted_accepted_plan(user_home, str(fields["task_id"]), int(fields["task_revision"] or 0))
-        stored = dict(loaded or {})
-    if not stored:
-        errors.append("accepted-plan-not-persisted")
+    if accepted.get("decision") != "accept" or not isinstance(mncg, Mapping):
+        return {"valid": False, "decision": "block", "errors": ["accepted-plan-mncg-missing"], "pre_dispatch": True}
+    required = {"goal", "risk_class", "task_id", "task_revision", "context_digest", "acceptance",
+                "acceptance_digest", "assessment_sha256", "contract_sha256", "selected_rung", "normalized", "bind"}
+    if not required.issubset(mncg) or mncg.get("valid") is not True or mncg.get("decision") != "pass":
+        errors.append("accepted-plan-mncg-incomplete")
     else:
-        stored_fields = plan_authority_fields(stored)
-        for name in PLAN_AUTHORITY_FIELDS:
-            if str(fields.get(name) or "") != str(stored_fields.get(name) or ""):
-                errors.append(f"accepted-plan-persisted-mismatch:{name}")
-        if stored.get("schema") not in {None, ACCEPTED_PLAN_SCHEMA} and stored.get("decision") not in {"accept", ""}:
-            errors.append("accepted-plan-persisted-mismatch:decision")
-    seen: set[str] = set()
-    unique = []
-    for item in errors:
-        if item not in seen:
-            seen.add(item)
-            unique.append(item)
-    valid = not unique
-    return {
-        "valid": valid,
-        "decision": "pass" if valid else "block",
-        "errors": unique,
-        "selected_rung": fields.get("selected_rung") or accepted_mncg.get("selected_rung"),
-        "pre_dispatch": True,
-        "persisted": bool(stored),
-        "authority": fields if valid else None,
-    }
-
-
-def live_task_identity(
-    current_task: Mapping[str, Any] | None,
-    *,
-    task_id: str = "",
-    revision: int | None = None,
-    acceptance: str | None = None,
-    risk_class: str = "",
-    context_digest: str | None = None,
-    policy_scope: str | None = None,
-) -> dict[str, Any]:
-    """Current-task identity from a live snapshot only. Never copy accepted-plan fields."""
-
-    row = dict(current_task or {})
-    raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
-    identity = {
-        "task_id": str(row.get("task_id") or row.get("id") or task_id or ""),
-        "revision": _as_revision(row.get("revision") if row.get("revision") is not None else revision, 0),
-        "acceptance_criteria": str(
-            row["acceptance_criteria"] if "acceptance_criteria" in row else (acceptance or "")
-        ),
-        "risk_class": str(row.get("risk_class") or risk_class or ""),
-        "policy_scope": str(row.get("policy_scope") or row.get("authority_basis") or policy_scope or ""),
-    }
-    if "context_digest" in row:
-        identity["context_digest"] = row.get("context_digest")
-    elif "context_digest" in raw:
-        identity["context_digest"] = raw.get("context_digest")
-    elif context_digest is not None:
-        identity["context_digest"] = context_digest
-    return identity
+        recomputed = evaluate_minimum_change_gate(
+            {"minimum_change_assessment": mncg.get("normalized")},
+            goal=mncg["goal"], task_id=mncg["task_id"], risk_class=mncg["risk_class"],
+            acceptance=mncg["acceptance"], context_digest=mncg["context_digest"], revision=mncg["task_revision"],
+        )
+        if recomputed.get("valid") is not True:
+            errors.append("accepted-plan-mncg-invalid")
+        for key in ("assessment_sha256", "contract_sha256", "acceptance_digest", "selected_rung", "normalized", "bind"):
+            if recomputed.get(key) != mncg.get(key):
+                errors.append("accepted-plan-mncg-integrity-mismatch")
+    if require_persistence and not persisted_output_sha256:
+        errors.append("accepted-plan-persisted-evidence-missing")
+    if persisted_output_sha256 is not None:
+        try:
+            if plan_output_digest(accepted) != persisted_output_sha256:
+                errors.append("accepted-plan-persisted-evidence-mismatch")
+        except (TypeError, ValueError, RecursionError):
+            errors.append("accepted-plan-persisted-evidence-invalid")
+    return {"valid": not errors, "decision": "block" if errors else "pass", "errors": sorted(set(errors)),
+            "selected_rung": mncg.get("selected_rung"), "pre_dispatch": True}
 
 
 def bind_implementation_to_accepted_plan(
@@ -330,127 +195,43 @@ def bind_implementation_to_accepted_plan(
     acceptance: str,
     context_digest: str | None = None,
     revision: int = 1,
-    current_task: Mapping[str, Any] | None = None,
-    backend: Any = None,
-    policy_scope: str | None = None,
 ) -> dict[str, Any]:
-    """Hard-bind the writer to the accepted plan using current backend identity first."""
+    """Compare current authority before canonicalization; never replace it with a plan.
 
+    context_digest is the independently retrieved planning context, not the new
+    implementation prompt context (which legitimately differs per node).
+    """
+    checked = accepted_plan_allows_implement(accepted_plan)
+    if not checked["valid"]:
+        return checked
     accepted = dict(accepted_plan or {})
-    accepted_mncg = _mncg_payload(accepted)
-    if not accepted_mncg.get("valid"):
-        return {
-            "valid": False,
-            "decision": "block",
-            "errors": ["accepted-plan-mncg-missing"],
-            "selected_rung": None,
-        }
-    current: dict[str, Any] = dict(current_task or {})
-    if backend is not None:
-        try:
-            record = backend.snapshot(task_id)
-            current = record.to_dict() if hasattr(record, "to_dict") else dict(record)
-        except Exception:
-            return {
-                "valid": False,
-                "decision": "block",
-                "errors": ["minimum-change-current-task-unresolved"],
-                "selected_rung": None,
-            }
-    current_id = str(current.get("task_id") or current.get("id") or task_id)
-    current_revision = _as_revision(current.get("revision") if current.get("revision") is not None else revision)
-    current_acceptance = str(current.get("acceptance_criteria") if "acceptance_criteria" in current else acceptance)
-    if "context_digest" in current:
-        current_context = current.get("context_digest")
-    else:
-        current_context = context_digest
-    current_policy = str(current.get("policy_scope") or current.get("authority_basis") or policy_scope or "")
-    accepted_id = str(accepted_mncg.get("task_id") or "")
-    accepted_revision = _as_revision(accepted_mncg.get("task_revision"), 0)
-    accepted_acceptance = str(accepted_mncg.get("acceptance") or "")
-    accepted_acceptance_digest = str(accepted_mncg.get("acceptance_digest") or _acceptance_digest(accepted_acceptance))
-    accepted_context = accepted_mncg.get("context_digest")
-    accepted_policy = str(accepted_mncg.get("policy_scope") or accepted.get("policy_scope") or "")
+    frozen = accepted["mncg"]
     errors: list[str] = []
-    if current_id != accepted_id:
-        errors.append("minimum-change-task-id-mismatch")
-        errors.append("minimum-change-authority-mismatch")
-    if current_revision != accepted_revision:
-        errors.append("minimum-change-task-revision-mismatch")
-    if _acceptance_digest(current_acceptance) != accepted_acceptance_digest:
-        errors.append("minimum-change-acceptance-mismatch")
-        errors.append("minimum-change-authority-mismatch")
-    if (accepted_context or current_context) and str(current_context or "") != str(accepted_context or ""):
-        errors.append("minimum-change-context-mismatch")
-    if accepted_policy and current_policy and accepted_policy != current_policy:
-        errors.append("minimum-change-policy-scope-mismatch")
-        errors.append("minimum-change-authority-mismatch")
-    if errors:
-        unique: list[str] = []
-        seen: set[str] = set()
-        for item in errors:
-            if item not in seen:
-                seen.add(item)
-                unique.append(item)
-        return {
-            "valid": False,
-            "decision": "block",
-            "errors": unique,
-            "selected_rung": None,
-            "accepted_rung": accepted_mncg.get("selected_rung"),
-            "current_task_id": current_id,
-            "current_revision": current_revision,
-        }
-    impl = dict(implementation or {})
-    recomputed = evaluate_minimum_change_gate(
-        impl,
-        goal=goal,
-        task_id=current_id,
-        risk_class=risk_class,
-        acceptance=current_acceptance,
-        context_digest=str(current_context) if current_context is not None else None,
-        revision=current_revision,
+    comparisons = (
+        (task_id, frozen.get("task_id"), "minimum-change-task-id-mismatch"),
+        (revision, frozen.get("task_revision"), "minimum-change-task-revision-mismatch"),
+        (acceptance, frozen.get("acceptance"), "minimum-change-acceptance-mismatch"),
+        (context_digest, frozen.get("context_digest"), "minimum-change-context-mismatch"),
+        (goal, frozen.get("goal"), "minimum-change-goal-mismatch"),
+        (risk_class, frozen.get("risk_class"), "minimum-change-risk-class-mismatch"),
     )
-    errors = [item for item in list(recomputed.get("errors") or []) if item != "minimum-change-assessment-invalid" or not recomputed.get("valid")]
-    if not recomputed.get("valid"):
-        if "minimum-change-assessment-invalid" not in errors:
-            errors.insert(0, "minimum-change-assessment-invalid")
-    accepted_rung = accepted_mncg.get("selected_rung")
-    if recomputed.get("selected_rung") != accepted_rung:
+    for current, expected, error in comparisons:
+        if type(current) is not type(expected) or current != expected:
+            errors.append(error)
+    recomputed = evaluate_minimum_change_gate(
+        implementation, goal=goal, task_id=task_id, risk_class=risk_class,
+        acceptance=acceptance, context_digest=context_digest, revision=revision,
+    )
+    if recomputed.get("valid") is not True:
+        errors.extend(recomputed.get("errors") or ["minimum-change-assessment-invalid"])
+    if recomputed.get("selected_rung") != frozen.get("selected_rung"):
         errors.append("implementation-rung-diverges-from-accepted-plan")
-        errors.append("minimum-change-assessment-drift")
-    if accepted_mncg.get("contract_sha256") and recomputed.get("contract_sha256") != accepted_mncg.get("contract_sha256"):
-        errors.append("implementation-contract-mismatch")
-        errors.append("minimum-change-contract-mismatch")
-    if accepted_mncg.get("assessment_sha256") and recomputed.get("assessment_sha256") != accepted_mncg.get("assessment_sha256"):
-        errors.append("minimum-change-assessment-drift")
-    accepted_norm = dict(accepted_mncg.get("normalized") or {})
-    recomputed_norm = dict(recomputed.get("normalized") or {})
-    for field in MNCG_BIND_FIELDS:
-        if json.dumps(accepted_norm.get(field), sort_keys=True, default=str) != json.dumps(
-            recomputed_norm.get(field), sort_keys=True, default=str
-        ):
-            errors.append("minimum-change-assessment-drift")
-            errors.append(f"implementation-{field}-diverges")
-    seen = set()
-    unique_errors = []
-    for item in errors:
-        if item not in seen:
-            seen.add(item)
-            unique_errors.append(item)
-    valid = not unique_errors and recomputed.get("valid") is True
-    return {
-        "valid": valid,
-        "decision": "pass" if valid else "block",
-        "errors": unique_errors,
-        "selected_rung": recomputed.get("selected_rung"),
-        "accepted_rung": accepted_rung,
-        "assessment_sha256": recomputed.get("assessment_sha256"),
-        "contract_sha256": recomputed.get("contract_sha256"),
-        "context_digest": recomputed.get("context_digest"),
-        "task_revision": recomputed.get("task_revision"),
-        "normalized": recomputed.get("normalized"),
-    }
+    for key, error in (("contract_sha256", "minimum-change-contract-mismatch"),
+                       ("assessment_sha256", "minimum-change-assessment-drift"),
+                       ("normalized", "minimum-change-assessment-drift")):
+        if recomputed.get(key) != frozen.get(key):
+            errors.append(error)
+    return {**recomputed, "valid": not errors, "decision": "block" if errors else "pass", "errors": sorted(set(errors))}
 
 
 def resolve_dispatch_effort(
@@ -461,100 +242,84 @@ def resolve_dispatch_effort(
     role_id: str | None = None,
     routing: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Intersect provider, entitlement, role, risk, user and route effort. Empty set is unsatisfied."""
+    """Intersect every active ceiling and floor; never choose one instead of another.
 
+    The settings resolver's current entitlement is part of the final allowed set.
+    A later runtime clamp may narrow that set but must never broaden it.
+    """
     row = dict(candidate or {})
-    requested = str(row.get("requested_effort") or row.get("effective_effort") or node_effort or "medium")
+    requested = next((value for value in (
+        row.get("requested_effort"), row.get("effective_effort"), node_effort
+    ) if value is not None), "medium")
     source = str(row.get("effort_source") or "candidate")
+    metadata: dict[str, Any] = {}
+
+    def blocked(reason: str) -> dict[str, Any]:
+        return {"decision": "block", "block_reason": reason,
+                "requested_effort": requested if isinstance(requested, str) else None,
+                "effective_effort": None, "effort_source": source,
+                "clamp_reason": "No effort satisfies all active policy constraints.",
+                **metadata}
+
     supported = row.get("supported_efforts")
-    resolved = resolve_effort(
-        role_id=role_id or str(row.get("role_id") or ""),
-        provider=str(row.get("provider") or ""),
-        model=str(row.get("canonical_target_model") or row.get("model") or ""),
-        routing=dict(routing or {}),
-        requested=requested,
-        supported=list(supported) if isinstance(supported, (list, tuple)) else None,
-    )
+    if type(requested) is not str or requested not in EFFORT_ORDER:
+        return blocked("invalid-requested-effort")
+    if type(max_effort) is not str or max_effort not in EFFORT_ORDER:
+        return blocked("invalid-effort-ceiling")
+    if supported is not None and (
+        not isinstance(supported, (list, tuple))
+        or any(type(item) is not str or item not in EFFORT_ORDER for item in supported)
+    ):
+        return blocked("invalid-provider-effort-capabilities")
+    try:
+        normalized_routing = normalize_routing(dict(routing or {}))
+        role = role_id or str(row.get("role_id") or "")
+        resolved = resolve_effort(
+            role_id=role, provider=str(row.get("provider") or ""),
+            model=str(row.get("canonical_target_model") or row.get("model") or ""),
+            routing=normalized_routing, requested=requested, supported=supported,
+        )
+    except (TypeError, ValueError, OverflowError):
+        return blocked("invalid-effort-policy")
     source = str(resolved.get("source_layer") or source)
-    clamp_reason = resolved.get("clamp_reason") or row.get("effort_clamp_reason")
-    ceiling = max_effort if max_effort in EFFORT_ORDER else "medium"
-    entitlement_ceiling = str(resolved.get("entitlement_limit") or ceiling)
-    if entitlement_ceiling in EFFORT_ORDER and EFFORT_ORDER.index(entitlement_ceiling) < EFFORT_ORDER.index(ceiling):
-        ceiling = entitlement_ceiling
-    ceiling_set = {item for item in EFFORT_ORDER if EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(ceiling)}
-    if isinstance(supported, (list, tuple)):
-        supported_set = {item for item in supported if item in EFFORT_ORDER}
-    else:
-        supported_set = set(EFFORT_ORDER)
-    route_caps = row.get("route_efforts") or row.get("capability_efforts")
-    if isinstance(route_caps, (list, tuple)):
-        supported_set &= {item for item in route_caps if item in EFFORT_ORDER}
-    allowed = [item for item in EFFORT_ORDER if item in ceiling_set and item in supported_set]
-    if resolved.get("decision") == "block":
-        return {
-            "decision": "block",
-            "block_reason": resolved.get("block_reason") or "minimum-effort-unsatisfied",
-            "requested_effort": requested,
-            "configured_effort": resolved.get("configured_value") or requested,
-            "effective_effort": None,
-            "effort_source": source,
-            "clamp_reason": clamp_reason,
-            "entitlement_ceiling": ceiling,
-            "allowed_efforts": allowed,
-        }
+    actual_ceiling = resolved.get("entitlement_limit")
+    role_floor = normalized_routing["role_bindings"].get(role, {}).get("minimum_effort")
+    floors = (role_floor, row.get("minimum_effort"), row.get("risk_policy_floor"))
+    metadata = {"entitlement_ceiling": actual_ceiling, "runtime_effort_ceiling": max_effort,
+                "role_minimum_effort": role_floor,
+                "candidate_minimum_effort": row.get("minimum_effort"),
+                "risk_policy_floor": row.get("risk_policy_floor")}
+    if any(value is not None and (type(value) is not str or value not in EFFORT_ORDER) for value in floors):
+        # Do not echo malformed provider-controlled objects in diagnostic metadata.
+        metadata = {key: value for key, value in metadata.items() if value is None or type(value) is str}
+        return blocked("invalid-effort-floor")
+    if type(actual_ceiling) is not str or actual_ceiling not in EFFORT_ORDER:
+        return blocked("invalid-entitlement-effort-ceiling")
+    if resolved.get("decision") != "pass":
+        return blocked(str(resolved.get("block_reason") or "effort-policy-intersection-empty"))
+    policy_limit = resolved.get("policy_limit")
+    if not isinstance(policy_limit, list) or any(type(item) is not str or item not in EFFORT_ORDER for item in policy_limit):
+        return blocked("invalid-resolved-effort-policy")
+    allowed = [item for item in EFFORT_ORDER
+               if item in policy_limit
+               and EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(max_effort)
+               and EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(actual_ceiling)
+               and (supported is None or item in supported)
+               and all(value is None or EFFORT_ORDER.index(item) >= EFFORT_ORDER.index(value) for value in floors)]
+    metadata["allowed_efforts"] = allowed
     if not allowed:
-        return {
-            "decision": "block",
-            "block_reason": "effort-policy-unsatisfied",
-            "requested_effort": requested,
-            "configured_effort": resolved.get("configured_value") or requested,
-            "effective_effort": None,
-            "effort_source": source,
-            "clamp_reason": "empty effort-policy intersection",
-            "entitlement_ceiling": ceiling,
-            "allowed_efforts": [],
-        }
-    effective = str(resolved.get("effective_value") or requested)
-    if effective not in allowed:
-        capped, cap_reason = clamp_effort(effective, allowed)
-        if capped not in allowed:
-            return {
-                "decision": "block",
-                "block_reason": "effort-policy-unsatisfied",
-                "requested_effort": requested,
-                "configured_effort": resolved.get("configured_value") or requested,
-                "effective_effort": None,
-                "effort_source": source,
-                "clamp_reason": cap_reason or "empty effort-policy intersection",
-                "entitlement_ceiling": ceiling,
-                "allowed_efforts": allowed,
-            }
-        clamp_reason = f"{clamp_reason}; {cap_reason}" if clamp_reason and cap_reason else (cap_reason or clamp_reason)
-        effective = capped
-    block_reason = row.get("effort_block_reason") or row.get("block_reason")
-    if block_reason == "minimum-effort-unsatisfied":
-        return {
-            "decision": "block",
-            "block_reason": "minimum-effort-unsatisfied",
-            "requested_effort": requested,
-            "configured_effort": resolved.get("configured_value") or requested,
-            "effective_effort": effective,
-            "effort_source": source,
-            "clamp_reason": clamp_reason,
-            "entitlement_ceiling": ceiling,
-            "allowed_efforts": allowed,
-        }
-    return {
-        "decision": "pass",
-        "block_reason": None,
-        "requested_effort": requested,
-        "configured_effort": resolved.get("configured_value") or requested,
-        "effective_effort": effective,
-        "effort_source": source,
-        "clamp_reason": clamp_reason,
-        "entitlement_ceiling": ceiling,
-        "allowed_efforts": allowed,
-    }
+        return blocked("effort-policy-intersection-empty")
+    if (row.get("effort_block_reason") or row.get("block_reason")) == "minimum-effort-unsatisfied":
+        return blocked("minimum-effort-unsatisfied")
+    lower = [item for item in allowed if EFFORT_ORDER.index(item) <= EFFORT_ORDER.index(requested)]
+    effective = lower[-1] if lower else allowed[0]
+    clamp_reason = resolved.get("clamp_reason") or row.get("effort_clamp_reason")
+    if effective != resolved.get("effective_value"):
+        extra = "Combined runtime, role, candidate and risk policy adjusted effort."
+        clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
+    return {"decision": "pass", "block_reason": None, "requested_effort": requested,
+            "effective_effort": effective, "effort_source": source,
+            "clamp_reason": clamp_reason, **metadata}
 
 
 def build_effort_receipt(
@@ -576,13 +341,15 @@ def build_effort_receipt(
         "response": (response or {}).get("effort_effective"),
         "final_report": effective,
     }
-    missing = [name for name in required_stages if stages.get(name) in {None, ""}]
-    mismatches = [
-        name
-        for name, value in stages.items()
-        if value not in {None, ""} and str(value) != effective
-    ]
-    consistent = not mismatches and not missing
+    missing = [name for name in required_stages
+               if stages.get(name) is None or (type(stages.get(name)) is str and not stages[name])]
+    invalid = [name for name, value in stages.items()
+               if name not in missing and (type(value) is not str or value not in EFFORT_ORDER)]
+    mismatches = [name for name, value in stages.items()
+                  if name != "settings" and name not in missing and name not in invalid and value != effective]
+    consistent = effective in EFFORT_ORDER and not mismatches and not missing and not invalid
+    # Preserve the discrepancy class without echoing malformed response objects.
+    stages = {name: (None if name in invalid else value) for name, value in stages.items()}
     row = dict(candidate or {})
     return {
         "schema": EFFORT_RECEIPT_SCHEMA,
@@ -594,7 +361,7 @@ def build_effort_receipt(
         "route_id": row.get("route_id"),
         "model_requested": row.get("model_requested") or row.get("model"),
         "canonical_target_model": row.get("canonical_target_model"),
-        "model_served": row.get("model_served"),
+        "model_served": (response or {}).get("model_served"),
         "configured_effort": settings_requested,
         "requested_effort": dispatch.get("requested_effort"),
         "effective_effort": effective,
@@ -602,10 +369,16 @@ def build_effort_receipt(
         "provider_supported_efforts": list(row.get("supported_efforts") or []),
         "entitlement_ceiling": dispatch.get("entitlement_ceiling"),
         "risk_policy_floor": dispatch.get("risk_policy_floor"),
+        "runtime_effort_ceiling": dispatch.get("runtime_effort_ceiling"),
+        "role_minimum_effort": dispatch.get("role_minimum_effort"),
+        "candidate_minimum_effort": dispatch.get("candidate_minimum_effort"),
+        "allowed_efforts": list(dispatch.get("allowed_efforts") or []),
+        "evidence_scope": "adapter-request-and-response-metadata-not-internal-model-compute",
         "clamp_reason": dispatch.get("clamp_reason"),
         "effort_source": dispatch.get("effort_source"),
         "stages": stages,
         "missing_stages": missing,
+        "invalid_stages": invalid,
         "consistent": consistent,
         "mismatches": mismatches,
     }

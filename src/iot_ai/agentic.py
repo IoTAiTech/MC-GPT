@@ -35,6 +35,7 @@ from .skill_router import context_blocks, detect_host_native_image_tool, is_visu
 from .tool_router import build_tool_decision, validate_provider_binding
 from .visual_acceptance import UNAVAILABLE, evaluate_visual_acceptance
 from .visual_evidence import capture_visual_run
+from .test_execution_evidence import HostTestRunner, execution_binding, verify_test_execution
 from .transparency import record_disclosure, runtime_output_provenance
 from .util import atomic_json, utc_now
 from .workspace import append_event, connect_read, connect_write, new_id, one
@@ -457,6 +458,9 @@ def _finish_run(user_home: Path, task_id: str, meeting_id: str, result: dict[str
     plan_acceptance = ((result.get("results") or {}).get("final-plan-gate") or {}).get("output") or ((result.get("results") or {}).get("plan-acceptance") or {}).get("output") or {}
     accepted = plan_acceptance.get("decision") == "accept"
     final_audit = ((result.get("results") or {}).get("final-audit") or {}).get("output") or {}
+    execution_passed = bool(execute and accepted and result.get("decision") == "pass"
+                            and final_audit.get("decision") in {"accept", "pass", "approve"})
+    meeting_accepted = accepted and (not execute or execution_passed)
     now = utc_now()
     connection = connect_write(user_home)
     try:
@@ -472,7 +476,7 @@ def _finish_run(user_home: Path, task_id: str, meeting_id: str, result: dict[str
             """UPDATE meetings SET status=?,substantive_seats=?,rounds=?,synthesis=?,final_decision=?,
             consultation_sha256=?,updated_at=? WHERE id=?""",
             (
-                "accepted" if accepted else "needs-review",
+                "accepted" if meeting_accepted else "needs-review",
                 sum(1 for node in (result.get("results") or {}).values() if node.get("status") == "pass" and node.get("provider")),
                 int(plan_acceptance.get("selected_round") or 1),
                 json.dumps(
@@ -482,18 +486,24 @@ def _finish_run(user_home: Path, task_id: str, meeting_id: str, result: dict[str
                     ensure_ascii=False,
                     sort_keys=True,
                 ),
-                plan_acceptance.get("decision") or result.get("decision"),
+                "execution-needs-work" if execute and not execution_passed else (plan_acceptance.get("decision") or result.get("decision")),
                 plan_acceptance.get("plan_digest"),
                 now,
                 meeting_id,
             ),
         )
-        if execute and result.get("decision") == "pass" and final_audit.get("decision") in {"accept", "pass", "approve"}:
+        if execution_passed:
             task_status, progress, stage = "awaiting_founder", 100, "complete"
-        elif accepted:
+        elif accepted and not execute:
             task_status, progress, stage = "awaiting_founder", 50, "plan-accepted"
         else:
-            task_status, progress, stage = "needs-work", 25, "meeting"
+            task_status, progress, stage = "needs-work", 25, "verification" if execute else "meeting"
+            if execute and result.get("decision") == "pass":
+                result["decision"] = "needs-work"
+        result["terminal_state"] = ("TECHNICAL_COMPLETE_AWAITING_FOUNDER" if task_status == "awaiting_founder" and progress == 100
+                                    else "PLAN_COMPLETE_AWAITING_REVIEW" if task_status == "awaiting_founder"
+                                    else "NEEDS_WORK")
+        result["production_claim"] = False
         connection.execute(
             """UPDATE tasks SET status=?,engineering_stage=?,engineering_progress=?,task_progress=?,
             result_summary=?,revision=revision+1,updated_at=? WHERE id=?""",
@@ -543,7 +553,12 @@ def run_goal(
     existing_task_id: str | None = None,
     required_provider_families: list[str] | tuple[str, ...] | None = None,
     visual_runner: Any | None = None,
+    test_runner: HostTestRunner | None = None,
 ) -> dict[str, Any]:
+    if execute and not isinstance(test_runner, HostTestRunner):
+        return {"schema": "iot-ai.agentic-result.v3", "decision": "blocked",
+                "failure_class": "host-test-runner-required", "provider_calls": 0,
+                "execution_authorized": False, "production_claim": False}
     article5 = screen_prohibited_practices(goal)
     record_prohibited_practice_screen(user_home, goal, context="agentic-run")
     disclosure = record_disclosure(user_home, surface="cli:run", language="en")
@@ -645,6 +660,19 @@ def run_goal(
     initial_authority = _current_task_authority(user_home, task_id)
     # Owned runtime evidence, not model-provided fields. Each node has its own context.
     planning_contexts: dict[str, str] = {}
+    test_handles: dict[str, Any] = {}
+
+    def current_test_evidence() -> dict[str, Any]:
+        try:
+            if test_runner is None:
+                raise ValueError("host-test-runner-required")
+            return verify_test_execution(test_handles.get("tests"), user_home=user_home,
+                binding=execution_binding(graph.graph_id, _current_task_authority(user_home, task_id)),
+                current_source_sha256=test_runner.current_source_digest(),
+                profile_sha256=test_runner.profile_sha256)
+        except Exception:
+            return {"decision": "block", "failure_class": "test-execution-evidence-invalid",
+                    "test_results": [], "hard_gates": {"host_checks_pass": False}, "evidence_refs": []}
     provider_executor = provider_executor or _default_provider_executor(
         user_home,
         candidates,
@@ -807,21 +835,18 @@ def run_goal(
                 },
             }
         if node.node_id == "deterministic-tests":
-            implementation = inputs.get("implement", {})
-            parsed = implementation.get("parsed") or implementation.get("output") or {}
-            tests = parsed.get("tests") if isinstance(parsed, dict) else None
-            passed = isinstance(tests, list) and bool(tests) and all(
-                isinstance(test, dict) and test.get("decision") in {"pass", "approve"} for test in tests
-            )
-            return {
-                "status": "pass" if passed else "failed",
-                "failure_class": None if passed else "deterministic-tests-missing-or-failed",
-                "output": {
-                    "test_results": tests or [],
-                    "hard_gates": {"tests_present": bool(tests), "all_tests_pass": passed},
-                    "evidence_refs": parsed.get("evidence_refs", []) if isinstance(parsed, dict) else [],
-                },
-            }
+            try:
+                test_handles["tests"] = test_runner.run(
+                    user_home=user_home, binding=execution_binding(active_graph.graph_id, authority),
+                    evidence_root=runtime_root / "test-execution",
+                )
+                evidence = current_test_evidence()
+            except Exception:
+                # Never expose raw process errors, private paths or inherited data.
+                evidence = {"decision": "block", "failure_class": "host-test-execution-failed",
+                            "test_results": [], "hard_gates": {"host_checks_pass": False}, "evidence_refs": []}
+            return {"status": "pass" if evidence["decision"] == "pass" else "failed",
+                    "failure_class": evidence.get("failure_class"), "output": evidence}
         if node.node_id == "final-audit":
             plan = inputs.get("final-plan-gate", {}).get("output") or {}
             if execute:
@@ -835,6 +860,7 @@ def run_goal(
                 hard_gates = {
                     "plan_accepted": plan.get("decision") == "accept",
                     "final_verifier_pass": verifier_pass,
+                    "host_test_execution_pass": current_test_evidence().get("decision") == "pass",
                     "no_active_failure": result_status(inputs) == "pass",
                 }
             else:
@@ -1179,6 +1205,9 @@ def run_goal(
         },
     )
     result = execute_graph(user_home, graph, executor)
+    if execute and result.get("decision") == "pass" and current_test_evidence().get("decision") != "pass":
+        result["decision"] = "blocked"
+        result["failure_class"] = "test-execution-evidence-invalid-at-completion"
     _finish_run(user_home, task_id, meeting_id, result, execute, initial_authority)
     diagnostics_path = data_root(user_home) / "diagnostics" / f"IOT-AI-DIAGNOSTICS-{graph.correlation_id}.zip"
     try:

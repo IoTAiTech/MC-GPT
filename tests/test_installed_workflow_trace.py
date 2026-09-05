@@ -21,6 +21,7 @@ from iot_ai.tasks import create, list_open, show
 from iot_ai.visual_acceptance import UNAVAILABLE, evaluate_visual_acceptance
 from iot_ai.workspace import connect_read, one
 from tests.common import IsolatedHomeTestCase
+from tests.host_test_fixture import host_runner
 from tests.test_agentic import fake_node_executor
 from tests.test_runtime_enforcement_corrective import passing_assessment
 
@@ -46,7 +47,7 @@ class InstalledWorkflowTraceTests(IsolatedHomeTestCase):
             "fallback_candidates": []} for role in ROLE_CATALOG}
         with patch("iot_ai.agentic.select_candidates", return_value=candidates):
             result = run_goal(self.home, goal, execute=True, profile="balanced",
-                              existing_task_id=created["task_id"], provider_executor=provider)
+                              existing_task_id=created["task_id"], provider_executor=provider, test_runner=host_runner(self.home))
         return created["task_id"], result, calls
 
     def test_readonly_inspection_creates_no_task(self):

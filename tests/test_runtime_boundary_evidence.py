@@ -22,6 +22,7 @@ from iot_ai.visual_acceptance import evaluate_visual_acceptance
 from iot_ai.visual_evidence import VIEWPORTS, VisualEvidenceHandle, capture_visual_run, validate_png, verify_visual_run
 from iot_ai.workspace import connect_read, connect_write, one
 from tests.common import IsolatedHomeTestCase
+from tests.host_test_fixture import host_runner
 from tests.test_agentic import fake_node_executor
 from tests.test_runtime_enforcement_corrective import passing_assessment
 
@@ -181,7 +182,7 @@ class RuntimeCallerTests(IsolatedHomeTestCase):
             "live_ready": True, "cloud": True, "fallback_candidates": []} for r in ROLE_CATALOG}
         with patch("iot_ai.agentic.select_candidates", return_value=candidates):
             result = run_goal(self.home, "Implement inventory export with deterministic checks", execute=True,
-                              provider_executor=provider, profile="balanced")
+                              provider_executor=provider, profile="balanced", test_runner=host_runner(self.home))
         return result, calls
 
     def test_instantiated_graph_uses_persisted_plan_then_dispatches(self):

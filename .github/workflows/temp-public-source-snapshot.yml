@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
+# Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+# Temporary audit transport. It executes no repository source and is removed by the corrective commit.
+name: Temporary public source snapshot
+on:
+  push:
+    branches: [fix/verified-runtime-boundaries-20260904]
+    paths: [.github/workflows/temp-public-source-snapshot.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: c9149ebd4ca6a0f533a2d76fd0407d278ba2e43f
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Package exact public source without executing it
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, json, zipfile
+          from pathlib import Path
+          root=Path('.')
+          out=Path('/tmp/mcgpt-c9149eb-public-source.zip')
+          excluded={'.git'}
+          files=[]
+          with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
+              for p in sorted(root.rglob('*')):
+                  if not p.is_file() or any(part in excluded for part in p.parts):
+                      continue
+                  rel=p.as_posix()
+                  z.write(p,rel)
+                  files.append([rel,hashlib.sha256(p.read_bytes()).hexdigest()])
+          manifest={'commit':'c9149ebd4ca6a0f533a2d76fd0407d278ba2e43f','tree':'530ec016e243f127d2fb0259459ccbba7ff668c9','files':files,'source_executed':False,'provider_calls':0}
+          Path('/tmp/source-manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
+          print(hashlib.sha256(out.read_bytes()).hexdigest())
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: mcgpt-c9149eb-public-source
+          path: |
+            /tmp/mcgpt-c9149eb-public-source.zip
+            /tmp/source-manifest.json
+          retention-days: 1
+          if-no-files-found: error

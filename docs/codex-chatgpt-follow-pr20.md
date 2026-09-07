@@ -1,27 +1,16 @@
 <!-- SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0 -->
-# Codex / ChatGPT follow-on for PR 20
+# Historical Codex / ChatGPT handoff for PR20
 
 Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
+Version: 2.0.0 | Date: 2026-09-05
 
-This file exists so Codex and ChatGPT can continue this work after a Grok
-weekly-limit stop. **GitHub is authoritative.** Do not look for a `/tmp`
-worktree.
+PR20 was merged. Its old feature branch is not the current work target.
+This file is preserved as a redirect, not an active assignment.
 
-- Repository: https://github.com/IoTAiTech/MC-GPT
-- Branch: `feat/settings-skill-autodiscovery-v1`
-- Pull request: https://github.com/IoTAiTech/MC-GPT/pull/20
-- Do not modify, merge, close, undraft, rebase, reset, or force-push PR #19
-- Merge method when gates pass: squash (linear history)
-- Production claim: false
-- provider_calls: 0
+Read `docs/coordination/CURRENT_HANDOFF.md` on the live PR23 head, then
+`docs/codex-collaboration.md`. Re-read the current GitHub PR state instead of
+using a historical chat, local temporary path or stale SHA as the authority.
 
-Recreate:
-
-```text
-git clone https://github.com/IoTAiTech/MC-GPT
-git checkout feat/settings-skill-autodiscovery-v1
-PYTHONPATH=src python3 -m pytest tests/test_runtime_settings_v2.py tests/test_skill_router.py -q
-PYTHONPATH=src python3 -m pytest tests -q
-python3 tools/public_boundary_check.py
-python3 tools/verify_repository.py
-```
+PR19 remains a separate benchmark/publication lane. No release, merge,
+production action, private-data upload or protection change is authorized by
+this historical document.

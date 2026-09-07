@@ -9,10 +9,11 @@ import hashlib
 import os
 import re
 import shutil
-import struct
 import subprocess
 from pathlib import Path
 from typing import Any, Mapping
+
+from .visual_evidence import verify_visual_run
 
 REQUIRED_VIEWPORTS = ("desktop", "tablet", "mobile")
 VIEWPORT_PIXELS = {"desktop": (1280, 800), "tablet": (768, 1024), "mobile": (390, 844)}
@@ -86,74 +87,15 @@ def _digest_ok(value: Any) -> bool:
     return bool(HEX64.fullmatch(text)) and not SYNTHETIC_DIGEST.fullmatch(text)
 
 
-def _png_identity(data: bytes) -> tuple[str, int, int] | None:
-    if len(data) < 24 or not data.startswith(b"\x89PNG\r\n\x1a\n"):
-        return None
-    length = struct.unpack(">I", data[8:12])[0]
-    if data[12:16] != b"IHDR" or length < 8 or len(data) < 24:
-        return None
-    width, height = struct.unpack(">II", data[16:24])
-    if width < 1 or height < 1:
-        return None
-    return ("png", width, height)
-
-
-def _jpeg_identity(data: bytes) -> tuple[str, int, int] | None:
-    if len(data) < 4 or data[:2] != b"\xff\xd8":
-        return None
-    index = 2
-    while index + 9 < len(data):
-        if data[index] != 0xFF:
-            index += 1
-            continue
-        marker = data[index + 1]
-        if marker in {0xC0, 0xC1, 0xC2}:
-            height, width = struct.unpack(">HH", data[index + 5 : index + 9])
-            if width < 1 or height < 1:
-                return None
-            return ("jpeg", width, height)
-        if marker in {0xD8, 0xD9}:
-            index += 2
-            continue
-        if index + 4 > len(data):
-            break
-        length = struct.unpack(">H", data[index + 2 : index + 4])[0]
-        index += 2 + length
-    return None
-
-
-def decode_image_identity(path: Path) -> dict[str, Any]:
-    try:
-        data = path.read_bytes()
-    except OSError:
-        return {"ok": False, "reason": "unreadable"}
-    identity = _png_identity(data) or _jpeg_identity(data)
-    if not identity:
-        return {"ok": False, "reason": "not-an-image"}
-    fmt, width, height = identity
-    return {"ok": True, "format": fmt, "width": width, "height": height}
-
-
-def _controlled_path(path: Path, controlled_root: Path | None) -> str | None:
-    if path.is_symlink() or not path.is_file():
-        return "viewport-symlink-or-missing"
-    resolved = path.resolve()
-    if not controlled_root:
-        return "runner-output-dir"
-    root = controlled_root.resolve()
-    try:
-        resolved.relative_to(root)
-    except ValueError:
-        return "foreign-artifact"
-    return None
-
-
 def evaluate_visual_acceptance(
     *,
     visual_task: bool,
     require_browser_acceptance: bool,
     tool_available: bool | None = None,
     evidence: Mapping[str, Any] | None = None,
+    runner_evidence: Any = None,
+    expected_run_id: str | None = None,
+    expected_source_sha256: str | None = None,
 ) -> dict[str, Any]:
     required = bool(visual_task and require_browser_acceptance)
     if not required:
@@ -168,120 +110,19 @@ def evaluate_visual_acceptance(
             "real_visual_runner": False,
             "missing": [],
         }
-    probe = visual_runner_probe(explicit=tool_available)
-    if not probe.get("available"):
-        return {
-            "decision": UNAVAILABLE,
-            "required": True,
-            "visual_acceptance_claim": False,
-            "visual_quality_proven": False,
-            "browser_render_required": True,
-            "screenshot_evidence_required": True,
-            "accessibility_required": True,
-            "real_visual_runner": False,
-            "runner": probe,
-            "missing": ["browser-tool"],
-        }
-    payload = dict(evidence or {})
-    missing: list[str] = []
-    recomputed: list[str] = []
-    viewports = payload.get("viewports") or {}
-    paths = payload.get("screenshot_paths") or {}
-    controlled_value = payload.get("runner_output_dir") or os.environ.get("IOT_AI_VISUAL_OUTPUT_DIR")
-    controlled_root = Path(str(controlled_value)).resolve() if controlled_value else None
-    if controlled_root is None:
-        missing.append("runner-output-dir")
-    expected_run = payload.get("run_id")
-    captured_run = payload.get("captured_run_id") or probe.get("run_id")
-    if expected_run and captured_run and str(expected_run) != str(captured_run):
-        missing.append("foreign-run")
-    expected_tree = payload.get("source_tree")
-    captured_tree = payload.get("captured_tree")
-    if expected_tree and captured_tree and str(expected_tree) != str(captured_tree):
-        missing.append("stale-tree")
-    for name in REQUIRED_VIEWPORTS:
-        row = viewports.get(name) if isinstance(viewports, Mapping) else None
-        path_value = None
-        if isinstance(paths, Mapping):
-            path_value = paths.get(name)
-        elif isinstance(row, Mapping):
-            path_value = row.get("path") or row.get("screenshot_path")
-        if not path_value:
-            missing.append(f"viewport-file:{name}")
-            continue
-        path = Path(str(path_value))
-        control_error = _controlled_path(path, controlled_root)
-        if control_error:
-            missing.append(f"{control_error}:{name}" if control_error.startswith("viewport") else control_error)
-            continue
-        if path.stat().st_size < 32:
-            missing.append(f"viewport-file:{name}")
-            continue
-        identity = decode_image_identity(path)
-        if not identity.get("ok"):
-            missing.append(f"viewport-not-image:{name}")
-            continue
-        expected_size = VIEWPORT_PIXELS[name]
-        if (int(identity["width"]), int(identity["height"])) != expected_size:
-            missing.append(f"viewport-dimensions:{name}")
-            continue
-        digest = _file_sha256(path)
-        recomputed.append(digest)
-        claimed = None
-        if isinstance(row, Mapping):
-            claimed = row.get("screenshot_sha256")
-        if claimed and (not _digest_ok(claimed) or claimed != digest):
-            missing.append(f"viewport-rehash:{name}")
-        if isinstance(row, Mapping) and row.get("origin") not in {"runner", "authorized-runner"}:
-            missing.append(f"viewport-origin:{name}")
-        if isinstance(row, Mapping) and row.get("rendered") is not True:
-            missing.append(f"viewport:{name}")
-    claimed_digests = payload.get("screenshot_digests") or []
-    if isinstance(claimed_digests, list):
-        for item in claimed_digests:
-            if not _digest_ok(item):
-                missing.append("synthetic-screenshot-digest")
-                break
-        if claimed_digests and recomputed and list(claimed_digests) != recomputed:
-            missing.append("screenshot_digests")
-    if len(recomputed) < len(REQUIRED_VIEWPORTS):
-        missing.append("screenshot_digests")
-    for check in ("overflow", "clipping"):
-        runner_layout = payload.get("runner_layout") if isinstance(payload.get("runner_layout"), Mapping) else {}
-        if runner_layout.get(check) is True:
-            continue
-        if payload.get(check) is True:
-            missing.append(f"{check}-model-authored")
-        else:
-            missing.append(check)
-    runner_a11y = payload.get("runner_accessibility") if isinstance(payload.get("runner_accessibility"), Mapping) else {}
-    if not (runner_a11y.get("tool") and runner_a11y.get("decision") == "pass"):
-        missing.append("accessibility-runner")
-    if payload.get("accessibility") is True and not runner_a11y:
-        missing.append("accessibility-forged")
-    states = payload.get("states") or {}
-    runner_states = payload.get("runner_states") if isinstance(payload.get("runner_states"), Mapping) else states
-    for name in REQUIRED_STATES:
-        if not (isinstance(runner_states, Mapping) and runner_states.get(name) is True):
-            missing.append(f"state:{name}")
-    if payload.get("visual_critique") is not True:
-        missing.append("visual_critique")
-    if not payload.get("browser_version") and not probe.get("version"):
-        missing.append("browser-version")
-    passed = not missing
-    return {
-        "decision": "pass" if passed else "block",
-        "required": True,
-        "visual_acceptance_claim": passed,
-        "visual_quality_proven": passed,
-        "browser_render_required": True,
-        "screenshot_evidence_required": True,
-        "accessibility_required": True,
-        "real_visual_runner": True,
-        "runner": probe,
-        "recomputed_screenshot_sha256": recomputed,
-        "missing": missing,
-    }
+    # Tool discovery is not authorization; model-authored evidence is not read.
+    # A configured host adapter must have produced the opaque capability.
+    if runner_evidence is None:
+        return {"decision": UNAVAILABLE if not tool_available else "block", "required": True,
+                "visual_acceptance_claim": False, "visual_quality_proven": False,
+                "browser_render_required": True, "screenshot_evidence_required": True,
+                "accessibility_required": True, "real_visual_runner": False,
+                "missing": ["trusted-visual-run-required"]}
+    verified = verify_visual_run(runner_evidence, run_id=expected_run_id, source_sha256=expected_source_sha256)
+    return {**verified, "required": True, "visual_acceptance_claim": verified["decision"] == "pass",
+            "browser_render_required": True, "screenshot_evidence_required": True,
+            "accessibility_required": True, "real_visual_runner": verified["decision"] == "pass",
+            "visual_quality_proven": False}
 
 
 def capture_viewport_screenshot(url: str, destination: Path, *, viewport: str, runner: str | None = None) -> dict[str, Any]:

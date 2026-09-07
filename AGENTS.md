@@ -35,3 +35,15 @@ Version: 6.8.0-beta.1
     digest is verified at load; visual acceptance is a hard gate or
     `VISUAL_ACCEPTANCE_TOOL_UNAVAILABLE`.
 <!-- IOT-AI-RUNTIME-ENFORCEMENT:END version=1.0.0 -->
+
+<!-- IOT-AI-CODEX-COLLABORATION:BEGIN version=1.0.0 -->
+18. For continuation and cross-coder review, read
+    `docs/coordination/CURRENT_HANDOFF.md` from the live integration PR head.
+    Exchange sanitized, commit-bound results in that PR, not private chat dumps.
+    Unavailable coders do not block permitted source work, but never fabricate
+    their participation or treat the implementer as an independent approver.
+19. Model-reported tests are proposals, not execution evidence. Executing the
+    agentic graph requires a trusted host-selected verification runner. Bind
+    actual command results to task revision, acceptance, source and profile;
+    use the existing Suite ledger. An accepted plan cannot complete failed work.
+<!-- IOT-AI-CODEX-COLLABORATION:END version=1.0.0 -->

@@ -67,7 +67,10 @@ def continuation_decision(
 ) -> dict[str, Any]:
     """Choose continue/stop/pause using application-owned rules."""
     fingerprint = result_fingerprint(result)
-    state.failure_fingerprints[fingerprint] = state.failure_fingerprints.get(fingerprint, 0) + 1
+    expected_skip = (not node_required and result.get("status") == "skipped"
+                     and result.get("failure_class") == "condition-not-satisfied")
+    if not expected_skip:
+        state.failure_fingerprints[fingerprint] = state.failure_fingerprints.get(fingerprint, 0) + 1
     digest = finding_digest(result)
     if digest and digest not in state.finding_digests:
         state.finding_digests.append(digest)
@@ -79,7 +82,7 @@ def continuation_decision(
     reason = "node-completed"
     if node_required and result.get("status") != "pass":
         action, reason = "stop", "required-node-failed"
-    elif state.failure_fingerprints[fingerprint] >= max_identical_failures and result.get("status") != "pass":
+    elif not expected_skip and state.failure_fingerprints.get(fingerprint, 0) >= max_identical_failures and result.get("status") != "pass":
         action, reason = "stop", "repeated-identical-failure"
     elif state.tokens_used > token_budget or state.model_calls > max_model_calls:
         action, reason = "stop", "model-budget"
@@ -93,7 +96,7 @@ def continuation_decision(
         "action": action,
         "reason": reason,
         "failure_fingerprint": fingerprint,
-        "identical_failure_count": state.failure_fingerprints[fingerprint],
+        "identical_failure_count": state.failure_fingerprints.get(fingerprint, 0),
         "no_new_finding_rounds": state.no_new_finding_rounds,
         "tokens_used": state.tokens_used,
         "model_calls": state.model_calls,

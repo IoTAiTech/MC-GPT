@@ -28,18 +28,17 @@ from .runtime_gates import (
     build_effort_receipt,
     evaluate_minimum_change_gate,
     finalize_skill_state,
-    live_task_identity,
-    persist_accepted_plan,
     resolve_dispatch_effort,
 )
-from .task_backends import SuiteTaskBackend
 from .settings import effective_settings, load as load_settings
 from .skill_router import context_blocks, detect_host_native_image_tool, is_visual_task, select_skills
 from .tool_router import build_tool_decision, validate_provider_binding
 from .visual_acceptance import UNAVAILABLE, evaluate_visual_acceptance
+from .visual_evidence import capture_visual_run
+from .test_execution_evidence import HostTestRunner, execution_binding, verify_test_execution
 from .transparency import record_disclosure, runtime_output_provenance
 from .util import atomic_json, utc_now
-from .workspace import append_event, connect_write, new_id, one
+from .workspace import append_event, connect_read, connect_write, new_id, one
 
 ProviderExecutor = Callable[[GraphNode, str, dict[str, Any]], dict[str, Any]]
 
@@ -73,18 +72,42 @@ def _parse_model_output(text: str) -> dict[str, Any]:
     }
 
 
-def _task_revision(user_home: Path, task_id: str) -> int:
-    connection = connect_write(user_home)
+def _current_task_authority(user_home: Path, task_id: str) -> dict[str, Any]:
+    """Read only the existing Suite authority; never invent a missing revision.
+
+    External PMD requests must arrive through the governed adapter, not a second
+    direct database authority. This module operates on the Suite task it owns.
+    """
+    connection = connect_read(user_home)
+    if connection is None:
+        raise ValueError("current-task-authority-unavailable")
     try:
-        row = one(connection, "SELECT revision FROM tasks WHERE id=?", (task_id,))
+        row = one(connection, "SELECT id,revision,title,description,acceptance_criteria,risk_class FROM tasks WHERE id=?", (task_id,))
     finally:
         connection.close()
-    if not row:
-        return 1
-    try:
-        return int(row.get("revision") or 1)
-    except (TypeError, ValueError):
-        return 1
+    if not row or isinstance(row.get("revision"), bool) or not isinstance(row.get("revision"), int):
+        raise ValueError("current-task-authority-unavailable")
+    return row
+
+
+def _task_revision(user_home: Path, task_id: str) -> int:
+    return _current_task_authority(user_home, task_id)["revision"]
+
+
+def _persisted_plan_guard(user_home: Path, graph: ExecutionGraph, accepted: dict[str, Any]) -> dict[str, Any]:
+    """Verify an internal graph result against its previously persisted node row."""
+    connection = connect_read(user_home)
+    row = None
+    if connection is not None:
+        try:
+            row = one(connection, "SELECT status,output_sha256 FROM graph_nodes WHERE graph_id=? AND id=?", (graph.graph_id, "final-plan-gate"))
+        finally:
+            connection.close()
+    return accepted_plan_allows_implement(
+        accepted,
+        persisted_output_sha256=(row or {}).get("output_sha256") if (row or {}).get("status") == "pass" else None,
+        require_persistence=True,
+    )
 
 
 def _five_w_one_h(goal: str) -> dict[str, str]:
@@ -130,6 +153,7 @@ def _default_provider_executor(
     task_id: str | None = None,
     meeting_id: str | None = None,
     max_effort: str = "medium",
+    routing: dict[str, Any] | None = None,
 ) -> ProviderExecutor:
     """Create a role executor with explicit route decisions and binding checks."""
     recoverable = {
@@ -174,10 +198,11 @@ def _default_provider_executor(
             for row in [primary, *list(primary.get("fallback_candidates") or [])]
         ]
         primary_dispatch = resolve_dispatch_effort(
-            primary,
+            ladder[0],
             node_effort=node.effort,
             max_effort=max_effort,
             role_id=node.role_id,
+            routing=routing,
         )
         tool_decision = build_tool_decision(
             ladder,
@@ -211,6 +236,7 @@ def _default_provider_executor(
                 node_effort=node.effort,
                 max_effort=max_effort,
                 role_id=node.role_id,
+                routing=routing,
             )
             if dispatch.get("decision") == "block":
                 attempts.append(
@@ -248,7 +274,15 @@ def _default_provider_executor(
                     }
                 )
                 continue
-            effective = str(dispatch.get("effective_effort") or node.effort)
+            candidate = {**candidate, "effective_effort": dispatch["effective_effort"]}
+            tool_decision = build_tool_decision(
+                [candidate], role_id=node.role_id,
+                requested_effort=str(dispatch["effective_effort"]),
+                privacy_class=graph.privacy_class,
+                selected_candidate_id=str(candidate.get("candidate_id") or ""), require_live=True,
+            )
+            tool_decision["effective_effort"] = dispatch["effective_effort"]
+            effective = str(dispatch["effective_effort"])
             reason = dispatch.get("clamp_reason")
             try:
                 result = delegate(
@@ -285,10 +319,14 @@ def _default_provider_executor(
                 adapter_request_effort=result.get("adapter_request_effort"),
                 response=result,
             )
+            if result.get("status") == "pass" and effort_receipt["consistent"] is not True:
+                result = {**result, "status": "blocked", "failure_class": "effort-evidence-mismatch"}
             result = {
                 **result,
                 "effort_requested": dispatch.get("requested_effort") or candidate.get("requested_effort") or node.effort,
-                "effort_effective": effective,
+                "effort_effective": effort_receipt["stages"]["response"],
+                "adapter_request_effort": effort_receipt["stages"]["adapter_request"],
+                "effort_dispatched": effective,
                 "effort_source": dispatch.get("effort_source"),
                 "effort_clamp_reason": reason,
                 "effort_receipt": effort_receipt,
@@ -416,18 +454,29 @@ def _register_run(user_home: Path, graph: ExecutionGraph, goal: str, role_count:
     return task_id, meeting_id
 
 
-def _finish_run(user_home: Path, task_id: str, meeting_id: str, result: dict[str, Any], execute: bool) -> None:
+def _finish_run(user_home: Path, task_id: str, meeting_id: str, result: dict[str, Any], execute: bool, expected_authority: dict[str, Any] | None = None) -> None:
     plan_acceptance = ((result.get("results") or {}).get("final-plan-gate") or {}).get("output") or ((result.get("results") or {}).get("plan-acceptance") or {}).get("output") or {}
     accepted = plan_acceptance.get("decision") == "accept"
     final_audit = ((result.get("results") or {}).get("final-audit") or {}).get("output") or {}
+    execution_passed = bool(execute and accepted and result.get("decision") == "pass"
+                            and final_audit.get("decision") in {"accept", "pass", "approve"})
+    meeting_accepted = accepted and (not execute or execution_passed)
     now = utc_now()
     connection = connect_write(user_home)
     try:
+        connection.execute("BEGIN IMMEDIATE")
+        row = one(connection, "SELECT id,revision,title,description,acceptance_criteria,risk_class FROM tasks WHERE id=?", (task_id,))
+        if expected_authority is not None and row != expected_authority:
+            result["decision"] = "blocked"
+            result["failure_class"] = "current-task-authority-changed"
+            connection.execute("UPDATE meetings SET status='needs-review',final_decision='current-task-authority-changed',updated_at=? WHERE id=?", (now, meeting_id))
+            connection.commit()
+            return
         connection.execute(
             """UPDATE meetings SET status=?,substantive_seats=?,rounds=?,synthesis=?,final_decision=?,
             consultation_sha256=?,updated_at=? WHERE id=?""",
             (
-                "accepted" if accepted else "needs-review",
+                "accepted" if meeting_accepted else "needs-review",
                 sum(1 for node in (result.get("results") or {}).values() if node.get("status") == "pass" and node.get("provider")),
                 int(plan_acceptance.get("selected_round") or 1),
                 json.dumps(
@@ -437,18 +486,24 @@ def _finish_run(user_home: Path, task_id: str, meeting_id: str, result: dict[str
                     ensure_ascii=False,
                     sort_keys=True,
                 ),
-                plan_acceptance.get("decision") or result.get("decision"),
+                "execution-needs-work" if execute and not execution_passed else (plan_acceptance.get("decision") or result.get("decision")),
                 plan_acceptance.get("plan_digest"),
                 now,
                 meeting_id,
             ),
         )
-        if execute and result.get("decision") == "pass" and final_audit.get("decision") in {"accept", "pass", "approve"}:
+        if execution_passed:
             task_status, progress, stage = "awaiting_founder", 100, "complete"
-        elif accepted:
+        elif accepted and not execute:
             task_status, progress, stage = "awaiting_founder", 50, "plan-accepted"
         else:
-            task_status, progress, stage = "needs-work", 25, "meeting"
+            task_status, progress, stage = "needs-work", 25, "verification" if execute else "meeting"
+            if execute and result.get("decision") == "pass":
+                result["decision"] = "needs-work"
+        result["terminal_state"] = ("TECHNICAL_COMPLETE_AWAITING_FOUNDER" if task_status == "awaiting_founder" and progress == 100
+                                    else "PLAN_COMPLETE_AWAITING_REVIEW" if task_status == "awaiting_founder"
+                                    else "NEEDS_WORK")
+        result["production_claim"] = False
         connection.execute(
             """UPDATE tasks SET status=?,engineering_stage=?,engineering_progress=?,task_progress=?,
             result_summary=?,revision=revision+1,updated_at=? WHERE id=?""",
@@ -497,7 +552,13 @@ def run_goal(
     profile: str | None = None,
     existing_task_id: str | None = None,
     required_provider_families: list[str] | tuple[str, ...] | None = None,
+    visual_runner: Any | None = None,
+    test_runner: HostTestRunner | None = None,
 ) -> dict[str, Any]:
+    if execute and not isinstance(test_runner, HostTestRunner):
+        return {"schema": "iot-ai.agentic-result.v3", "decision": "blocked",
+                "failure_class": "host-test-runner-required", "provider_calls": 0,
+                "execution_authorized": False, "production_claim": False}
     article5 = screen_prohibited_practices(goal)
     record_prohibited_practice_screen(user_home, goal, context="agentic-run")
     disclosure = record_disclosure(user_home, surface="cli:run", language="en")
@@ -596,6 +657,22 @@ def run_goal(
     )
     effective = effective_settings(user_home, settings)
     task_id, meeting_id = _register_run(user_home, graph, goal, len(role_ids), execute, existing_task_id)
+    initial_authority = _current_task_authority(user_home, task_id)
+    # Owned runtime evidence, not model-provided fields. Each node has its own context.
+    planning_contexts: dict[str, str] = {}
+    test_handles: dict[str, Any] = {}
+
+    def current_test_evidence() -> dict[str, Any]:
+        try:
+            if test_runner is None:
+                raise ValueError("host-test-runner-required")
+            return verify_test_execution(test_handles.get("tests"), user_home=user_home,
+                binding=execution_binding(graph.graph_id, _current_task_authority(user_home, task_id)),
+                current_source_sha256=test_runner.current_source_digest(),
+                profile_sha256=test_runner.profile_sha256)
+        except Exception:
+            return {"decision": "block", "failure_class": "test-execution-evidence-invalid",
+                    "test_results": [], "hard_gates": {"host_checks_pass": False}, "evidence_refs": []}
     provider_executor = provider_executor or _default_provider_executor(
         user_home,
         candidates,
@@ -603,9 +680,16 @@ def run_goal(
         task_id=task_id,
         meeting_id=meeting_id,
         max_effort=entitlements.max_effort,
+        routing=effective.get("routing") or settings.get("routing"),
     )
 
     def executor(node: GraphNode, inputs: dict[str, Any], active_graph: ExecutionGraph) -> dict[str, Any]:
+        try:
+            authority = _current_task_authority(user_home, task_id)
+        except ValueError:
+            return {"status": "blocked", "failure_class": "current-task-authority-unavailable", "output": {}}
+        if authority != initial_authority:
+            return {"status": "blocked", "failure_class": "current-task-authority-changed", "output": {}}
         if node.node_id == "intake":
             return {
                 "status": "pass",
@@ -706,32 +790,14 @@ def run_goal(
                     if key.startswith("plan-review") or key in {"plan-synthesis", "plan-revision"}
                 ),
             }
-            acceptance = ""
-            intake = inputs.get("intake", {}).get("output") or {}
-            if isinstance(intake, dict):
-                acceptance = str(intake.get("acceptance") or "")
-            try:
-                current_task = SuiteTaskBackend(user_home).snapshot(task_id)
-                acceptance = current_task.acceptance_criteria or acceptance or goal
-                current_revision = current_task.revision
-                current_risk = current_task.risk_class or risk_class
-            except Exception:
-                current_revision = _task_revision(user_home, task_id)
-                current_risk = risk_class
-            synthesis_context = str(
-                synthesis_result.get("context_digest")
-                or ((synthesis_result.get("_runtime_decisions") or {}).get("context_decision") or {}).get("context_digest")
-                or ""
-            )
+            synthesis_context = planning_contexts.get(synthesis_key)
             mncg = evaluate_minimum_change_gate(
-                synthesis,
-                goal=goal,
-                task_id=task_id,
-                risk_class=current_risk,
-                acceptance=acceptance or goal,
-                context_digest=synthesis_context,
-                revision=current_revision,
+                synthesis, goal=goal, task_id=authority["id"], risk_class=authority["risk_class"],
+                acceptance=authority["acceptance_criteria"], context_digest=synthesis_context,
+                revision=authority["revision"],
             )
+            if not synthesis_context:
+                mncg = {**mncg, "valid": False, "decision": "block", "errors": ["planning-context-evidence-missing"]}
             hard_gates["minimum_change_assessment_valid"] = bool(mncg.get("valid"))
             decision = "accept" if all(hard_gates.values()) else "needs-review"
             return {
@@ -756,37 +822,31 @@ def run_goal(
                 chosen = first
                 selected_round = 1
             decision = "accept" if chosen.get("decision") == "accept" else "needs-review"
-            output = {
-                "decision": decision,
-                "plan_digest": chosen.get("plan_digest"),
-                "acceptance_matrix": chosen.get("acceptance_matrix", {}),
-                "hard_gates": chosen.get("hard_gates", {}),
-                "dissent": chosen.get("dissent", []),
-                "selected_round": selected_round,
-                "mncg": chosen.get("mncg"),
-            }
-            if decision == "accept":
-                output["accepted_plan_receipt"] = persist_accepted_plan(user_home, output)
             return {
                 "status": "pass",
-                "output": output,
-            }
-        if node.node_id == "deterministic-tests":
-            implementation = inputs.get("implement", {})
-            parsed = implementation.get("parsed") or implementation.get("output") or {}
-            tests = parsed.get("tests") if isinstance(parsed, dict) else None
-            passed = isinstance(tests, list) and bool(tests) and all(
-                isinstance(test, dict) and test.get("decision") in {"pass", "approve"} for test in tests
-            )
-            return {
-                "status": "pass" if passed else "failed",
-                "failure_class": None if passed else "deterministic-tests-missing-or-failed",
                 "output": {
-                    "test_results": tests or [],
-                    "hard_gates": {"tests_present": bool(tests), "all_tests_pass": passed},
-                    "evidence_refs": parsed.get("evidence_refs", []) if isinstance(parsed, dict) else [],
+                    "decision": decision,
+                    "plan_digest": chosen.get("plan_digest"),
+                    "acceptance_matrix": chosen.get("acceptance_matrix", {}),
+                    "hard_gates": chosen.get("hard_gates", {}),
+                    "dissent": chosen.get("dissent", []),
+                    "selected_round": selected_round,
+                    "mncg": chosen.get("mncg"),
                 },
             }
+        if node.node_id == "deterministic-tests":
+            try:
+                test_handles["tests"] = test_runner.run(
+                    user_home=user_home, binding=execution_binding(active_graph.graph_id, authority),
+                    evidence_root=runtime_root / "test-execution",
+                )
+                evidence = current_test_evidence()
+            except Exception:
+                # Never expose raw process errors, private paths or inherited data.
+                evidence = {"decision": "block", "failure_class": "host-test-execution-failed",
+                            "test_results": [], "hard_gates": {"host_checks_pass": False}, "evidence_refs": []}
+            return {"status": "pass" if evidence["decision"] == "pass" else "failed",
+                    "failure_class": evidence.get("failure_class"), "output": evidence}
         if node.node_id == "final-audit":
             plan = inputs.get("final-plan-gate", {}).get("output") or {}
             if execute:
@@ -800,6 +860,7 @@ def run_goal(
                 hard_gates = {
                     "plan_accepted": plan.get("decision") == "accept",
                     "final_verifier_pass": verifier_pass,
+                    "host_test_execution_pass": current_test_evidence().get("decision") == "pass",
                     "no_active_failure": result_status(inputs) == "pass",
                 }
             else:
@@ -808,13 +869,27 @@ def run_goal(
                     "no_active_failure": result_status(inputs) == "pass",
                 }
             skills_cfg = settings.get("skills") or {}
+            visual_required = bool(is_visual_task(goal) and (settings.get("skills") or {}).get("require_browser_acceptance"))
+            visual_handle = None
+            visual_source = None
+            visual_error = None
+            if visual_required and visual_runner is not None:
+                try:
+                    visual_handle = capture_visual_run(
+                        evidence_root=runtime_root / "visual", run_id=active_graph.graph_id,
+                        source_digest=visual_runner.source_digest, capture=visual_runner.capture,
+                    )
+                    visual_source = visual_runner.source_digest()
+                except Exception:
+                    # Adapter errors are typed; never expose raw private paths or logs.
+                    visual_error = "visual-runner-execution-failed"
             visual = evaluate_visual_acceptance(
-                visual_task=is_visual_task(goal),
-                require_browser_acceptance=bool(skills_cfg.get("require_browser_acceptance")),
-                evidence=(inputs.get("implement", {}).get("parsed") or {}).get("visual_evidence")
-                if isinstance(inputs.get("implement", {}).get("parsed"), dict)
-                else None,
+                visual_task=is_visual_task(goal), require_browser_acceptance=visual_required,
+                runner_evidence=visual_handle, expected_run_id=active_graph.graph_id,
+                expected_source_sha256=visual_source,
             )
+            if visual_error:
+                visual = {**visual, "decision": "block", "missing": [visual_error]}
             hard_gates["visual_acceptance"] = visual.get("decision") in {"pass", "not-applicable"}
             hard_gates["visual_acceptance_claim"] = bool(visual.get("visual_acceptance_claim"))
             if visual.get("decision") in {"block", UNAVAILABLE}:
@@ -891,7 +966,15 @@ def run_goal(
         }
         if node.node_id == "implement":
             accepted_plan = (inputs.get("final-plan-gate") or {}).get("output") or {}
-            pre_bind = accepted_plan_allows_implement(accepted_plan, user_home=user_home)
+            pre_bind = _persisted_plan_guard(user_home, active_graph, accepted_plan)
+            plan_key = "plan-revision" if accepted_plan.get("selected_round") == 2 else "plan-synthesis"
+            if pre_bind.get("valid"):
+                pre_bind = bind_implementation_to_accepted_plan(
+                    {"minimum_change_assessment": (accepted_plan.get("mncg") or {}).get("normalized")},
+                    accepted_plan, goal=goal, task_id=authority["id"], risk_class=authority["risk_class"],
+                    acceptance=authority["acceptance_criteria"], revision=authority["revision"],
+                    context_digest=planning_contexts.get(plan_key),
+                )
             node_contract["accepted_mncg_rung"] = pre_bind.get("selected_rung")
             if not pre_bind.get("valid"):
                 return {
@@ -1028,6 +1111,8 @@ def run_goal(
                 for row in (node_skills.get("selected") or [])
             ],
         }
+        if node.node_id in {"plan-synthesis", "plan-revision"}:
+            planning_contexts[node.node_id] = context_manifest.digest
         value = provider_executor(node, prompt_artifact.text, provider_context)
         if not isinstance(value, dict):
             value = {"status": "failed", "failure_class": "provider-executor-returned-non-object", "output": {}}
@@ -1089,32 +1174,15 @@ def run_goal(
         )
         if node.node_id == "implement":
             accepted = (inputs.get("final-plan-gate") or {}).get("output") or {}
-            backend = SuiteTaskBackend(user_home)
-            try:
-                current = backend.snapshot(task_id).to_dict()
-            except Exception:
-                value["status"] = "blocked"
-                value["failure_class"] = "implementation-not-bound-to-accepted-mncg"
-                runtime_decisions["mncg_writer_bind"] = {
-                    "valid": False,
-                    "decision": "block",
-                    "errors": ["minimum-change-current-task-unresolved"],
-                }
-                return value
-            identity = live_task_identity(current, task_id=task_id, risk_class=risk_class)
+            current_authority = _current_task_authority(user_home, task_id)
+            plan_key = "plan-revision" if accepted.get("selected_round") == 2 else "plan-synthesis"
             bind = bind_implementation_to_accepted_plan(
-                parsed,
-                accepted,
-                goal=goal,
-                task_id=str(identity.get("task_id") or task_id),
-                risk_class=str(identity.get("risk_class") or risk_class),
-                acceptance=str(identity.get("acceptance_criteria") or ""),
-                context_digest=identity.get("context_digest"),
-                revision=int(identity.get("revision") or 0),
-                current_task=identity,
-                backend=backend,
-                policy_scope=str(identity.get("policy_scope") or ""),
+                parsed, accepted, goal=goal, task_id=current_authority["id"],
+                risk_class=current_authority["risk_class"], acceptance=current_authority["acceptance_criteria"],
+                context_digest=planning_contexts.get(plan_key), revision=current_authority["revision"],
             )
+            if current_authority != initial_authority:
+                bind = {**bind, "valid": False, "decision": "block", "errors": ["current-task-authority-changed"]}
             runtime_decisions["mncg_writer_bind"] = bind
             if not bind.get("valid"):
                 value["status"] = "blocked"
@@ -1137,7 +1205,10 @@ def run_goal(
         },
     )
     result = execute_graph(user_home, graph, executor)
-    _finish_run(user_home, task_id, meeting_id, result, execute)
+    if execute and result.get("decision") == "pass" and current_test_evidence().get("decision") != "pass":
+        result["decision"] = "blocked"
+        result["failure_class"] = "test-execution-evidence-invalid-at-completion"
+    _finish_run(user_home, task_id, meeting_id, result, execute, initial_authority)
     diagnostics_path = data_root(user_home) / "diagnostics" / f"IOT-AI-DIAGNOSTICS-{graph.correlation_id}.zip"
     try:
         diagnostics = collect_diagnostics(user_home, graph.correlation_id, diagnostics_path)

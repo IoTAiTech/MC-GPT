@@ -28,7 +28,9 @@ jobs:
           EXPECTED_TREE=3a7143ff8bd1b59ea8187ebceaff4c9aedc32aef
           PAYLOAD=.github/audit/pr23-correction.patch.gz.b64
           git merge-base --is-ancestor "$BASE" HEAD
-          base64 -d "$PAYLOAD" > /tmp/correction.patch.gz
+          tr -cd 'A-Za-z0-9+/=' < "$PAYLOAD" > /tmp/correction.clean.b64
+          test "$(wc -c < /tmp/correction.clean.b64)" -eq 15612
+          base64 -d /tmp/correction.clean.b64 > /tmp/correction.patch.gz
           echo '8fd8fbf3343907528d484d6a132aebdc029556bb83901a10583e3a6b82c35d0c  /tmp/correction.patch.gz' | sha256sum -c -
           gzip -dc /tmp/correction.patch.gz > /tmp/correction.patch
           echo '1cb26ce2f61dbbf1363b051bec5aaea6f82d10c600665a354da2cfa7364b1092  /tmp/correction.patch' | sha256sum -c -

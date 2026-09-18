@@ -9,11 +9,12 @@ import re
 from pathlib import Path
 from typing import Any
 
+from .runtime_gates import coerce_max_selected, inherit_skill_privacy
 from .settings import effective_settings, load as load_settings
 from .skill_registry import discover
 from .util import utc_now
 
-ROUTER_VERSION = "1.0.0"
+ROUTER_VERSION = "1.1.0"
 VISUAL_TERMS = (
     "website",
     "landing page",
@@ -117,6 +118,18 @@ def _score(skill: dict[str, Any], *, goal: str, role_id: str | None, stage: str 
     return round(score, 3)
 
 
+def detect_host_native_image_tool() -> bool:
+    import os
+    import shutil
+
+    if os.environ.get("IOT_AI_HOST_NATIVE_IMAGE_TOOL") in {"1", "true", "yes"}:
+        return True
+    for name in ("convert", "magick", "ffmpeg"):
+        if shutil.which(name):
+            return True
+    return False
+
+
 def select_skills(
     user_home: Path,
     *,
@@ -126,9 +139,11 @@ def select_skills(
     artifact: str | None = None,
     settings: dict[str, Any] | None = None,
     project_root: Path | None = None,
-    host_native_image_tool: bool = False,
+    host_native_image_tool: bool | None = None,
 ) -> dict[str, Any]:
     document = settings if settings is not None else load_settings(user_home)
+    if host_native_image_tool is None:
+        host_native_image_tool = detect_host_native_image_tool()
     skills_cfg = document.get("skills") or {}
     effective = effective_settings(user_home, document)
     allow = {str(item) for item in skills_cfg.get("allow") or []}
@@ -158,7 +173,7 @@ def select_skills(
         license_allowlist=list(skills_cfg.get("license_allowlist") or []),
     )
     deny = {str(item) for item in skills_cfg.get("deny") or []}
-    max_selected = int(skills_cfg.get("max_selected") or 4)
+    max_selected = coerce_max_selected(skills_cfg.get("max_selected"), 4)
     design_policy = str(skills_cfg.get("design_policy") or "off")
     visual = is_visual_task(goal, artifact, role_id)
     selected: list[dict[str, Any]] = []
@@ -217,10 +232,19 @@ def select_skills(
                 "execution_mode": skill.get("execution_mode") or skills_cfg.get("execution_mode_default") or "reference-only",
                 "trust": "bounded-guidance",
                 "guidance": skill.get("body") or "",
+                "privacy_class": inherit_skill_privacy(str(skill.get("source") or "packaged"), skill.get("declared_privacy_class") or skill.get("privacy_class")),
+                "privacy_inherited_from_source": True,
+                "egress_policy": skill.get("egress_policy") or "packaged",
+                "source_scope": skill.get("source_scope") or skill.get("source"),
+                "trust_tier": skill.get("trust_tier") or "untrusted",
+                "root_id": skill.get("root_id"),
+                "relative_path": skill.get("relative_path"),
+                "content_digest": skill.get("content_digest") or skill.get("file_sha256"),
             }
         )
+    eligible_ids = [row["id"] for row in selected]
     receipt = {
-        "schema": "iot-ai.skill-selection.v1",
+        "schema": "iot-ai.skill-selection.v2",
         "router_version": ROUTER_VERSION,
         "selected": [
             {key: row[key] for key in row if key != "guidance"}
@@ -233,6 +257,18 @@ def select_skills(
         "effective_settings_digest": effective.get("effective_settings_digest"),
         "silent_user_responses": bool(skills_cfg.get("silent_user_responses", True)),
         "visual_task": visual,
+        "discovered_count": int(discovered.get("count") or 0),
+        "skill_state": {
+            "schema": "iot-ai.skill-state.v1",
+            "discovered": int(discovered.get("count") or 0),
+            "eligible": eligible_ids,
+            "selected": eligible_ids,
+            "included_in_context": [],
+            "truncated": [],
+            "actually_used": [],
+            "rejected": rejected,
+            "privacy": {"inherited_from_source": True, "cloud_egress_checked": False, "errors": []},
+        },
         "created_at": utc_now(),
     }
     return {
@@ -249,7 +285,7 @@ def context_blocks(selection: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "kind": "skill-guidance",
                 "source": row["id"],
-                "privacy_class": "D0",
+                "privacy_class": inherit_skill_privacy(str(row.get("source") or "packaged"), row.get("privacy_class")),
                 "payload": {
                     "skill_id": row["id"],
                     "trust": "bounded-guidance",

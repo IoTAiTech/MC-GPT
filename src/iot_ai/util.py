@@ -471,8 +471,10 @@ def exclusive_lock(
     """Acquire a cross-platform exclusive lock file and remove it on exit.
 
     Windows can report an existing, open lock file as ``PermissionError``
-    rather than ``FileExistsError``. Treat that specific case as contention,
-    while preserving fail-closed behaviour for genuine directory permissions.
+    rather than ``FileExistsError``. A delete-pending name can also raise
+    ``PermissionError`` while ``lexists`` is already false. Treat both as
+    contention and retry until the deadline. Genuine parent-directory ACL
+    failures still surface from ``mkdir``.
     """
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     deadline = time.monotonic() + timeout_seconds
@@ -484,10 +486,9 @@ def exclusive_lock(
             if _recover_stale_lock(lock_path, stale_seconds=stale_seconds):
                 continue
         except PermissionError:
-            if not _lock_file_exists(lock_path):
-                raise
-            if _recover_stale_lock(lock_path, stale_seconds=stale_seconds):
-                continue
+            if _lock_file_exists(lock_path):
+                _recover_stale_lock(lock_path, stale_seconds=stale_seconds)
+            # Absent path + PermissionError is Windows DELETE_PENDING, not ACL.
         if fd is None:
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"timed out acquiring lock: {lock_path}")

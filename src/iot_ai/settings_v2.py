@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0
 # Required Notice: Copyright 2026 IoT-AI.Tech / Dr.-Ing. Babak Sorkhpour
 # Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
-# Version: 6.8.0-beta.1 | Date: 2026-09-03
+# Version: 6.8.0-beta.1 | Date: 2026-09-04
 """Settings v2 helper for the single settings authority in settings.py.
 
 This module is not a second settings store. load/save remain in settings.py.
@@ -21,7 +21,8 @@ SCHEMA_V1 = "iot-ai.settings.v1"
 SCHEMA_V2 = "iot-ai.settings.v2"
 ROUTER_VERSION = "1.0.0"
 OLLAMA_POLICIES = ("never", "fallback", "prefer", "required", "only")
-EFFORT_ORDER = ("low", "medium", "high", "xhigh")
+EFFORT_ORDER = ("none", "low", "medium", "high", "xhigh", "max")
+SETTINGS_EFFORT_VALUES = ("low", "medium", "high", "xhigh")
 GOVERNED_TOP_LEVEL = frozenset(
     {
         "schema",
@@ -117,6 +118,7 @@ ROUTING_DEFAULTS: dict[str, Any] = {
     "active_preset": "balanced",
     "provider_order": ["claude", "codex", "gemini", "grok", "ollama"],
     "max_distinct_models": 16,
+    "max_distinct_providers": 16,
     "max_candidates_per_role": 4,
     "require_provider_diversity": True,
     "model_allowlist": [],
@@ -269,16 +271,20 @@ def _as_effort(value: Any, field: str, *, allow_none: bool = False) -> str | Non
     if value in (None, "", "null") and allow_none:
         return None
     text = str(value or "medium").strip().lower()
-    if text not in EFFORT_ORDER:
-        raise ValueError(f"invalid {field}: {value}; allowed: {', '.join(EFFORT_ORDER)}")
+    if text not in SETTINGS_EFFORT_VALUES:
+        raise ValueError(f"invalid {field}: {value}; allowed: {', '.join(SETTINGS_EFFORT_VALUES)}")
     return text
 
 
 def _as_int(value: Any, field: str, *, minimum: int, maximum: int) -> int:
-    try:
+    if isinstance(value, bool):
+        raise ValueError(f"invalid {field}: boolean is not an integer")
+    if isinstance(value, int):
+        number = value
+    elif isinstance(value, str) and value.strip().lstrip("+-").isdigit():
         number = int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"invalid {field}: {value}") from exc
+    else:
+        raise ValueError(f"invalid {field}: {value}")
     if number < minimum or number > maximum:
         raise ValueError(f"invalid {field}: {number} not in {minimum}..{maximum}")
     return number
@@ -319,6 +325,8 @@ def normalize_routing(raw: Any) -> dict[str, Any]:
         routing["provider_order"] = _as_str_list(raw.get("provider_order"), "routing.provider_order")
     if "max_distinct_models" in raw:
         routing["max_distinct_models"] = _as_int(raw["max_distinct_models"], "routing.max_distinct_models", minimum=1, maximum=64)
+    if "max_distinct_providers" in raw:
+        routing["max_distinct_providers"] = _as_int(raw["max_distinct_providers"], "routing.max_distinct_providers", minimum=1, maximum=64)
     if "max_candidates_per_role" in raw:
         routing["max_candidates_per_role"] = _as_int(raw["max_candidates_per_role"], "routing.max_candidates_per_role", minimum=1, maximum=16)
     if "require_provider_diversity" in raw:
@@ -461,10 +469,13 @@ def assert_no_secrets(value: Any, path: str = "") -> None:
 def inject_v2(document: dict[str, Any]) -> dict[str, Any]:
     """In-memory v1→v2 normalization. Does not persist."""
     out = deepcopy(document)
+    schema = out.get("schema")
+    if schema not in {SCHEMA_V1, SCHEMA_V2, None, ""}:
+        raise ValueError(f"unsupported-schema: {schema}")
     out["routing"] = normalize_routing(out.get("routing"))
     out["skills"] = normalize_skills(out.get("skills"))
     out["api_profiles"] = normalize_api_profiles(out.get("api_profiles"))
-    if out.get("schema") not in {SCHEMA_V1, SCHEMA_V2}:
+    if schema in {None, ""}:
         out["schema"] = SCHEMA_V1
     return out
 
@@ -589,11 +600,26 @@ def resolve_effort(
             policy_limit = ",".join(allowed)
             extra = f"provider-supported effort clamped {previous} to {effective}"
             clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
+    decision = "pass"
+    block_reason = None
     if isinstance(binding, dict) and binding.get("minimum_effort"):
         minimum = binding["minimum_effort"]
         if EFFORT_ORDER.index(effective) < EFFORT_ORDER.index(minimum):
-            extra = f"below role minimum {minimum}"
-            clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
+            entitlement_ok = EFFORT_ORDER.index(minimum) <= EFFORT_ORDER.index(entitlement.max_effort)
+            supported_ok = True
+            if supported:
+                allowed = [item for item in supported if item in EFFORT_ORDER]
+                supported_ok = minimum in allowed
+            if entitlement_ok and supported_ok:
+                previous = effective
+                effective = minimum
+                extra = f"raised to role minimum {minimum} from {previous}"
+                clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
+            else:
+                extra = "minimum-effort-unsatisfied"
+                clamp_reason = f"{clamp_reason}; {extra}" if clamp_reason else extra
+                decision = "block"
+                block_reason = "minimum-effort-unsatisfied"
     return {
         "configured_value": configured,
         "effective_value": effective,
@@ -602,6 +628,8 @@ def resolve_effort(
         "entitlement_limit": entitlement_limit,
         "policy_limit": policy_limit,
         "requested_effort": requested or configured,
+        "decision": decision,
+        "block_reason": block_reason,
     }
 
 
@@ -622,14 +650,13 @@ def compute_effective(document: dict[str, Any], sources: dict[str, str] | None =
     entitlement = current_entitlements()
     sources = sources or {}
     max_models_configured = routing["max_distinct_models"]
-    max_models_effective = min(max_models_configured, max(1, entitlement.max_providers))
-    models_clamp = None
-    if max_models_effective != max_models_configured:
-        models_clamp = f"edition max_providers={entitlement.max_providers}"
+    max_models_effective = max_models_configured
     fields = {
         "routing.active_preset": describe_field(routing["active_preset"], routing["active_preset"], sources.get("routing.active_preset", "built-in")),
         "routing.provider_order": describe_field(routing["provider_order"], routing["provider_order"], sources.get("routing.provider_order", "built-in")),
-        "routing.max_distinct_models": describe_field(max_models_configured, max_models_effective, sources.get("routing.max_distinct_models", "built-in"), models_clamp, entitlement.max_providers),
+        "routing.max_distinct_models": describe_field(max_models_configured, max_models_effective, sources.get("routing.max_distinct_models", "built-in")),
+        "routing.max_distinct_providers": describe_field(routing["max_distinct_providers"], routing["max_distinct_providers"], sources.get("routing.max_distinct_providers", "built-in")),
+        "routing.max_providers": describe_field(entitlement.max_providers, entitlement.max_providers, "entitlement", None, entitlement.max_providers),
         "routing.max_candidates_per_role": describe_field(routing["max_candidates_per_role"], routing["max_candidates_per_role"], sources.get("routing.max_candidates_per_role", "built-in")),
         "routing.require_provider_diversity": describe_field(routing["require_provider_diversity"], routing["require_provider_diversity"], sources.get("routing.require_provider_diversity", "built-in")),
         "routing.model_allowlist": describe_field(routing["model_allowlist"], routing["model_allowlist"], sources.get("routing.model_allowlist", "built-in")),
@@ -654,9 +681,17 @@ def compute_effective(document: dict[str, Any], sources: dict[str, str] | None =
         "skills": skills,
         "api_profiles": normalize_api_profiles(document.get("api_profiles")),
         "edition": entitlement.edition,
+        "max_providers": entitlement.max_providers,
         "fields": fields,
     }
-    digest = sha256_json({"routing": payload["routing"], "skills": payload["skills"], "edition": payload["edition"]})
+    digest = sha256_json(
+        {
+            "routing": payload["routing"],
+            "skills": payload["skills"],
+            "api_profiles": payload["api_profiles"],
+            "edition": payload["edition"],
+        }
+    )
     payload["effective_settings_digest"] = digest
     payload["computed_at"] = utc_now()
     return payload

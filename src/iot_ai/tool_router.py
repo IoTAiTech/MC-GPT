@@ -122,6 +122,7 @@ def build_tool_decision(
         "schema": "iot-ai.tool-decision.v1",
         "role_id": role_id,
         "requested_effort": requested_effort,
+        "effective_effort": requested_effort,
         "privacy_class": privacy_class,
         "selected_candidate_id": selected.candidate_id if selected else None,
         "selected_provider": selected.provider if selected else None,

@@ -59,7 +59,7 @@ class SkillRouterTests(IsolatedHomeTestCase):
         receipt = result["receipt"]
         self.assertTrue(receipt["silent_user_responses"])
         self.assertRegex(receipt["effective_settings_digest"], r"^[0-9a-f]{64}$")
-        self.assertEqual(receipt["router_version"], "1.0.0")
+        self.assertEqual(receipt["router_version"], "1.1.0")
         for row in receipt["selected"]:
             self.assertIn("file_sha256", row)
             self.assertIn("license", row)

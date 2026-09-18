@@ -294,6 +294,21 @@ class RoutingPolicyTests(IsolatedHomeTestCase):
         self.assertEqual(result["implementation-engineer"]["requested_effort"], "xhigh")
         self.assertEqual(result["implementation-engineer"]["effective_effort"], "medium")
 
+    def test_fallback_candidates_receive_own_effort_stamp(self) -> None:
+        settings = load(self.home)
+        settings["routing"]["ollama"] = {"local_policy": "never", "cloud_policy": "never"}
+        settings["routing"]["role_bindings"]["implementation-engineer"]["effort"] = "low"
+        with patch("iot_ai.model_policy.provider_candidates", return_value=self._candidates()):
+            result = select_candidates(self.home, ["implementation-engineer"], settings=settings)
+        primary = result["implementation-engineer"]
+        self.assertTrue(primary.get("requested_effort"))
+        self.assertTrue(primary.get("effective_effort"))
+        fallbacks = primary.get("fallback_candidates") or []
+        self.assertTrue(fallbacks)
+        for row in fallbacks:
+            self.assertTrue(row.get("requested_effort"), row)
+            self.assertTrue(row.get("effective_effort"), row)
+
     def test_api_endpoint_rejects_credentials(self) -> None:
         with self.assertRaises(ValueError):
             add_route(

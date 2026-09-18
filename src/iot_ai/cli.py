@@ -657,13 +657,32 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "settings":
             value = settings_mod.load(h)
             editable = settings_mod.load(h, normalize=False)
+            from .settings_v2 import sha256_json
+            from .util import load_json
+
+            path = settings_mod.settings_path(h)
+            on_disk_snapshot = load_json(path, {}) or {}
+            snapshot_revision = int(on_disk_snapshot.get("revision") or 0) if on_disk_snapshot else None
+            snapshot_digest = sha256_json(on_disk_snapshot) if on_disk_snapshot else None
+
+            def persist_settings() -> None:
+                if snapshot_digest is not None:
+                    settings_mod.save(
+                        h,
+                        editable,
+                        expected_revision=snapshot_revision,
+                        expected_digest=snapshot_digest,
+                    )
+                else:
+                    settings_mod.save(h, editable)
+
             if a.op == "show":
                 emit(settings_mod.effective_settings(h, value) if getattr(a, "effective", False) else value)
-            elif a.op == "set": settings_mod.set_value(editable, a.key, a.value); settings_mod.save(h, editable); emit({"decision": "pass", "key": a.key})
-            elif a.op == "group": settings_mod.toggle_group(editable, a.group, a.state == "on"); settings_mod.save(h, editable); emit({"decision": "pass", "group": a.group, "enabled": a.state == "on"})
+            elif a.op == "set": settings_mod.set_value(editable, a.key, a.value); persist_settings(); emit({"decision": "pass", "key": a.key})
+            elif a.op == "group": settings_mod.toggle_group(editable, a.group, a.state == "on"); persist_settings(); emit({"decision": "pass", "group": a.group, "enabled": a.state == "on"})
             elif a.op == "profile":
                 editable["orchestration"]["active_profile"] = a.name
-                if not a.session_only: settings_mod.save(h, editable)
+                if not a.session_only: persist_settings()
                 emit({"decision": "pass", "profile": a.name, "session_only": a.session_only, "settings": editable["orchestration"]["profiles"][a.name]})
             elif a.op == "validate":
                 emit(settings_mod.validate_settings(h, value))
@@ -692,7 +711,7 @@ def main(argv: list[str] | None = None) -> int:
                         effort=a.effort,
                         minimum_effort=a.minimum_effort,
                     )
-                    settings_mod.save(h, editable)
+                    persist_settings()
                     emit({"decision": "pass", "role_id": a.role_id, "binding": editable["routing"]["role_bindings"][a.role_id]})
             elif a.op == "skills":
                 from .skill_registry import discover

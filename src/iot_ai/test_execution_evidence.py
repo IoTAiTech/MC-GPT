@@ -13,10 +13,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import queue
 import re
 import signal
 import subprocess
 import tempfile
+import threading
 import time
 import weakref
 from dataclasses import dataclass
@@ -102,6 +104,77 @@ def _stop(process: subprocess.Popen) -> None:
     process.wait(timeout=10)
 
 
+def _capture_output(process: subprocess.Popen, output: Any, timeout: float) -> str | None:
+    """Only the parent writes the log; pipe backpressure bounds queued output.
+
+    A reader thread makes pipe handling portable to Windows. Process-group
+    cleanup covers ordinary POSIX descendants; detached children still need the
+    externally managed sandbox required by the host-runner contract.
+    """
+    chunks: queue.Queue = queue.Queue(maxsize=2)
+    stopped = threading.Event()
+    stream = process.stdout
+    assert stream is not None
+
+    def publish(value: Any) -> None:
+        while not stopped.is_set():
+            try:
+                chunks.put(value, timeout=0.05)
+                return
+            except queue.Full:
+                continue
+
+    def read_output() -> None:
+        try:
+            while not stopped.is_set():
+                chunk = stream.read(min(65536, MAX_OUTPUT + 1))
+                publish(chunk)
+                if not chunk:
+                    return
+        except (OSError, ValueError) as exc:
+            publish(exc)
+
+    reader = threading.Thread(target=read_output, name="host-check-output", daemon=True)
+    deadline = time.monotonic() + timeout
+    written = 0
+    reaped = False
+    reader.start()
+    try:
+        while True:
+            remaining_time = deadline - time.monotonic()
+            if remaining_time <= 0:
+                return "timeout"
+            if not reaped and process.poll() is not None:
+                _stop(process)  # Close pipes held by ordinary same-group children.
+                reaped = True
+            try:
+                chunk = chunks.get(timeout=min(0.05, remaining_time))
+            except queue.Empty:
+                continue
+            if isinstance(chunk, Exception):
+                raise ValueError("test-output-capture-failed") from chunk
+            if not chunk:
+                try:
+                    process.wait(timeout=max(0.001, deadline - time.monotonic()))
+                except subprocess.TimeoutExpired:
+                    return "timeout"
+                return None
+            available = MAX_OUTPUT - written
+            if len(chunk) > available:
+                output.write(chunk[:available])
+                return "output-limit"
+            output.write(chunk)
+            written += len(chunk)
+    finally:
+        try:
+            if not reaped:
+                _stop(process)
+        finally:
+            stopped.set()
+            reader.join(timeout=1)
+            stream.close()
+
+
 class HostTestRunner:
     """Prepare immutable, host-selected commands; construction does not run them."""
 
@@ -156,29 +229,13 @@ class HostTestRunner:
             failure = None
             with (root / filename).open("xb") as output:
                 os.chmod(root / filename, 0o600)
-                process = subprocess.Popen(list(argv), cwd=self.cwd, stdout=output, stderr=subprocess.STDOUT,
-                    stdin=subprocess.DEVNULL, env=environment, shell=False, start_new_session=os.name == "posix")
-                try:
-                    while process.poll() is None:
-                        if time.monotonic() - started > timeout:
-                            failure = "timeout"
-                            break
-                        if os.fstat(output.fileno()).st_size > MAX_OUTPUT:
-                            failure = "output-limit"
-                            break
-                        time.sleep(0.01)
-                    if failure:
-                        _stop(process)
-                    else:
-                        process.wait(timeout=10)
-                        if os.name == "posix":
-                            _stop(process)  # Remove ordinary descendants still in our session.
-                finally:
-                    if process.poll() is None:
-                        _stop(process)
+                process = subprocess.Popen(list(argv), cwd=self.cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL, env=environment, shell=False, bufsize=0,
+                    start_new_session=os.name == "posix")
+                failure = _capture_output(process, output, timeout)
                 code = process.returncode
             # Do not infer test counts from stdout, which a test can print itself.
-            if (root / filename).stat().st_size > MAX_OUTPUT:
+            if failure == "output-limit" or (root / filename).stat().st_size > MAX_OUTPUT:
                 raise ValueError("test-output-limit")
             body = _read(root, filename)
             rows.append({"id": new_id("test"), "tier": f"host-check-{index + 1:02d}",
@@ -217,13 +274,14 @@ class HostTestRunner:
 
 
 def verify_test_execution(handle: Any, *, user_home: Path, binding: dict[str, Any],
-                          current_source_sha256: str, profile_sha256: str) -> dict[str, Any]:
+                          current_source_sha256: str, profile_sha256: str,
+                          connection: Any = None) -> dict[str, Any]:
     """Re-read owned evidence and existing ledger rows. A dict cannot grant trust."""
     blocked = {"decision": "block", "failure_class": "test-execution-evidence-invalid",
                "test_results": [], "hard_gates": {"host_checks_pass": False}, "evidence_refs": []}
     if not isinstance(handle, TestExecutionHandle) or _ISSUED.get(handle) != (handle.root, handle.receipt_sha256):
         return blocked
-    connection = None
+    owns_connection = connection is None
     try:
         data = _read(handle.root, "receipt.json")
         if hashlib.sha256(data).hexdigest() != handle.receipt_sha256:
@@ -231,7 +289,8 @@ def verify_test_execution(handle: Any, *, user_home: Path, binding: dict[str, An
         receipt = json.loads(data)
         if receipt["binding"] != binding or receipt["source_sha256"] != current_source_sha256 or receipt["profile_sha256"] != profile_sha256:
             return blocked
-        connection = connect_read(user_home)
+        if connection is None:
+            connection = connect_read(user_home)
         if connection is None:
             return blocked
         task = one(connection, "SELECT id,revision,acceptance_criteria FROM tasks WHERE id=?", (binding["task_id"],))
@@ -256,5 +315,5 @@ def verify_test_execution(handle: Any, *, user_home: Path, binding: dict[str, An
     except (ValueError, TypeError, KeyError, OSError, RecursionError):
         return blocked
     finally:
-        if connection is not None:
+        if owns_connection and connection is not None:
             connection.close()

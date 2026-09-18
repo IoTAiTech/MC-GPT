@@ -1,6 +1,10 @@
 # Public Roadmap
 
-## Current — 6.4 Developer Preview
+## Current source — 6.8 Developer Preview candidate
+
+Source capability is not released-package or deployment qualification. Follow
+the [readiness register](docs/product-readiness.md) for evidence and blockers;
+the tagged download may be an earlier version.
 
 - Goal-first bounded loop contracts.
 - Application-owned prompt, context, tools and control flow.

@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 import hashlib
-import os
+import json
 import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
 from .exec_pin import pin_executable, provider_env
-from .util import utc_now
+from .util import open_secure, utc_now
 from .worktrees import create as create_worktrees
 
 
@@ -41,24 +41,21 @@ def snapshot_tree(repo: Path) -> dict[str, Any]:
     if head.returncode:
         raise RuntimeError(head.stderr.strip() or "missing-git-head")
     status = _git(root, "status", "--porcelain=v1", "--untracked-files=all")
-    listed = _git(root, "ls-files", "-z")
+    listed = _git(root, "ls-files", "--cached", "--others", "--exclude-standard", "-z")
+    if status.returncode or listed.returncode:
+        raise ValueError("source-inventory-unavailable")
     files: dict[str, str] = {}
     names = {item for item in listed.stdout.split("\0") if item}
-    for current, _dirs, filenames in os.walk(root):
-        current_path = Path(current)
-        if ".git" in current_path.parts:
-            continue
-        for filename in filenames:
-            candidate = current_path / filename
-            if not candidate.is_file() or candidate.is_symlink():
-                continue
-            rel = str(candidate.relative_to(root)).replace("\\", "/")
-            names.add(rel)
+    if len(names) > 10000:
+        raise ValueError("source-inventory-too-large")
     for name in names:
-        candidate = (root / name).resolve()
-        if not candidate.is_file() or candidate.is_symlink():
+        candidate = root / name
+        if candidate.is_symlink():
+            raise ValueError("source-symlink-unsupported")
+        if not candidate.exists():
             continue
-        files[name] = hashlib.sha256(candidate.read_bytes()).hexdigest()
+        with open_secure(candidate, allowed_roots=[root], max_bytes=16 * 1024 * 1024) as stream:
+            files[name] = hashlib.sha256(stream.read()).hexdigest()
     return {
         "schema": "iot-ai.tree-snapshot.v1",
         "root": str(root),
@@ -101,6 +98,14 @@ def changed_files(base: dict[str, Any], post: dict[str, Any]) -> list[dict[str, 
     return rows
 
 
+def tree_digest(snapshot: dict[str, Any]) -> str:
+    """Unambiguous identity of the Git head and non-ignored source inventory."""
+    return hashlib.sha256(json.dumps(
+        {"head": snapshot["head"], "files": snapshot["files"]},
+        sort_keys=True, separators=(",", ":"),
+    ).encode()).hexdigest()
+
+
 def bind_post_change(
     *,
     base: dict[str, Any],
@@ -122,16 +127,13 @@ def bind_post_change(
         reason = "no-op-rejected"
     return {
         "schema": "iot-ai.change-binding.v1",
+        "root": str(root),
         "decision": decision,
         "reason": reason,
         "base_head": base.get("head"),
         "post_head": post.get("head"),
-        "base_tree_sha256": hashlib.sha256(
-            "".join(f"{k}={v}\n" for k, v in sorted((base.get("files") or {}).items())).encode()
-        ).hexdigest(),
-        "post_tree_sha256": hashlib.sha256(
-            "".join(f"{k}={v}\n" for k, v in sorted((post.get("files") or {}).items())).encode()
-        ).hexdigest(),
+        "base_tree_sha256": tree_digest(base),
+        "post_tree_sha256": tree_digest(post),
         "changed_files": rows,
         "in_scope": in_scope,
         "out_of_scope": out_of_scope,

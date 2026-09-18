@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import os
+import json
+import re
 import shlex
 import shutil
 import sys
@@ -15,8 +17,9 @@ from typing import Any
 
 from . import __version__
 from .logging_config import append_event, log_locations, transaction_log
-from .paths import SUITE_NAMESPACE, data_root, install_state_path, legacy_locations
-from .util import atomic_json, atomic_text, load_json, sha256_file, utc_now
+from .paths import SUITE_NAMESPACE, config_root, data_root, install_state_path, legacy_locations
+from .util import atomic_json, atomic_text, load_json, open_secure, sha256_file, utc_now
+from .runtime_integrity import verify_distribution
 
 HOSTS = ("claude", "codex", "gemini", "grok")
 PUBLIC_SKILLS = (
@@ -47,11 +50,16 @@ def _skill_content(skill: str) -> str:
         "---\n"
         f"name: {skill}\n"
         f"description: {labels[skill]}\n"
+        f"suite_version: {__version__}\n"
         "---\n"
         f"# {skill}\n\n"
         "Use the installed `iot-ai` CLI as the only public control surface.\n\n"
         f"- Example: `/{skill} ...` or `{skill} ...`\n"
-        "- Read `iot-ai help` before inventing flags.\n"
+        "- Inspect `iot-ai --version` and the exact subcommand's `--help` before execution.\n"
+        "- Skill loading, native agents, Suite invocation and provider receipts are distinct evidence.\n"
+        "- `iot-ai multi-coder run --plan` makes no provider calls; omitting `--plan` executes even without `--apply`.\n"
+        "- Record runtime version, command mode and run/evidence reference for this work unit.\n"
+        "- A command start, version banner or plan is not completed implementation or independent approval.\n"
         "- Preserve role contracts, evidence, privacy, task authority, and public/private boundaries.\n"
         "- Never claim a provider/model contribution without a live requested/served receipt.\n"
     )
@@ -74,7 +82,9 @@ def _content(host: str, skill: str) -> str:
         f'description = "IOT-AI command {skill}"\n'
         'prompt = """\n'
         f"Use the installed `{skill}` command for this request.\n"
-        "First inspect `iot-ai help`; do not invent flags, receipts, models or authority.\n"
+        f"Suite version: {__version__}. Inspect the exact subcommand --help first.\n"
+        "Loading a skill is not a provider contribution. Multi-coder run executes unless --plan is explicit.\n"
+        "Do not invent flags, receipts, models or authority.\n"
         '"""\n'
     )
 
@@ -276,6 +286,7 @@ def install(user_home: Path, hosts: list[str], operation: str = "install") -> di
         "transaction_id": transaction_id,
         "home": str(user_home),
         "hosts": hosts,
+        "runtime_package_root": str(Path(__file__).resolve().parent),
         "files": files,
         "backups": backups,
         "rollback_files": rollback_files,
@@ -304,22 +315,101 @@ def upgrade(user_home: Path, hosts: list[str] | None = None) -> dict[str, Any]:
     return install(user_home, list(hosts or state.get("hosts") or HOSTS), "upgrade")
 
 
-def verify(user_home: Path) -> dict[str, Any]:
-    state = load_json(install_state_path(user_home))
+def _runtime_check(user_home: Path, state: dict[str, Any], runtime_root: Path | None) -> dict[str, Any]:
+    version = state.get("version")
+    if not isinstance(version, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z]+)*", version):
+        return {"decision": "block", "blockers": ["runtime-version-invalid"]}
+    target = runtime_root or data_root(user_home) / "suite" / version
+    recorded = state.get("runtime_package_root")
+    if runtime_root is None and recorded is not None:
+        if not isinstance(recorded, str) or not recorded:
+            return {"decision": "block", "blockers": ["runtime-descriptor-invalid"]}
+        package = Path(recorded)
+    elif runtime_root is not None or target.exists():
+        choices = list(target.glob("venv/lib/python*/site-packages/iot_ai"))
+        windows = target / "venv" / "Lib" / "site-packages" / "iot_ai"
+        if windows.exists():
+            choices.append(windows)
+        if len(choices) != 1:
+            return {"decision": "block", "blockers": ["runtime-target-missing-or-ambiguous"]}
+        package = choices[0]
+    else:
+        package = Path(__file__).resolve().parent
+    # Source adapter installs are a supported developer operation. They verify
+    # adapters only and must not claim installed-runtime qualification.
+    if package.parent.name == "src" and (package.parent.parent / "pyproject.toml").is_file():
+        return {"decision": "not-applicable", "scope": "source-host-adapters-only",
+                "blockers": [], "execution_authenticity": False}
+    allowed = [user_home.resolve(), data_root(user_home).resolve(), Path(__file__).resolve().parent.parent]
+    if not any(package.resolve().is_relative_to(root) for root in allowed):
+        return {"decision": "block", "blockers": ["runtime-root-outside-install-scope"]}
+    python_version = re.sub(r"-(alpha|beta|rc)\.(\d+)$", lambda m: {"alpha":"a","beta":"b","rc":"rc"}[m[1]] + m[2], version)
+    wheel = None
+    digest = None
+    manifest_path = target / "MANIFEST.json"
+    if package.resolve().is_relative_to(target.resolve()) and manifest_path.exists():
+        try:
+            with open_secure(manifest_path, allowed_roots=[target], max_bytes=4 * 1024 * 1024) as stream:
+                manifest = json.loads(stream.read())
+            choices = [row for row in manifest.get("files", [])
+                       if isinstance(row, dict) and row.get("path", "").startswith("wheels/iot_ai_coder_suite-")
+                       and row.get("path", "").endswith(".whl")]
+            if len(choices) != 1 or len(Path(choices[0]["path"]).parts) != 2:
+                raise ValueError("runtime-wheel-ambiguous")
+            wheel = target / choices[0]["path"]
+            digest = choices[0].get("sha256")
+        except (OSError, ValueError, TypeError, AttributeError):
+            return {"decision": "block", "blockers": ["runtime-package-anchor-invalid"]}
+    return verify_distribution(package, expected_version=python_version, wheel=wheel, wheel_sha256=digest)
+
+
+def verify(user_home: Path, *, runtime_root: Path | None = None) -> dict[str, Any]:
+    state_path = install_state_path(user_home)
+    try:
+        with open_secure(state_path, allowed_roots=[user_home, config_root(user_home)], max_bytes=4 * 1024 * 1024) as stream:
+            state = json.loads(stream.read())
+    except FileNotFoundError:
+        state = None
+    except (OSError, ValueError, TypeError):
+        return {"decision": "needs-work", "blockers": ["install-state-invalid"]}
     if not state:
         return {"decision": "needs-work", "blockers": ["not-installed"]}
     blockers: list[str] = []
-    for item in state.get("files", []):
+    if not isinstance(state, dict):
+        return {"decision": "needs-work", "blockers": ["install-state-invalid"]}
+    hosts, files = state.get("hosts"), state.get("files")
+    if (not isinstance(hosts, list) or any(type(host) is not str or host not in HOSTS for host in hosts)
+            or len(set(hosts)) != len(hosts) or not isinstance(files, list) or not files):
+        return {"decision": "needs-work", "blockers": ["managed-inventory-invalid"]}
+    expected = {str(_target(user_home, host, skill)) for host in hosts for skill in SKILLS}
+    expected.update(str(_wrapper_path(user_home, name)) for name in _wrapper_specs())
+    if (any(not isinstance(item, dict) or type(item.get("path")) is not str
+            or type(item.get("sha256")) is not str or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])
+            for item in files)
+            or len({item["path"] for item in files}) != len(files)
+            or {item["path"] for item in files} != expected):
+        return {"decision": "needs-work", "blockers": ["managed-inventory-incomplete-or-invalid"]}
+    for item in files:
         path = Path(item["path"])
-        if not path.is_file():
-            blockers.append(f"missing:{path}")
-        elif sha256_file(path, allowed_roots=[user_home], max_bytes=None) != item["sha256"]:
-            blockers.append(f"drift:{path}")
+        try:
+            if sha256_file(path, allowed_roots=[user_home], max_bytes=1024 * 1024) != item["sha256"]:
+                blockers.append(f"drift:{path}")
+        except (OSError, ValueError):
+            blockers.append(f"unreadable-or-unsafe:{path}")
+    try:
+        runtime = _runtime_check(user_home, state, runtime_root)
+    except (OSError, ValueError, TypeError):
+        runtime = {"decision": "block", "blockers": ["runtime-inspection-failed"]}
+    if runtime.get("decision") == "block":
+        blockers.extend(runtime.get("blockers") or ["runtime-integrity-failed"])
     return {
         "decision": "pass" if not blockers else "needs-work",
         "version": state.get("version"),
         "blockers": blockers,
         "restart_required": state.get("restart_required", False),
+        "runtime_integrity": runtime,
+        "verification_scope": "host-adapters-only" if runtime.get("decision") == "not-applicable" else "host-adapters-and-package-source-data",
+        "execution_authenticity": False,
     }
 
 

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .projection import export_workspace
+from .completion_evidence import digest as completion_digest, latest_start, task_authority, verify_completion, work_authority
 from .util import sha256_file, utc_now
 from .workspace import (
     CLOSED_STATUSES,
@@ -140,7 +141,11 @@ def show(user_home:Path,task_id:str|None=None,limit:int=5)->dict[str,Any]:
 def add_work_unit(user_home:Path,task_id:str,title:str,role:str="implementation",read_scope:list[str]|None=None,write_scope:list[str]|None=None)->dict[str,Any]:
     conn=connect_write(user_home)
     try:
-        _task(conn,task_id); wid=new_id("wu"); now=utc_now()
+        conn.execute("BEGIN IMMEDIATE")
+        task=_task(conn,task_id)
+        if task["status"] in CLOSED_STATUSES | {"awaiting_founder","verification"}:
+            raise PermissionError("work-unit-task-state-not-executable")
+        wid=new_id("wu"); now=utc_now()
         conn.execute("INSERT INTO work_units(id,task_id,title,role,read_scope_json,write_scope_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)",(wid,task_id,title,role,json.dumps(read_scope or []),json.dumps(write_scope or []),now,now))
         conn.execute("UPDATE tasks SET status='ready',revision=revision+1,updated_at=? WHERE id=?",(now,task_id))
         append_event(conn,"work_unit.created",{"title":title,"role":role},task_id=task_id,work_unit_id=wid); conn.commit()
@@ -164,8 +169,12 @@ def claim_work_unit(
     if not owner or not session_id: raise ValueError("owner and session_id are required")
     ttl=max(60,min(ttl_seconds,86400)); conn=connect_write(user_home)
     try:
+        conn.execute("BEGIN IMMEDIATE")
         wu=one(conn,"SELECT * FROM work_units WHERE id=?",(work_unit_id,))
         if not wu: raise ValueError("Work unit not found")
+        task=_task(conn,wu["task_id"])
+        if task["status"] in CLOSED_STATUSES | {"awaiting_founder","verification"}:
+            raise PermissionError("claim-task-state-not-executable")
         if enforce_validation:
             from .task_validation import gate as validation_gate
             validation=validation_gate(user_home,wu["task_id"],trigger_action)
@@ -278,6 +287,8 @@ def submit_task(
     lease_id:str|None=None,
     lease_token:str|None=None,
     result_summary:str="Technical work submitted for review",
+    *,
+    execution:dict[str,Any]|None=None,
 ) -> dict[str,Any]:
     """Submit technical work only after the independent audit passes.
 
@@ -288,12 +299,40 @@ def submit_task(
     founder-only queue.  Failed audits return the task to ``needs-work``.
     """
     conn=connect_write(user_home)
+    transition=None
     try:
+        conn.execute("BEGIN IMMEDIATE")
         task=_task(conn,task_id)
-        if task["status"] in CLOSED_STATUSES:
+        if task["status"] in CLOSED_STATUSES | {"awaiting_founder"}:
             raise PermissionError(f"submit is forbidden for terminal task status: {task['status']}")
+        work=one(conn,"SELECT * FROM work_units WHERE id=? AND task_id=?",(work_unit_id,task_id)) if work_unit_id else None
+        if work_unit_id and not work:
+            raise PermissionError("submission-work-unit-mismatch")
         if lease_id:
-            _verified_lease(conn,lease_id,lease_token)
+            if not lease_token:
+                raise PermissionError("submission-lease-token-required")
+            lease=_verified_lease(conn,lease_id,lease_token)
+            if lease["task_id"]!=task_id or lease["work_unit_id"]!=work_unit_id:
+                raise PermissionError("submission-lease-scope-mismatch")
+        active=rows(conn,"SELECT * FROM leases WHERE task_id=? AND status='active'",(task_id,))
+        if any(row["id"]!=lease_id for row in active):
+            return {"decision":"block","task_id":task_id,"status":task["status"],"reason":"peer-lease-active","founder_queue_entered":False,
+                    "audit":{"decision":"needs-work","findings":["peer-lease-active"]}}
+        binding=latest_start(conn,task_id)
+        if execution is not None and execution!=binding:
+            raise PermissionError("submission-execution-mismatch")
+        if binding:
+            if (binding["task_revision"]!=task["revision"] or binding["task_authority_sha256"]!=task_authority(task)
+                or not work or binding["work_unit_id"]!=work_unit_id or binding["lease_id"]!=lease_id
+                or binding["work_unit_revision"]!=work["revision"] or binding["work_authority_sha256"]!=work_authority(work)):
+                return {"decision":"block","task_id":task_id,"status":task["status"],"reason":"submission-authority-conflict","founder_queue_entered":False,
+                        "audit":{"decision":"needs-work","findings":["submission-authority-conflict"]}}
+            transition={"run_id":binding["run_id"],"binding_sha256":completion_digest(binding),
+                        "source_revision":task["revision"],"verification_revision":task["revision"]+1}
+        source_revision=task["revision"]
+        authority=task_authority(task)
+        work_revision=work["revision"] if work else None
+        work_digest=work_authority(work) if work else None
         now=utc_now(); pid=new_id("prg")
         conn.execute(
             "INSERT INTO progress_events VALUES(?,?,?,?,?,?,?)",
@@ -308,21 +347,47 @@ def submit_task(
                 "UPDATE work_units SET status='review',engineering_stage='verification',engineering_progress=100,revision=revision+1,updated_at=? WHERE id=?",
                 (now,work_unit_id),
             )
-        active=rows(conn,"SELECT * FROM leases WHERE task_id=? AND status='active'",(task_id,))
-        for lease in active:
+        for lease in active:  # All peers were rejected above; release only this submission's lease.
             conn.execute("UPDATE leases SET status='released',released_at=?,revision=revision+1 WHERE id=?",(now,lease["id"]))
             append_event(conn,"lease.released",{"lease_id":lease["id"],"reason":"pre-submit-audit"},task_id=task_id,work_unit_id=lease["work_unit_id"])
-        append_event(conn,"task.verification_candidate",{"result_summary":result_summary},task_id=task_id,work_unit_id=work_unit_id)
+        append_event(conn,"task.verification_candidate",{"result_summary":result_summary,"transition":transition},task_id=task_id,work_unit_id=work_unit_id)
         conn.commit()
     finally:
         conn.close()
 
-    export_workspace(user_home,task_id=task_id)
+    try:
+        export_workspace(user_home,task_id=task_id)
+    except Exception as exc:
+        return _submission_export_failure(user_home,task_id,work_unit_id,source_revision+1,
+                                          work_revision+1 if work_revision is not None else None,authority,type(exc).__name__)
     from .audit import audit_task
-    audit=audit_task(user_home,task_id,record=True)
-    approved=audit["decision"]=="approve_technical"
     conn=connect_write(user_home)
     try:
+        conn.execute("BEGIN IMMEDIATE")
+        candidate=_task(conn,task_id)
+        candidate_work=one(conn,"SELECT * FROM work_units WHERE id=?",(work_unit_id,)) if work_unit_id else None
+        if (candidate["status"]!="verification" or candidate["revision"]!=source_revision+1
+            or task_authority(candidate)!=authority or (work_unit_id and (
+                not candidate_work or candidate_work["revision"]!=work_revision+1 or work_authority(candidate_work)!=work_digest))):
+            return {"decision":"block","task_id":task_id,"status":candidate["status"],"reason":"submission-authority-conflict","founder_queue_entered":False,
+                    "audit":{"decision":"needs-work","findings":["submission-authority-conflict"]}}
+        audit=audit_task(user_home,task_id,record=False,connection=conn,transition=transition)
+        approved=audit["decision"]=="approve_technical"
+        # Recheck filesystem identity after audit; the SQLite lock alone cannot
+        # freeze source files. Trusted deployments must also isolate writers.
+        if approved:
+            final=verify_completion(user_home,conn,_task(conn,task_id),transition=transition)
+            if final["decision"]!="pass":
+                audit["decision"]="needs-work"
+                audit["findings"].extend(final["findings"])
+                audit["gates"]["completion_evidence_bound"]=False
+                audit["gate_score"]=round(100*sum(audit["gates"].values())/len(audit["gates"]),4)
+                audit["evidence_sha256"]=completion_digest({k:v for k,v in audit.items() if k!="evidence_sha256"})
+                approved=False
+        aid=new_id("audit")
+        conn.execute("INSERT INTO audits(id,task_id,decision,gate_score,gates_json,findings_json,evidence_sha256,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                     (aid,task_id,audit["decision"],audit["gate_score"],json.dumps(audit["gates"],sort_keys=True),json.dumps(audit["findings"]),audit["evidence_sha256"],audit["created_at"]))
+        audit["audit_id"]=aid
         now=utc_now()
         if approved:
             status="awaiting_founder"
@@ -330,7 +395,8 @@ def submit_task(
             engineering_progress=100
             task_progress=100
             event="task.submitted"
-            event_payload={"status":status,"result_summary":result_summary,"audit_id":audit.get("audit_id")}
+            event_payload={"status":status,"result_summary":result_summary,"audit_id":audit.get("audit_id"),
+                           "transition":transition,"terminal_revision":source_revision+2}
         else:
             status="needs-work"
             stage="verification-needs-work"
@@ -338,10 +404,12 @@ def submit_task(
             task_progress=95
             event="task.submission_rejected"
             event_payload={"status":status,"audit_id":audit.get("audit_id"),"findings":audit.get("findings",[])}
-        conn.execute(
-            "UPDATE tasks SET status=?,engineering_stage=?,engineering_progress=?,task_progress=?,revision=revision+1,updated_at=? WHERE id=?",
-            (status,stage,engineering_progress,task_progress,now,task_id),
+        updated=conn.execute(
+            "UPDATE tasks SET status=?,engineering_stage=?,engineering_progress=?,task_progress=?,revision=revision+1,updated_at=? WHERE id=? AND status='verification' AND revision=?",
+            (status,stage,engineering_progress,task_progress,now,task_id,source_revision+1),
         )
+        if updated.rowcount!=1:
+            raise ValueError("submission-authority-conflict")
         if work_unit_id:
             conn.execute(
                 "UPDATE work_units SET status=?,engineering_stage=?,engineering_progress=?,revision=revision+1,updated_at=? WHERE id=?",
@@ -351,7 +419,11 @@ def submit_task(
         conn.commit()
     finally:
         conn.close()
-    export_workspace(user_home,task_id=task_id)
+    try:
+        export_workspace(user_home,task_id=task_id)
+    except Exception as exc:
+        return _submission_export_failure(user_home,task_id,work_unit_id,source_revision+2,
+                                          work_revision+2 if work_revision is not None else None,authority,type(exc).__name__)
     return {
         "decision":"pass" if approved else "needs-work",
         "task_id":task_id,
@@ -359,6 +431,32 @@ def submit_task(
         "audit":audit,
         "founder_queue_entered":approved,
     }
+
+
+def _submission_export_failure(user_home:Path,task_id:str,work_unit_id:str|None,expected_revision:int,
+                               expected_work_revision:int|None,authority:str,error_type:str)->dict[str,Any]:
+    """Compensate only our own transition; consumed leases never become active."""
+    conn=connect_write(user_home)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        task=_task(conn,task_id)
+        work=one(conn,"SELECT * FROM work_units WHERE id=? AND task_id=?",(work_unit_id,task_id)) if work_unit_id else None
+        owned=(task["revision"]==expected_revision and task_authority(task)==authority
+               and task["status"] in {"verification","awaiting_founder","needs-work"}
+               and (not work_unit_id or (work and work["revision"]==expected_work_revision)))
+        if owned:
+            now=utc_now()
+            conn.execute("UPDATE tasks SET status='needs-work',engineering_stage='projection-needs-work',engineering_progress=95,task_progress=95,revision=revision+1,updated_at=? WHERE id=?",(now,task_id))
+            if work_unit_id:
+                conn.execute("UPDATE work_units SET status='ready',engineering_stage='projection-needs-work',revision=revision+1,updated_at=? WHERE id=?",(now,work_unit_id))
+            append_event(conn,"task.submission_export_failed",{"error_type":error_type,"retry_requires_fresh_execution":True},task_id=task_id,work_unit_id=work_unit_id)
+            conn.commit()
+        return {"decision":"needs-work" if owned else "block","task_id":task_id,
+                "status":"needs-work" if owned else task["status"],"reason":"submission-projection-failed",
+                "error_type":error_type,"retry_requires_fresh_execution":True,"founder_queue_entered":False,
+                "audit":{"decision":"needs-work","findings":["submission-projection-failed"]}}
+    finally:
+        conn.close()
 
 
 def complete(user_home:Path,task_id:str,result:str)->dict[str,Any]:

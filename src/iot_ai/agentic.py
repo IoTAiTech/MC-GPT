@@ -192,11 +192,28 @@ def _default_provider_executor(
                 },
             }
         from .provider_catalog import apply_catalog_to_candidate
+        from .settings_v2 import resolve_effort
 
         ladder = [
             apply_catalog_to_candidate({**dict(row), "risk_class": row.get("risk_class") or graph.risk_class})
             for row in [primary, *list(primary.get("fallback_candidates") or [])]
         ]
+        # Alternatives may not have passed through primary-candidate selection.
+        # Resolve their own settings; explicit malformed efforts still fail in
+        # resolve_dispatch_effort rather than being replaced via truthiness.
+        for candidate in ladder:
+            if candidate.get("requested_effort") is None:
+                resolved = resolve_effort(
+                    role_id=node.role_id, provider=str(candidate.get("provider") or ""),
+                    model=str(candidate.get("canonical_target_model") or candidate.get("model") or ""),
+                    routing=dict(routing or {}), supported=candidate.get("supported_efforts"),
+                    role_contract_default=node.effort,
+                )
+                candidate.update(requested_effort=resolved["requested_effort"],
+                                 effective_effort=resolved["effective_value"],
+                                 effort_source=resolved["source_layer"],
+                                 effort_clamp_reason=resolved["clamp_reason"],
+                                 effort_block_reason=resolved.get("block_reason"))
         primary_dispatch = resolve_dispatch_effort(
             ladder[0],
             node_effort=node.effort,
@@ -454,13 +471,12 @@ def _register_run(user_home: Path, graph: ExecutionGraph, goal: str, role_count:
     return task_id, meeting_id
 
 
-def _finish_run(user_home: Path, task_id: str, meeting_id: str, result: dict[str, Any], execute: bool, expected_authority: dict[str, Any] | None = None) -> None:
+def _finish_run(user_home: Path, task_id: str, meeting_id: str, result: dict[str, Any], execute: bool,
+                expected_authority: dict[str, Any] | None = None, *,
+                completion_verifier: Callable[[Any], dict[str, Any]] | None = None) -> None:
     plan_acceptance = ((result.get("results") or {}).get("final-plan-gate") or {}).get("output") or ((result.get("results") or {}).get("plan-acceptance") or {}).get("output") or {}
     accepted = plan_acceptance.get("decision") == "accept"
     final_audit = ((result.get("results") or {}).get("final-audit") or {}).get("output") or {}
-    execution_passed = bool(execute and accepted and result.get("decision") == "pass"
-                            and final_audit.get("decision") in {"accept", "pass", "approve"})
-    meeting_accepted = accepted and (not execute or execution_passed)
     now = utc_now()
     connection = connect_write(user_home)
     try:
@@ -472,6 +488,19 @@ def _finish_run(user_home: Path, task_id: str, meeting_id: str, result: dict[str
             connection.execute("UPDATE meetings SET status='needs-review',final_decision='current-task-authority-changed',updated_at=? WHERE id=?", (now, meeting_id))
             connection.commit()
             return
+        # Check inside the terminal write transaction, after acquiring authority.
+        # The caller-owned connection also fences concurrent test-ledger edits.
+        if execute and result.get("decision") == "pass":
+            try:
+                evidence = completion_verifier(connection) if completion_verifier else None
+            except Exception:
+                evidence = None
+            if not isinstance(evidence, dict) or evidence.get("decision") != "pass":
+                result["decision"] = "blocked"
+                result["failure_class"] = "test-execution-evidence-invalid-at-completion"
+        execution_passed = bool(execute and accepted and result.get("decision") == "pass"
+                                and final_audit.get("decision") in {"accept", "pass", "approve"})
+        meeting_accepted = accepted and (not execute or execution_passed)
         connection.execute(
             """UPDATE meetings SET status=?,substantive_seats=?,rounds=?,synthesis=?,final_decision=?,
             consultation_sha256=?,updated_at=? WHERE id=?""",
@@ -662,14 +691,19 @@ def run_goal(
     planning_contexts: dict[str, str] = {}
     test_handles: dict[str, Any] = {}
 
-    def current_test_evidence() -> dict[str, Any]:
+    def current_test_evidence(connection: Any = None) -> dict[str, Any]:
         try:
             if test_runner is None:
                 raise ValueError("host-test-runner-required")
-            return verify_test_execution(test_handles.get("tests"), user_home=user_home,
-                binding=execution_binding(graph.graph_id, _current_task_authority(user_home, task_id)),
+            authority = (_current_task_authority(user_home, task_id) if connection is None else
+                         one(connection, "SELECT id,revision,acceptance_criteria FROM tasks WHERE id=?", (task_id,)))
+            evidence = verify_test_execution(test_handles.get("tests"), user_home=user_home,
+                binding=execution_binding(graph.graph_id, authority),
                 current_source_sha256=test_runner.current_source_digest(),
-                profile_sha256=test_runner.profile_sha256)
+                profile_sha256=test_runner.profile_sha256, connection=connection)
+            if evidence.get("decision") == "pass" and test_runner.current_source_digest() != evidence["source_sha256"]:
+                raise ValueError("test-source-changed-during-verification")
+            return evidence
         except Exception:
             return {"decision": "block", "failure_class": "test-execution-evidence-invalid",
                     "test_results": [], "hard_gates": {"host_checks_pass": False}, "evidence_refs": []}
@@ -1205,10 +1239,8 @@ def run_goal(
         },
     )
     result = execute_graph(user_home, graph, executor)
-    if execute and result.get("decision") == "pass" and current_test_evidence().get("decision") != "pass":
-        result["decision"] = "blocked"
-        result["failure_class"] = "test-execution-evidence-invalid-at-completion"
-    _finish_run(user_home, task_id, meeting_id, result, execute, initial_authority)
+    _finish_run(user_home, task_id, meeting_id, result, execute, initial_authority,
+                completion_verifier=current_test_evidence if execute else None)
     diagnostics_path = data_root(user_home) / "diagnostics" / f"IOT-AI-DIAGNOSTICS-{graph.correlation_id}.zip"
     try:
         diagnostics = collect_diagnostics(user_home, graph.correlation_id, diagnostics_path)

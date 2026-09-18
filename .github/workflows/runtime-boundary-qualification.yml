@@ -47,16 +47,18 @@ jobs:
           python tools/no_arabic_script_check.py .
           python tools/check_license_headers.py .
       - name: Run deterministic boundary regressions
+        id: boundary-tests
         env:
           EVIDENCE_DIR: ${{ runner.temp }}/runtime-boundary
         run: |
           mkdir -p "$EVIDENCE_DIR"
-          python -m pytest -q tests/test_runtime_boundary_evidence.py tests/test_visual_adapter_failures.py tests/test_runtime_enforcement_corrective.py tests/test_installed_workflow_trace.py tests/test_effort_settings_parity.py tests/test_host_test_execution.py tests/test_completion_authority_regressions.py --junitxml="$EVIDENCE_DIR/junit.xml"
+          python -m pytest -q tests/test_runtime_boundary_evidence.py tests/test_visual_adapter_failures.py tests/test_runtime_enforcement_corrective.py tests/test_installed_workflow_trace.py tests/test_effort_settings_parity.py tests/test_host_test_execution.py tests/test_completion_authority_regressions.py tests/test_pr23_review_regressions.py --junitxml="$EVIDENCE_DIR/junit.xml"
       - name: Seal minimal qualification evidence
         if: always()
         env:
           EVIDENCE_DIR: ${{ runner.temp }}/runtime-boundary
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          TEST_STEP_OUTCOME: ${{ steps.boundary-tests.outcome }}
         run: |
           python - <<'PYCODE'
           import hashlib
@@ -89,7 +91,8 @@ jobs:
               'tree': tree,
               'junit_sha256': hashlib.sha256(junit.read_bytes()).hexdigest(),
               'totals': totals,
-              'decision': 'pass' if totals['tests'] and not totals['failures'] and not totals['errors'] else 'block',
+              'test_step_outcome': os.environ.get('TEST_STEP_OUTCOME'),
+              'decision': 'pass' if os.environ.get('TEST_STEP_OUTCOME') == 'success' and totals['tests'] and not any(totals[key] for key in ('failures', 'errors', 'skipped')) else 'block',
               'scope': 'synthetic-boundary-and-runtime-trace-not-production',
               'source_archive_uploaded': False,
               'raw_diagnostics_uploaded': False,

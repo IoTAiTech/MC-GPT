@@ -632,9 +632,11 @@ class ProviderCatalogTests(IsolatedHomeTestCase):
         self.assertIn("unknown-provider-capability", evil.get("catalog_errors") or [])
         evil_auto = apply_catalog_to_candidate({"provider": "evil-provider", "model": "auto"})
         self.assertTrue(evil_auto.get("catalog_block"))
-        gemini = apply_catalog_to_candidate({"provider": "gemini", "model": "gemini-2.5-pro", "risk_class": "R2"})
+        gemini = apply_catalog_to_candidate({"provider": "gemini", "model": "gemini-2.5-pro", "risk_class": "R2",
+            "receipt": {"effort_supported": ["low", "medium", "high"]}})
         self.assertFalse(gemini.get("catalog_block"))
-        ollama = apply_catalog_to_candidate({"provider": "ollama", "model": "gpt-oss:20b", "risk_class": "R2"})
+        ollama = apply_catalog_to_candidate({"provider": "ollama", "model": "gpt-oss:20b", "risk_class": "R2",
+            "receipt": {"effort_supported": ["low", "medium", "high"]}})
         self.assertFalse(ollama.get("catalog_block"))
 
 

@@ -92,7 +92,9 @@ ADVANCED_COMMANDS = {"setup", "privacy", "provider", "mesh", "meeting", "tasks",
 ALL_COMMANDS = PUBLIC_COMMANDS | ADVANCED_COMMANDS
 _BLOCKING_DECISIONS = frozenset(
     {
+        "block",
         "blocked",
+        "failed",
         "fail",
         "error",
         "needs-work",
@@ -318,7 +320,7 @@ def _normalize_argv(argv: list[str] | None) -> list[str]:
     if remaining and remaining[0] in ALL_COMMANDS:
         return [*root_prefix, *remaining]
 
-    run_flags = {"--execute", "--apply", "--allow-static", "--resume"}
+    run_flags = {"--execute", "--apply", "--plan", "--allow-static", "--resume"}
     run_options = {
         "--risk-class",
         "--privacy-class",
@@ -374,6 +376,7 @@ def parser() -> argparse.ArgumentParser:
     run = commands.add_parser("run", help="Agentically solve a natural-language goal")
     run.add_argument("--goal", nargs="+", required=True)
     run.add_argument("--execute", action="store_true")
+    run.add_argument("--plan", action="store_true", help="Read-only planning; no implementation or provider calls")
     run.add_argument("--risk-class", default="R2")
     run.add_argument("--privacy-class", default="D1")
     run.add_argument("--profile", choices=("economy", "balanced", "ultracode"))
@@ -622,9 +625,28 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if a.cmd == "run":
             goal_text = " ".join(a.goal)
+            # These legacy graph-API controls are not yet enforced by the
+            # goal-first backend. Reject requests rather than silently discard
+            # privacy, risk, authority or hard resource limits before dispatch.
+            unsupported = []
+            for name, default in (("risk_class", "R2"), ("privacy_class", "D1"),
+                    ("profile", None), ("max_parallel", 6), ("token_budget", 250000),
+                    ("wall_clock_seconds", 3600), ("allow_static", False),
+                    ("task_validation", "ask"), ("subject", None),
+                    ("reason", ""), ("founder_confirm", None), ("context", [])):
+                if getattr(a, name) != default:
+                    unsupported.append(name)
+            if unsupported:
+                emit({"decision": "blocked", "terminal_state": "SAFETY_BLOCKED",
+                      "reason": "unsupported-goal-controls", "controls": unsupported,
+                      "provider_calls": 0, "production_claim": False})
+                return 2
             # Natural language is the primary API. Explicit execution verbs in the
             # sentence are authoritative; --execute/--apply remain expert aliases.
-            apply_override = True if (a.execute or a.apply) else None
+            if a.plan and (a.execute or a.apply):
+                emit({"decision": "blocked", "reason": "conflicting-plan-and-execute", "provider_calls": 0})
+                return 2
+            apply_override = False if a.plan else True if (a.execute or a.apply) else None
             result = run_autopilot(
                 h,
                 goal_text,
@@ -636,7 +658,7 @@ def main(argv: list[str] | None = None) -> int:
                 report_output=Path(a.report_output) if a.report_output else None,
             )
             emit(result)
-            return 0
+            return 0 if result.get("decision") in {"pass", "plan", "noop"} else 1
         if a.cmd == "status":
             emit(log_locations(h) if a.logs else unified_status(h, live=a.live, window=a.window))
             return 0
@@ -875,13 +897,22 @@ def main(argv: list[str] | None = None) -> int:
                 article5 = _screen_text("\n".join((a.title, a.description, a.acceptance_criteria)), h, context="cli:task-create")
                 emit({**task_create(h, a.title, a.description, a.priority, a.owner, risk_class=a.risk_class, task_type=a.task_type, source=a.source, source_id=a.source_id, tags=a.tag, acceptance_criteria=a.acceptance_criteria, allow_duplicate=a.allow_duplicate), "article_5": article5})
             elif a.op == "add-work-unit": emit(add_work_unit(h, a.task_id, a.title, a.role, a.read_scope, a.write_scope))
-            elif a.op == "claim": emit(claim_work_unit(h, a.work_unit_id, a.owner, a.session_id, a.ttl_seconds, enforce_validation=True, trigger_action="claim"))
+            elif a.op == "claim":
+                result=claim_work_unit(h, a.work_unit_id, a.owner, a.session_id, a.ttl_seconds, enforce_validation=True, trigger_action="claim")
+                emit(result)
+                return _result_exit_code(result)
             elif a.op == "heartbeat": emit(task_heartbeat(h, a.lease_id, a.lease_token, a.ttl_seconds))
             elif a.op == "progress": emit(record_progress(h, a.task_id, a.stage, a.percent, a.summary, a.work_unit_id, basis=a.basis, evidence_ids=a.evidence_id, observed_steps=a.observed_steps, total_steps=a.total_steps, confidence=a.confidence))
             elif a.op == "evidence-add": emit(add_evidence(h, a.task_id, Path(a.artifact), a.artifact_sha256, a.kind, a.work_unit_id))
             elif a.op == "release": emit(release_lease(h, a.lease_id, a.lease_token, a.reason))
-            elif a.op == "submit": emit(submit_task(h, a.task_id, a.work_unit_id, a.lease_id, a.lease_token, a.result_summary))
-            elif a.op == "audit": emit(audit_task(h, a.task_id, record=True))
+            elif a.op == "submit":
+                result=submit_task(h, a.task_id, a.work_unit_id, a.lease_id, a.lease_token, a.result_summary)
+                emit(result)
+                return _result_exit_code(result)
+            elif a.op == "audit":
+                result=audit_task(h, a.task_id, record=True)
+                emit(result)
+                return _result_exit_code(result)
             elif a.op == "export-excel": emit(export_workspace(h, Path(a.output)))
             elif a.op in {"execute", "authorize-execution"}:
                 requested_ids = list(a.task_id or [])
@@ -920,7 +951,7 @@ def main(argv: list[str] | None = None) -> int:
                     else "pass" if all(row.get("decision") == "pass" for row in actionable)
                     else "requires-user-confirmation"
                 )
-                emit({
+                authorization_result={
                     "decision": decision,
                     "reason": "eligible-count-zero" if not actionable else None,
                     "command": a.op,
@@ -931,8 +962,16 @@ def main(argv: list[str] | None = None) -> int:
                     "eligible_count": len(actionable),
                     "skipped_count": len(table) - len(actionable),
                     "task_table": table,
-                })
+                }
+                emit(authorization_result)
+                return _result_exit_code(authorization_result)
             elif a.op == "run":
+                if (a.providers!="auto" or a.quorum!=2 or a.implementer is not None or a.test_profile is not None
+                    or a.risk_class!="R2" or a.effort!="high" or a.max_repair_rounds is not None or a.mode!="hybrid"):
+                    emit({"decision":"blocked","reason":"unsupported-task-run-controls",
+                          "provider_calls":0,"execution_authorized":False,
+                          "next_action":"Use tasks solve-all or multi-coder run for explicit provider/quorum controls."})
+                    return 2
                 ids = list(a.task_id or [])
                 if a.all and not ids:
                     ids = [row["id"] for row in list_open(h, query=a.query, limit=a.max_tasks)]
@@ -945,10 +984,12 @@ def main(argv: list[str] | None = None) -> int:
                     goal += " Query: " + a.query
                 result = run_autopilot(h, goal, conversation_id=a.conversation_id, apply=not bool(a.plan), cwd=Path(a.cwd), test_argv=a.test_argv, max_tasks=a.max_tasks, report_output=Path(a.report_output) if a.report_output else None)
                 emit({**result, "command": "tasks run", "mode": a.mode, "engine": "autopilot+meeting+multi-coder", "command_semantics": "closed-loop-hybrid" if not a.plan else "plan-only", "implements_code": not bool(a.plan)})
+                return _result_exit_code(result)
             else:
                 plan = solve_all_plan(h, a.query, a.confirm_critical, a.max_tasks, require_validated=True)
                 if not a.apply or plan.get("eligible_count", 0) == 0:
                     emit({**plan, "command": "tasks solve-all", "apply": False, "executed": False, "provider_calls": 0})
+                    return _result_exit_code(plan)
                 else:
                     provider_list = [c["provider"] for c in provider_candidates(h, require_live=True)] if a.providers == "auto" else _split(a.providers)
                     provider_list = list(dict.fromkeys(provider_list))
@@ -965,13 +1006,18 @@ def main(argv: list[str] | None = None) -> int:
                             "plan": plan,
                             "results": [],
                         })
+                        return 1
+                    elif a.quorum<1 or len(provider_list)<a.quorum:
+                        emit({"decision":"blocked","reason":"requested-quorum-unavailable","requested_quorum":a.quorum,
+                              "available_seats":len(provider_list),"provider_calls":0,"executed":False})
+                        return 1
                     else:
                         results = [
                             run_meeting_then_multicoder(
                                 h,
                                 task,
                                 providers=provider_list,
-                                quorum=min(a.quorum, len(provider_list)),
+                                quorum=a.quorum,
                                 implementer=a.implementer,
                                 test_profile=Path(a.test_profile) if a.test_profile else None,
                                 cwd=Path(a.cwd),
@@ -989,8 +1035,8 @@ def main(argv: list[str] | None = None) -> int:
                                 provider_calls += row["provider_calls"]
                             if row.get("meeting_id"):
                                 meeting_ids.append(row["meeting_id"])
-                        emit({
-                            "decision": "pass" if results and all(r.get("executed") and r.get("meeting_id") for r in results) else "needs-work",
+                        aggregate={
+                            "decision": "pass" if results and all(r.get("decision") in {"pass","approve"} and r.get("executed") and r.get("meeting_id") for r in results) else "needs-work",
                             "command": "tasks solve-all",
                             "apply": True,
                             "executed": provider_calls > 0,
@@ -1002,7 +1048,9 @@ def main(argv: list[str] | None = None) -> int:
                             "authority_basis": "iot-ai-suite-standalone-task-store",
                             "plan": plan,
                             "results": results,
-                        })
+                        }
+                        emit(aggregate)
+                        return _result_exit_code(aggregate)
             return 0
         if a.cmd == "multi-coder":
             if a.task:

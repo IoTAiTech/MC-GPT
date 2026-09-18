@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable
 
 from .model_policy import clamp_effort
+from .provider_catalog import model_binding_kind
 from .util import utc_now
 
 
@@ -151,6 +152,6 @@ def validate_provider_binding(
         errors.append(f"provider binding mismatch: selected={selected_provider}, served={served_provider or 'missing'}")
     if not served_model:
         errors.append("served model is missing")
-    elif selected_model and not selected_model.startswith("auto") and served_model != selected_model:
+    elif not model_binding_kind(selected_provider, selected_model, served_model):
         errors.append(f"model binding mismatch: requested={selected_model}, served={served_model}")
     return {"decision": "pass" if not errors else "block", "errors": errors}

@@ -6,11 +6,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any
 
 from .meeting import start as meeting_start
 from .multicoder import run as multicoder_run
-from .seat_selection import resolve_meeting_seats
 from .task_validation import gate as validation_gate
 from .task_validation import skip as validation_skip
 from .tasks import add_work_unit
@@ -94,9 +94,6 @@ def run_meeting_then_multicoder(
         raise ValueError("task id is required")
     title = str(task.get("title") or task_id)
     seats = list(dict.fromkeys(str(item).strip() for item in providers if str(item).strip()))
-    plan = resolve_meeting_seats(user_home, "auto", allow_missing_ollama=True)
-    if plan.decision == "pass" and plan.resolved_seats:
-        seats = list(plan.resolved_seats)
     if not seats:
         return {
             "schema": "iot-ai.task-meeting-multicoder.v1",
@@ -110,7 +107,11 @@ def run_meeting_then_multicoder(
             "canonical_pmd_prcs": False,
             "authority_basis": "iot-ai-suite-standalone-task-store",
         }
-    meeting_quorum = min(max(1, quorum), len(seats))
+    if type(quorum) is not int or quorum<1 or len(seats)<quorum:
+        return {"schema":"iot-ai.task-meeting-multicoder.v1","task_id":task_id,"decision":"blocked",
+                "reason":"requested-quorum-unavailable","requested_quorum":quorum,"available_seats":len(seats),
+                "provider_calls":0,"executed":False,"canonical_pmd_prcs":False}
+    meeting_quorum = quorum
     meeting = meeting_start(
         user_home,
         f"Full hybrid planning and adversarial review for Suite task {task_id}: {title}",
@@ -130,6 +131,16 @@ def run_meeting_then_multicoder(
         meeting_rows = list(inner.get("contributions") or [])
     elif isinstance(meeting.get("contributions"), list):
         meeting_rows = list(meeting["contributions"])
+
+    hard_gates=meeting.get("hard_gates")
+    if (meeting.get("decision")!="pass" or meeting.get("task_id")!=task_id or not meeting_id
+        or meeting.get("plan_acceptance")!="accepted"
+        or meeting.get("status") not in {"awaiting-user-decision","approved"}
+        or not isinstance(meeting.get("plan_digest"),str) or not re.fullmatch(r"[0-9a-f]{64}",meeting["plan_digest"])
+        or not isinstance(hard_gates,dict) or not hard_gates or not all(value is True for value in hard_gates.values())):
+        return {"schema":"iot-ai.task-meeting-multicoder.v1","task_id":task_id,"decision":"needs-work",
+                "reason":"planning-meeting-not-accepted","meeting_id":meeting_id,"meeting":meeting,
+                "provider_calls":len(meeting_rows),"executed":False,"canonical_pmd_prcs":False}
 
     gate = validation_gate(user_home, task_id, "execute")
     if gate.get("decision") != "pass":
@@ -167,8 +178,8 @@ def run_meeting_then_multicoder(
     multi = multicoder_run(
         user_home,
         task_id=task_id,
-        providers=list(dict.fromkeys(str(item).split("@", 1)[0] for item in seats)),
-        quorum=min(max(1, quorum), len(seats)),
+        providers=seats,
+        quorum=quorum,
         implementer=implementer,
         test_profile=test_profile,
         test_argv=test_argv,

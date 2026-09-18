@@ -15,7 +15,7 @@ from typing import Any, Iterable
 from .paths import data_root, db_path
 from .util import utc_now
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 CLOSED_STATUSES = {"completed", "closed", "cancelled", "rejected"}
 OPEN_STATUSES = {"backlog", "queued", "ready", "claimed", "active", "needs-work", "blocked", "meeting", "awaiting_founder"}
 
@@ -517,7 +517,7 @@ CREATE TABLE IF NOT EXISTS graph_runs(
  updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS graph_nodes(
- id TEXT PRIMARY KEY,
+ id TEXT NOT NULL,
  graph_id TEXT NOT NULL,
  role_id TEXT NOT NULL,
  node_type TEXT NOT NULL,
@@ -539,6 +539,7 @@ CREATE TABLE IF NOT EXISTS graph_nodes(
  evidence_json TEXT NOT NULL DEFAULT '[]',
  created_at TEXT NOT NULL,
  updated_at TEXT NOT NULL,
+ PRIMARY KEY(graph_id,id),
  FOREIGN KEY(graph_id) REFERENCES graph_runs(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_graph_nodes_graph ON graph_nodes(graph_id,stage,status);
@@ -583,10 +584,52 @@ def evidence_root(user_home: Path) -> Path:
     return data_root(user_home) / "evidence"
 
 
+def _check_schema_version(conn: sqlite3.Connection, *, allow_unversioned: bool) -> None:
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone():
+        if allow_unversioned:
+            return
+        raise ValueError("workspace-schema-version-missing")
+    row = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
+    if row is None and allow_unversioned:
+        return
+    if row is None or row[0] not in {str(version) for version in range(1, SCHEMA_VERSION + 1)}:
+        raise ValueError("unsupported-workspace-schema-version")
+
+
 def _initialize(conn: sqlite3.Connection) -> None:
-    conn.executescript(SCHEMA)
-    conn.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('schema_version',?)", (str(SCHEMA_VERSION),))
-    conn.commit()
+    conn.execute("PRAGMA foreign_keys=ON")
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        fresh = not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone()
+        _check_schema_version(conn, allow_unversioned=fresh)
+        # executescript() would commit before version validation/bootstrap.
+        # Execute complete SQL statements under this same initialization lock.
+        statement = ""
+        for line in SCHEMA.splitlines(keepends=True):
+            statement += line
+            if sqlite3.complete_statement(statement):
+                conn.execute(statement)
+                statement = ""
+        if statement.strip():
+            raise ValueError("incomplete-workspace-schema")
+        columns = conn.execute("PRAGMA table_info(graph_nodes)").fetchall()
+        key = [row[1] for row in sorted(columns, key=lambda row: row[5]) if row[5]]
+        if key == ["id"]:
+            # All node fields and logical IDs survive; only uniqueness changes.
+            # Introspection, copy, swap and version update share one transaction.
+            declaration = SCHEMA.split("CREATE TABLE IF NOT EXISTS graph_nodes(", 1)[1].split("\n);", 1)[0]
+            conn.execute("CREATE TABLE graph_nodes_v7(" + declaration + ")")
+            conn.execute("INSERT INTO graph_nodes_v7 SELECT * FROM graph_nodes")
+            conn.execute("DROP TABLE graph_nodes")
+            conn.execute("ALTER TABLE graph_nodes_v7 RENAME TO graph_nodes")
+            conn.execute("CREATE INDEX idx_graph_nodes_graph ON graph_nodes(graph_id,stage,status)")
+        elif key != ["graph_id", "id"]:
+            raise ValueError("unsupported-graph-node-primary-key")
+        conn.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('schema_version',?)", (str(SCHEMA_VERSION),))
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
 
 
 def connect_write(user_home: Path) -> sqlite3.Connection:
@@ -659,12 +702,13 @@ def append_event(
     return {**body, "event_hash": event_hash}
 
 
-def verify_event_chain(user_home: Path) -> dict[str, Any]:
-    conn = connect_read(user_home)
+def verify_event_chain(user_home: Path, *, connection: sqlite3.Connection | None = None) -> dict[str, Any]:
+    conn = connection if connection is not None else connect_read(user_home)
     if conn is None:
         return {"decision": "pass", "events": 0, "head": "0" * 64}
     records = rows(conn, "SELECT * FROM events ORDER BY seq")
-    conn.close()
+    if connection is None:
+        conn.close()
     prev_hash = "0" * 64
     for record in records:
         payload = json.loads(record["payload_json"])

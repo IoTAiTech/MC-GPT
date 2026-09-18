@@ -27,6 +27,16 @@
 > **Current `main` source snapshot after this change:** IOT-AI Suite `6.8.0-beta.1` / MC-GPT `0.8.0-alpha.7` — not yet a tagged download  
 > **Claim boundary:** Community Developer Preview · `production_claim: false` · public documentation in English
 
+Current qualification limit: API model replies are proposals, not file edits.
+The native writer still needs verified assignment, work-directory and sandbox
+integration. Host-assisted examples and synthetic tests do not prove autonomous
+customer execution; do not treat this preview as a finished product.
+
+Current engineering continuation: retain project state in the existing
+`PRIMARY_SERVER` workspace selected by the private operator inventory. Resume
+the same order, not a new task or checkout. This operator-specific custody
+rule is not a customer installation requirement or publication authorization.
+
 ## The problem
 
 Adding more coding agents often adds more operator work:
@@ -111,7 +121,12 @@ iot-ai \
   "Read TASK.md. Inspect this disposable fixture, produce a complete implementation and test plan, name the writer and independent review roles, but do not execute."
 ```
 
-When at least one supported provider route is configured, run the governed implementation:
+The current source candidate preserves the fixture's nine criteria in plan mode;
+older tagged wheels do not automatically contain these corrections. See the
+[readiness register](docs/product-readiness.md) before interpreting preview claims.
+
+After task authorization and at least two eligible independent provider routes
+are qualified for the requested quorum, evaluate the governed implementation:
 
 ```bash
 iot-ai \

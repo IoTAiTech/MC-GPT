@@ -27,6 +27,8 @@
     "backend_receipt": {"type": "object"},
     "terminal_state": {
       "enum": [
+        "PLAN_READY",
+        "NOOP",
         "COMPLETE",
         "TECHNICAL_COMPLETE_AWAITING_FOUNDER",
         "EXTERNALLY_BLOCKED",

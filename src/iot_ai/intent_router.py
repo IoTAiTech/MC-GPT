@@ -28,6 +28,12 @@ ONE_STEP_TERMS = (
     "one step", "single step", "only inspect", "plan only", "do not execute", "dry run",
     "nur ein schritt", "nur planen", "nicht ausführen",
 )
+READ_ONLY_NEGATION = re.compile(
+    r"\b(?:do\s+not|don't|never|without)\s+(?:(?:ever|automatically|actually)\s+){0,2}"
+    r"(?:execute|executing|implement|implementing|apply|applying|modify|modifying|write|writing|change|changing)\b"
+    r"|\b(?:nicht|keine)\s+(?:ausführen|implementieren|ändern|schreiben|änderungen)\b",
+    re.IGNORECASE,
+)
 UNTIL_TERMINAL_TERMS = (
     "until complete", "until finished", "until the end", "keep working", "finish all", "complete all",
     "bis zum ende", "bis alles fertig", "vollständig bearbeiten",
@@ -49,7 +55,7 @@ REFERENCE_TERMS = (
 
 
 def _contains(text: str, terms: tuple[str, ...]) -> bool:
-    return any(term in text for term in terms)
+    return any(re.search(r"\b" + re.escape(term) + r"\b", text) for term in terms)
 
 
 def _language(raw: str) -> str:
@@ -107,7 +113,12 @@ def compile_intent(
 
     execute = _contains(text, EXECUTE_TERMS)
     plan = _contains(text, PLAN_TERMS)
-    one_step = _contains(text, ONE_STEP_TERMS)
+    review_start = re.match(r"^(?:review|inspect|analyze|analyse|show|report|summarize|prüfen|analysieren|anzeigen)\b", text)
+    later_action = re.search(r"\b(?:and|then|und|anschließend)\s+(?:" + "|".join(re.escape(word) for word in EXECUTE_TERMS) + r")\b", text)
+    if review_start and not later_action:
+        execute = False
+        plan = True
+    one_step = _contains(text, ONE_STEP_TERMS) or bool(READ_ONLY_NEGATION.search(raw))
     destructive = _contains(text, DESTRUCTIVE_TERMS)
     if apply is not None:
         execute = bool(apply)
@@ -119,7 +130,7 @@ def compile_intent(
     # completed. Irreversible/public actions remain separately human-gated.
     action = "continue" if execute and reference_used else "finish" if execute else "report" if "report" in text or "bericht" in text else "plan" if plan else "inspect"
     until_terminal = bool(execute and not one_step)
-    product = _product(raw, state)
+    product = _product(raw, state if reference_used else None)
     backend = "pmd-api" if product == "PMD" or any(value.upper().startswith(("PMD-REQ-", "PRCS-")) for value in task_ids) else "suite"
     priorities = _priorities(text)
     view = "full" if any(term in text for term in ("full", "complete", "vollständig")) else "brief"

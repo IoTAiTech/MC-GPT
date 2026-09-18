@@ -13,6 +13,7 @@ from typing import Any
 
 from .paths import config_root
 from .providers import load as load_routes, static_status
+from .provider_catalog import model_binding_kind
 from .util import atomic_json, load_json, utc_now
 
 
@@ -47,7 +48,8 @@ def _fresh(receipt: dict[str, Any], now: datetime | None = None) -> bool:
 def live_receipt(user_home: Path, route_id: str, model: str | None = None) -> dict[str, Any] | None:
     candidates = [r for r in load_receipts(user_home).get("receipts", []) if r.get("route_id") == route_id]
     if model:
-        candidates = [r for r in candidates if r.get("model_served") == model]
+        candidates = [r for r in candidates
+                      if model_binding_kind(str(r.get("provider") or ""),model,r.get("model_served"))]
     candidates = [r for r in candidates if _fresh(r)]
     return max(candidates, key=lambda r: str(r.get("observed_at", "")), default=None)
 
@@ -91,20 +93,20 @@ def provider_candidates(user_home: Path, *, require_live: bool = True, cloud_onl
             for receipt in load_receipts(user_home).get("receipts", [])
             if receipt.get("route_id") == route.get("route_id") and _fresh(receipt)
         ]
-        if configured_model.startswith("auto") and route_receipts:
+        if configured_model in {"auto","auto:cloud"} and route_receipts:
             observed_models = [
-                str(receipt.get("model_served"))
+                str(receipt.get("model_requested") or receipt.get("model_served"))
                 for receipt in route_receipts
                 if receipt.get("model_served")
             ]
-            models = list(dict.fromkeys([*models, *observed_models]))
+            models = list(dict.fromkeys([m for m in [*models,*observed_models] if m not in {"auto","auto:cloud"}]))
         if not models:
             models = [configured_model]
         for configured in dict.fromkeys(str(model) for model in models if str(model)):
-            exact_model = None if configured.startswith("auto") else configured
+            exact_model = None if configured in {"auto","auto:cloud"} else configured
             receipt = live_receipt(user_home, str(route.get("route_id")), exact_model)
             served_model = str(receipt.get("model_served")) if receipt and receipt.get("model_served") else None
-            candidate_model = served_model or configured
+            candidate_model = (configured if configured not in {"auto","auto:cloud"} else served_model or configured)
             live_ready = bool(
                 receipt
                 and receipt.get("status") == "pass"

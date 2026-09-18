@@ -17,6 +17,18 @@ as executed verification. A trusted host adapter selects the commands and the
 source inventory. The runner observes actual child-process exit codes, writes
 private receipts, and persists command results in the existing Suite test table.
 Final audit and completion reread the evidence and current task/source binding.
+Completion rechecks under the existing Suite write transaction and uses that
+same connection to validate test-ledger rows before writing the terminal task
+and meeting state. Missing or throwing completion verification blocks success.
+The source digest is checked on both sides of evidence verification. Database
+locking does not lock the filesystem: hosts must still isolate the reviewed
+source and evidence from concurrent writers through commit. A completed graph
+checkpoint describes node execution; it is not task completion authority.
+Standalone schema 7 keys persisted nodes by `(graph_id, id)` so overlapping
+graphs retain separate plan evidence. The existing Suite initializer migrates
+schema-6 graph-node rows in one transaction, preserving their logical IDs,
+foreign key and index; it rolls back on a failed swap. This source change does
+not migrate any deployed Suite or ProductX database by itself.
 Failed execution keeps the task in `needs-work` and the meeting in `needs-review`;
 a successful planning discussion alone cannot produce technical completion.
 
@@ -64,6 +76,9 @@ substitute the standalone Suite ledger for another product's task authority.
   Changing source after a successful check invalidates completion evidence.
 - Executables are pinned; commands run without a shell and without inherited
   provider credentials or PYTHONPATH. Output and execution time are bounded.
+  The parent captures merged stdout/stderr through a bounded pipe queue and
+  writes at most the output cap. Overflow rejects evidence, including a fast
+  writer that exits before a polling interval; truncated logs never prove pass.
 - These precautions are not a filesystem or network sandbox. Run untrusted tests
   in a separately managed container/VM/OS sandbox that cannot access credentials,
   the host, or the authoritative ledger. A compromised host process/database is

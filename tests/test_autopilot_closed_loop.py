@@ -22,7 +22,7 @@ from iot_ai.workspace import connect_write
 from tests.common import IsolatedHomeTestCase
 
 
-class NaturalIntentTests:
+class TestNaturalIntent:
     def test_execution_verbs_default_to_terminal_closed_loop(self):
         intent = compile_intent("finish these tasks through to the end")
         assert intent["execution"]["requested"] is True
@@ -50,7 +50,7 @@ class NaturalIntentTests:
         assert intent["execution"]["until_terminal"] is True
 
 
-class ScorecardTests:
+class TestScorecard:
     def test_overlap_and_stale_verification_are_blocked(self):
         digest = criteria_digest(["a", "b", "c"])
         result = validate_scorecard(
@@ -89,7 +89,7 @@ class ScorecardTests:
         assert result["can_submit"] is True
 
 
-class SchedulerTests:
+class TestScheduler:
     def test_wip_waves_eventually_schedule_every_task(self):
         records = [
             TaskRecord(f"task-{index}", "suite", "suite", "ready", "critical" if index < 7 else "high", f"T{index}")

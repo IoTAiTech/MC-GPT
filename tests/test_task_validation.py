@@ -343,13 +343,13 @@ class TaskValidationTests(IsolatedHomeTestCase):
 
     def test_cli_execute_and_claim_surface_the_same_gate(self):
         task_id, work_unit_id = self.make_task()
-        self.assertEqual(main(["--home", str(self.home), "tasks", "execute", "--task-id", task_id]), 0)
+        self.assertEqual(main(["--home", str(self.home), "tasks", "execute", "--task-id", task_id]), 1)
         self.assertEqual(
             main([
                 "--home", str(self.home), "tasks", "claim", "--work-unit-id", work_unit_id,
                 "--owner", "codex", "--session-id", "cli-session",
             ]),
-            0,
+            1,
         )
         conn = connect_read(self.home)
         self.assertEqual(conn.execute("SELECT COUNT(*) FROM leases").fetchone()[0], 0)
@@ -383,12 +383,14 @@ class TaskValidationTests(IsolatedHomeTestCase):
             plan_code = main(["--home", str(self.home), "tasks", "run", "--task-id", task_id, "--plan"])
         self.assertEqual(plan_code, 0)
         plan_payload = _json.loads(plan_stream.getvalue())
+        self.assertEqual(plan_payload["decision"], "plan")
+        self.assertEqual(plan_payload["terminal_state"], "PLAN_READY")
         self.assertFalse(plan_payload["implements_code"])
         self.assertEqual(plan_payload["command_semantics"], "plan-only")
         run_stream = io.StringIO()
         with contextlib.redirect_stdout(run_stream):
             run_code = main(["--home", str(self.home), "tasks", "run", "--task-id", task_id])
-        self.assertEqual(run_code, 0)
+        self.assertEqual(run_code, 1)  # Unavailable authority/providers are not success.
         run_payload = _json.loads(run_stream.getvalue())
         self.assertTrue(run_payload["implements_code"])
         self.assertEqual(run_payload["command_semantics"], "closed-loop-hybrid")
@@ -397,7 +399,7 @@ class TaskValidationTests(IsolatedHomeTestCase):
         result = main([
             "--home", str(self.home), "run", "--goal", "Fix", "the", "dashboard", "menu", "--execute"
         ])
-        self.assertEqual(result, 0)
+        self.assertEqual(result, 1)  # A blocked provider/authority path is not CLI success.
         conn = connect_read(self.home)
         task_count = conn.execute("SELECT COUNT(*) FROM tasks WHERE source='cli-run'").fetchone()[0]
         meeting_count = conn.execute("SELECT COUNT(*) FROM meetings").fetchone()[0]

@@ -60,6 +60,8 @@ def _task_row(value: dict[str, Any]) -> dict[str, str]:
         remaining_work, next_action = "technical work complete; final human decision pending", "founder accept, reject, or rework"
     elif final_state == "BUDGET_EXHAUSTED":
         remaining_work, next_action = "bounded run budget exhausted; checkpoint preserved", "resume the same natural-language goal from checkpoint"
+    elif final_state == "PLANNED":
+        remaining_work, next_action = "not executed or verified", "review the plan and authorize execution separately"
     elif final_state in {"EXTERNALLY_BLOCKED", "AUTHORITY_BLOCKED", "SAFETY_BLOCKED"}:
         remaining_work, next_action = blocker or "external or authority blocker", blocker or "resolve blocker and resume"
     else:
@@ -121,6 +123,7 @@ def build_report(
             "awaiting_founder": sum(1 for item in tasks if item.get("final_state") == "TECHNICAL_COMPLETE_AWAITING_FOUNDER"),
             "blocked": sum(1 for item in tasks if "BLOCKED" in str(item.get("final_state") or "")),
             "needs_work": sum(1 for item in tasks if item.get("final_state") == "NEEDS_WORK"),
+            "planned": sum(1 for item in tasks if item.get("final_state") == "PLANNED"),
             "provider_rows": len(providers),
             "provider_substantive_rows": substantive_provider_rows,
             "provider_failed_rows": failed_provider_rows,

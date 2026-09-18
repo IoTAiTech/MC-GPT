@@ -3,7 +3,7 @@
 Author: Dr.-Ing. Babak Sorkhpour, with AI assistance
 Version: 6.8.0-beta.1
 
-1. Read `LICENSE_POLICY.json`, `EDITION_BOUNDARY.json`, `SECURITY.md`, the nearest task scope and the current intent contract before writing.
+1. Read the current handoff and concrete customer task. Consult `LICENSE_POLICY.json`, `EDITION_BOUNDARY.json` and `SECURITY.md` for applicable decisions before execution or publication; their controls remain binding. Do not load historical reports as current instructions.
 2. Accept normal English or German goals; do not force the operator to learn internal flags when intent can be resolved safely.
 3. Execution verbs start a bounded closed loop: Task → validation → Meeting → Multi-Coder → tests → failure Meeting/repair → independent review → audit → terminal report.
 4. Continue automatically until complete, technical-complete-awaiting-Founder, externally/authority/safety blocked, cancelled or budget-exhausted. Do not stop at a narrative progress update.
@@ -16,7 +16,7 @@ Version: 6.8.0-beta.1
 11. Never add Enterprise source, customer data, secrets, private IPs, internal hostnames, personal paths or private evidence to public Git history or release assets.
 12. Before packaging or publishing, check the repository main tree, CI, Security workflow, release state, open PRs/branches, current tree and Git-history boundary, then build and verify deterministically.
 13. Do not push, tag, publish, rewrite history or delete branches without the exact Founder authorization required by the release runbook.
-14. Every final report includes task, provider/model, iteration, test, repair, evidence, final-state, blocker and next-actor tables.
+14. Default reports are concise: customer outcome, actual evidence, blocker and next action. Keep complete task/provider/model/test/repair records available through full reports; do not force every table into every response.
 15. Never issue blanket production, legal-compliance, EU AI Act certification or customer-deployment claims.
 
 <!-- IOT-AI-SETTINGS-SKILL-ROUTER:BEGIN version=1.0.0 -->
@@ -38,7 +38,9 @@ Version: 6.8.0-beta.1
 
 <!-- IOT-AI-CODEX-COLLABORATION:BEGIN version=1.0.0 -->
 18. For continuation and cross-coder review, read
-    `docs/coordination/CURRENT_HANDOFF.md` from the live integration PR head.
+    `docs/coordination/CURRENT_HANDOFF.md` from the active source identified by
+    the workspace pointer. Compare the remote head when integrating/publishing;
+    do not discard newer uncommitted local work merely to match an old PR.
     Exchange sanitized, commit-bound results in that PR, not private chat dumps.
     Unavailable coders do not block permitted source work, but never fabricate
     their participation or treat the implementer as an independent approver.
@@ -47,3 +49,24 @@ Version: 6.8.0-beta.1
     actual command results to task revision, acceptance, source and profile;
     use the existing Suite ledger. An accepted plan cannot complete failed work.
 <!-- IOT-AI-CODEX-COLLABORATION:END version=1.0.0 -->
+
+## Founder outcome-first order — 2026-09-06
+
+Continuation custody (Founder 2026-09-08): retain all project state on the
+designated `PRIMARY_SERVER` in its existing workspace. The private operator
+inventory supplies the host mapping; never publish it. Continue the existing
+order without opening a new task, request, goal, thread, branch, clone or
+worktree. Do not relocate, synchronize externally or publish project state.
+Historical continuation directions cannot override this rule.
+
+One customer journey is the current work-in-progress limit: request, useful code
+change, independent review, post-change tests and clear brief/full output. Start
+with `examples/quickstart-demo/TASK.md`. No new feature, framework, document set
+or repeated full-suite/build cycle without a demonstrated blocker or changed
+evidence. Use narrow regressions for repairs and one final qualification after
+review. Existing security, privacy, authority and release gates remain intact.
+
+Update existing references; keep historical artifacts out of routine context
+without destroying them. Test usefulness and appearance as an end user, operating
+effort as a project owner, engineering/security correctness, and measurable market
+value. Tool activity, model agreement and test counts alone are not the product.

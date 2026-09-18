@@ -93,7 +93,8 @@ Read the nine-criterion task contract:
 cat TASK.md
 ```
 
-Compile a plan without writes or provider spending:
+Compile a read-only plan without repository/task changes or provider spending.
+The CLI may record local command telemetry:
 
 ```bash
 iot-ai \
@@ -108,6 +109,21 @@ The plan should identify:
 - post-change tests;
 - one writer and independent review roles;
 - explicit non-goals and rollback scope.
+
+The corrected source candidate returns `decision: plan`, `PLAN_READY`, all nine
+criteria with `verification: not-run`, planned roles and a proposed test command.
+This is a deterministic intake draft, not an independently approved engineering
+plan or evidence that the criteria have passed. The older tagged wheel is not
+claimed to contain these corrections until a new qualified release exists.
+
+Execution needs its test runner in the same isolated environment as MC-GPT.
+For the fixture's inferred pytest command, install the declared development
+test tool explicitly (`pipx inject iot-ai-coder-suite pytest` for pipx, or
+`python -m pip install pytest` using the evaluation venv's interpreter).
+
+The goal-first CLI currently blocks unsupported non-default graph-API controls,
+including risk/privacy overrides and hard resource budgets, before dispatch.
+Do not treat accepting an option in an older parser as proof it was enforced.
 
 ## Run the governed implementation loop
 

@@ -12,15 +12,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 from typing import Any
 
-from .change_binding import bind_post_change, prepare_writer_worktree, snapshot_tree
+from .change_binding import bind_post_change, prepare_writer_worktree, snapshot_tree, tree_digest
+from .completion_evidence import digest as completion_digest, freeze, ledger_state, task_authority
+from .test_execution_evidence import _capture_output
 from .eu_ai_act import classify_risk, record_prohibited_practice_screen, screen_prohibited_practices
 from .exec_pin import pin_command, test_env
 from .licensing import current
@@ -40,7 +44,7 @@ from .tasks import (
 from .telemetry import update_quality
 from .transparency import record_disclosure, runtime_output_provenance
 from .util import atomic_json, atomic_text, sha256_file, utc_now
-from .workspace import connect_read, connect_write, evidence_root, new_id, one
+from .workspace import append_event, connect_read, connect_write, evidence_root, new_id, one
 
 
 def claim_refusal_copy(claim: dict[str, Any], *, created_work_unit: bool) -> tuple[str, str]:
@@ -191,6 +195,7 @@ def _quality(user_home: Path, prompt: str, result: dict[str, Any], peers: list[s
 def _provider_entry(seat: str, result: dict[str, Any], quality: dict[str, Any] | None) -> dict[str, Any]:
     return {
         "seat_id": seat,
+        "contribution_id":result.get("contribution_id"),
         "provider": result.get("provider") or _seat_parts(seat)[0],
         "status": result.get("status"),
         "text": result.get("output", ""),
@@ -210,6 +215,15 @@ def _provider_entry(seat: str, result: dict[str, Any], quality: dict[str, Any] |
         "substantive": _substantive(result),
         "quality": quality,
     }
+
+
+def _review_entry(seat: str, result: dict[str, Any], quality: dict[str, Any] | None, expected_digest: str) -> dict[str, Any]:
+    entry=_provider_entry(seat,result,quality)
+    entry["review"]=_review_acceptance(str(result.get("output") or ""),expected_digest)
+    if not entry["substantive"] or not all(isinstance(entry.get(key),str) and entry[key].strip()
+                                           for key in ("model_requested","model_served","provider")):
+        entry["review"]={"accepted":False,"reason":"review-provider-result-unverified"}
+    return entry
 
 
 def _load_profile(path: Path | None, test_argv: list[str] | None) -> list[dict[str, Any]]:
@@ -268,34 +282,28 @@ def _run_tests(
     results = []
     root = evidence_root(user_home) / (task_id or run_id) / run_id
     root.mkdir(parents=True, exist_ok=True)
+    before=tree_digest(snapshot_tree(cwd))
     for tier in tiers:
         argv = pin_command(list(tier["argv"]))
         started = time.monotonic()
-        try:
-            process = subprocess.run(
-                argv,
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                timeout=tier["timeout"],
-                check=False,
-                env=test_env(extra_path_dirs=[Path(argv[0]).parent]),
-            )
-            exit_code = process.returncode
-            output = (process.stdout or "") + ("\n" + process.stderr if process.stderr else "")
-            decision = "pass" if exit_code == 0 else "fail"
-        except subprocess.TimeoutExpired as exc:
-            exit_code = 124
-            stdout = exc.stdout.decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-            stderr = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or "")
-            output = stdout + stderr
-            decision = "fail"
+        test_id = new_id("test")
+        path = root / f"{test_id}.log"
+        environment=test_env(extra_path_dirs=[Path(argv[0]).parent])
+        with tempfile.TemporaryDirectory(prefix="check-home-",dir=root) as temporary:
+            environment.update({"HOME":temporary,"USERPROFILE":temporary,"XDG_CONFIG_HOME":temporary,
+                                "XDG_DATA_HOME":temporary,"XDG_CACHE_HOME":temporary,"TMPDIR":temporary,
+                                "TMP":temporary,"TEMP":temporary,"PYTHONNOUSERSITE":"1"})
+            with path.open("xb") as output_file:
+                process=subprocess.Popen(argv,cwd=cwd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+                                         stdin=subprocess.DEVNULL,env=environment,start_new_session=os.name=="posix")
+                failure=_capture_output(process,output_file,tier["timeout"])
+            path.chmod(0o600)
+        exit_code=124 if failure=="timeout" else 125 if failure else process.returncode
+        decision="pass" if exit_code==0 else "fail"
+        output=path.read_text(encoding="utf-8",errors="replace")
         duration = int((time.monotonic() - started) * 1000)
         passed, failed, skipped = _parse_counts(output, exit_code)
-        path = root / f"test-{tier['name']}.log"
-        atomic_text(path, output, 0o600)
         digest = sha256_file(path, allowed_roots=[user_home, root])
-        test_id = new_id("test")
         if task_id:
             connection = connect_write(user_home)
             connection.execute(
@@ -331,7 +339,7 @@ def _run_tests(
                 argv,
                 exit_code,
                 decision == "pass",
-                {"tier": tier["name"], "passed": passed, "failed": failed, "skipped": skipped},
+                {"run_id":run_id,"tier": tier["name"], "passed": passed, "failed": failed, "skipped": skipped},
             )
         results.append(
             {
@@ -346,8 +354,16 @@ def _run_tests(
                 "decision": decision,
                 "output": str(path),
                 "sha256": digest,
+                "source_sha256":before,
+                "failure":failure,
             }
         )
+    stable=before==tree_digest(snapshot_tree(cwd))
+    for result in results:
+        result["source_stable"]=stable
+        if not stable:
+            result["decision"]="fail"
+            result["failure"]="source-changed-during-tests"
     return results
 
 
@@ -445,6 +461,7 @@ def run(
     task_text = task or ""
     task_row: dict[str, Any] | None = None
     existing_work_unit: dict[str, Any] | None = None
+    execution: dict[str, Any] | None = None
 
     if task_id:
         connection = connect_read(user_home)
@@ -459,6 +476,9 @@ def run(
         connection.close()
         if not task_row:
             raise ValueError("Task not found")
+        if task_row["status"] in {"completed","closed","cancelled","rejected","awaiting_founder","verification"}:
+            return {"decision":"blocked","reason":"task-state-not-executable","task_id":task_id,
+                    "status":task_row["status"],"provider_calls":0,"execution_authorized":False}
         from .task_validation import gate as validation_gate
         validation = validation_gate(user_home, task_id, "execute")
         if validation.get("decision") != "pass":
@@ -558,6 +578,21 @@ def run(
             }
         lease_id = claim["lease_id"]
         lease_token = claim["lease_token"]
+        connection=connect_write(user_home)
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            refreshed=one(connection,"SELECT * FROM tasks WHERE id=?",(task_id,))
+            refreshed_work=one(connection,"SELECT * FROM work_units WHERE id=? AND task_id=?",(work_unit_id,task_id))
+            expected_revision=task_row["revision"]+1+(not existing_work_unit_preexisted)
+            if (not refreshed or not refreshed_work or refreshed["revision"]!=expected_revision
+                or task_authority(refreshed)!=task_authority(task_row)):
+                raise PermissionError("execution-task-authority-changed-during-claim")
+            task_row=refreshed
+            execution=freeze(refreshed,refreshed_work,run_id,lease_id,implementer)
+            append_event(connection,"execution.frozen",execution,task_id=task_id,work_unit_id=work_unit_id)
+            connection.commit()
+        finally:
+            connection.close()
         record_progress(user_home, task_id, "planning", 10, "Multi-Coder planning started", work_unit_id, basis="manual-estimate", confidence="medium")
 
     implementer = implementer or seats[0]
@@ -707,9 +742,7 @@ def run(
             for future in as_completed(futures):
                 review_raw.append((futures[future], future.result()))
         for seat, result in review_raw:
-            parsed = _review_acceptance(str(result.get("output") or ""), plan_digest)
-            entry = _provider_entry(seat, result, _quality(user_home, review_prompt, result, []))
-            entry["review"] = parsed
+            entry = _review_entry(seat, result, _quality(user_home, review_prompt, result, []),plan_digest)
             plan_reviews.append(entry)
             if task_id:
                 _record_attempt(user_home, task_id, work_unit_id, run_id, seat, "independent-judge", "plan-final-review", result)
@@ -840,8 +873,9 @@ def run(
         write_scope=write_scope,
         mutation_required=mutation_required,
     )
-    _write_evidence(user_home, task_id, work_unit_id, run_id, "change-binding", change_binding)
-    tests_pass = bool(results) and all(result["decision"] == "pass" for result in results)
+    change_evidence=_write_evidence(user_home, task_id, work_unit_id, run_id, "change-binding", change_binding)
+    tests_pass = bool(results) and all(result["decision"] == "pass" and result.get("source_stable")
+                                     and result.get("source_sha256")==change_binding["post_tree_sha256"] for result in results)
     if not tiers:
         tests_pass = False
     if change_binding.get("decision") != "pass":
@@ -866,7 +900,7 @@ def run(
             f"IMPLEMENTATION:{implementation.get('output', '')}\nTESTS:{json.dumps(results, ensure_ascii=False)}\n"
             f"CHANGE_BINDING:{json.dumps(change_binding, ensure_ascii=False)}"
         )
-        reviewer_seats = [entry["seat_id"] for entry in good if entry["seat_id"] != implementer]
+        reviewer_seats = [entry["seat_id"] for entry in good if _seat_parts(entry["seat_id"])[0] != _seat_parts(implementer)[0]]
         for seat in reviewer_seats:
             result = delegate_turn(
                 user_home,
@@ -879,14 +913,13 @@ def run(
                 timeout=1200,
                 effort=effort,
             )
-            entry = _provider_entry(seat, result, _quality(user_home, packet, result, []))
-            entry["review"] = _review_acceptance(str(result.get("output") or ""), str(plan_digest))
+            entry = _review_entry(seat, result, _quality(user_home, packet, result, []),str(plan_digest))
             final_reviews.append(entry)
             if task_id:
                 _record_attempt(user_home, task_id, work_unit_id, run_id, seat, "independent-judge", "final-review", result)
 
     independent_review_pass = bool(final_reviews) and all(entry["review"]["accepted"] for entry in final_reviews)
-    _write_evidence(
+    review_evidence=_write_evidence(
         user_home,
         task_id,
         work_unit_id,
@@ -900,6 +933,22 @@ def run(
             "independent_review_pass": independent_review_pass,
         },
     )
+
+    # Hashes are local integrity evidence, not remote reviewer attestations.
+    # Freeze the exact final ledger, not a collection of historical successes.
+    if task_id and execution:
+        connection=connect_read(user_home)
+        try:
+            ledger=ledger_state(connection,task_id,run_id)
+        finally:
+            connection.close()
+        _write_evidence(user_home,task_id,work_unit_id,run_id,"completion",{
+            "schema":"iot-ai.completion-evidence.v1","binding":execution,"ledger":ledger,
+            "plan_digest":plan_digest,"writer_root":str(worktree_path),
+            "source_sha256":change_binding["post_tree_sha256"],"test_profile":tiers,
+            "test_profile_sha256":completion_digest(tiers),"change_evidence":change_evidence,
+            "review_evidence":review_evidence,"remote_attestation":False,
+        })
 
     decision = "approve" if tests_pass and independent_review_pass else "needs-work"
     generated_body = json.dumps(
@@ -961,6 +1010,7 @@ def run(
             lease_id,
             lease_token,
             "Multi-Coder implementation, deterministic tests and independent review completed",
+            execution=execution,
         )
         result["submission"] = submitted
         result["decision"] = "approve" if submitted["audit"]["decision"] == "approve_technical" else "needs-work"

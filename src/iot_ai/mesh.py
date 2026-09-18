@@ -24,6 +24,7 @@ from .privacy import sanitize
 from .providers import eligible_routes, host_is_never_allowed, host_requires_private_allow
 from .telemetry import record
 from .readiness import save_receipt
+from .provider_catalog import model_binding_kind
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
@@ -289,6 +290,13 @@ def _extract_usage(payload: Any) -> dict[str, Any]:
         details = usage.get("output_tokens_details") or {}
         if isinstance(details, dict):
             result["reasoning_tokens"] = details.get("reasoning_tokens")
+    # Ollama reports generated-token counts at the top level, not in usage.
+    for destination, source in (("input_tokens", "prompt_eval_count"), ("output_tokens", "eval_count")):
+        value=payload.get(source)
+        if result[destination] is None and type(value) is int and value>=0:
+            result[destination]=value
+    if result["model_served"]:
+        result["model_identity_source"]="provider-response"
     return result
 
 
@@ -693,7 +701,8 @@ def delegate(
             "effort_applied": effort_applied,
             "adapter_request_effort": adapter_request_effort,
         }
-        if status == "pass" and usage.get("model_served") and selected_model not in {"auto", "auto:cloud"} and usage.get("model_served") != selected_model:
+        result["model_binding_kind"]=model_binding_kind(provider,selected_model,usage.get("model_served"))
+        if status == "pass" and not result["model_binding_kind"]:
             result["status"] = status = "failed"
             result["failure_class"] = failure_class = "model-drift"
         q = quality or {}

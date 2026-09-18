@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 import time
 from dataclasses import dataclass
@@ -35,7 +36,7 @@ from .task_validation import approve as approve_validation
 from .task_validation import review as review_validation
 from .tasks import create as create_task
 from .tasks import show as show_task
-from .util import utc_now
+from .util import open_secure, utc_now
 
 AUTOPILOT_TERMINALS = {
     "COMPLETE",
@@ -249,7 +250,7 @@ def _process_suite_task(
         result["blocker_next_actor"] = f"task backend owner: unsupported state {record.status}"
         return result
     if not apply:
-        result["final_state"] = "NEEDS_WORK"
+        result["final_state"] = "PLANNED"
         result["blocker_next_actor"] = "run the same natural-language request with an execution verb or --apply"
         return result
 
@@ -551,6 +552,45 @@ def run_autopilot(
     should_apply = bool(intent["execution"]["requested"])
     work_root = (cwd or Path.cwd()).resolve()
     tests = test_argv or _infer_test_argv(work_root)
+    repository_contract = None
+    if re.search(r"\bTASK\.md\b", raw_text, re.IGNORECASE):
+        try:
+            with open_secure(work_root / "TASK.md", allowed_roots=[work_root], max_bytes=65536) as stream:
+                raw_contract = stream.read(65537)
+            if len(raw_contract) > 65536:
+                raise ValueError("task-document-too-large")
+            document = raw_contract.decode("utf-8")
+            sections: dict[str, list[str]] = {}
+            heading = ""
+            for line in document.splitlines():
+                if line.startswith("## "):
+                    heading = line[3:].strip().casefold()
+                    sections.setdefault(heading, [])
+                else:
+                    sections.setdefault(heading, []).append(line)
+            criteria = [re.sub(r"^\d+\.\s*", "", line.strip())
+                        for line in sections.get("acceptance criteria", []) if re.match(r"^\d+\.\s+", line.strip())]
+            if not criteria:
+                raise ValueError("task-acceptance-criteria-missing")
+            repository_contract = {
+                "schema": "iot-ai.repository-plan.v1", "source": "TASK.md",
+                "source_sha256": hashlib.sha256(raw_contract).hexdigest(),
+                "acceptance_criteria": [{"id": index, "criterion": text, "verification": "not-run"}
+                                        for index, text in enumerate(criteria, 1)],
+                "non_goals": [line.strip()[2:] for line in sections.get("non-goals", []) if line.strip().startswith("- ")],
+                "planned_roles": ["implementation-engineer", "security-challenger", "final-verifier"],
+                "test_argv_proposal": tests, "test_commands_host_approval_required": True,
+                "review_approved": False, "execution_authorized": False,
+            }
+            repository_contract["digest"] = hashlib.sha256(json.dumps(repository_contract, sort_keys=True).encode()).hexdigest()
+        except (OSError, ValueError, UnicodeError):
+            return {"decision": "blocked", "terminal_state": "SAFETY_BLOCKED",
+                    "reason": "task-document-unreadable-or-invalid", "provider_calls": 0,
+                    "production_claim": False}
+    if not should_apply and repository_contract is not None:
+        return {"schema": "iot-ai.autopilot-result.v1", "decision": "plan", "terminal_state": "PLAN_READY",
+                "intent": intent, "plan": repository_contract, "tasks": [], "provider_calls": 0,
+                "implementation_performed": False, "production_claim": False}
     providers = list(dict.fromkeys(str(row.get("provider")) for row in provider_candidates(user_home, require_live=True) if row.get("provider")))
     if not providers:
         # Meeting seat resolution may still record honest route failures; Multi-Coder requires at least an explicit set.
@@ -595,7 +635,7 @@ def run_autopilot(
             risk_class="R2",
             task_type="autonomous-goal",
             tags=["natural-language", "autopilot", "meeting", "multi-coder"],
-            acceptance_criteria=(
+            acceptance_criteria=("\n".join(f"{row['id']}. {row['criterion']}" for row in repository_contract["acceptance_criteria"]) if repository_contract else (
                 "1. Scope and authority are explicit.\n"
                 "2. All required coder families are attempted and outages are recorded.\n"
                 "3. Meeting plan passes quorum and same-digest review.\n"
@@ -604,7 +644,7 @@ def run_autopilot(
                 "6. Independent final review passes.\n"
                 "7. Audit and evidence bundle are complete.\n"
                 "8. Final state and next human actor are explicit."
-            ),
+            )),
         )
         task_id = created.get("task_id") or created.get("duplicate_of")
         if task_id:
@@ -677,7 +717,9 @@ def run_autopilot(
 
     states = {str(row.get("final_state")) for row in task_results}
     if not task_results:
-        terminal = "COMPLETE" if not should_apply else "NEEDS_WORK"
+        terminal = "NOOP" if not should_apply else "NEEDS_WORK"
+    elif not should_apply and states <= {"PLANNED","COMPLETE","TECHNICAL_COMPLETE_AWAITING_FOUNDER"}:
+        terminal = "PLAN_READY"
     elif states <= {"COMPLETE", "TECHNICAL_COMPLETE_AWAITING_FOUNDER"}:
         terminal = "TECHNICAL_COMPLETE_AWAITING_FOUNDER" if "TECHNICAL_COMPLETE_AWAITING_FOUNDER" in states else "COMPLETE"
     elif "EXTERNALLY_BLOCKED" in states:
@@ -724,7 +766,7 @@ def run_autopilot(
         "external_blockers": blockers,
         "last_checkpoint": bundle["root"],
     })
-    decision = "pass" if terminal in {"COMPLETE", "TECHNICAL_COMPLETE_AWAITING_FOUNDER"} else "noop" if not selected and not should_apply else "needs-work"
+    decision = "plan" if terminal=="PLAN_READY" else "pass" if terminal in {"COMPLETE", "TECHNICAL_COMPLETE_AWAITING_FOUNDER"} else "noop" if not selected and not should_apply else "needs-work"
     return {
         "schema": "iot-ai.autopilot-result.v1",
         "decision": decision,

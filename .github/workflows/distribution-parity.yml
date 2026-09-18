@@ -14,6 +14,10 @@ on:
       - 'skills/**'
       - 'governance/garden-skills.lock.json'
       - 'src/iot_ai/skill_registry.py'
+      - 'src/iot_ai/**'
+      - 'tests/test_runtime_integrity.py'
+      - 'tests/test_public_completion.py'
+      - 'tests/test_product_entrypoints.py'
       - 'tests/test_distribution_asset_parity.py'
       - '.github/workflows/distribution-parity.yml'
   workflow_dispatch:
@@ -39,6 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065

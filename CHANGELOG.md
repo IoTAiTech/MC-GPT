@@ -29,6 +29,37 @@ Source snapshot on `main` after the 2026-08-31 merge-all (package lockstep stays
 - `tools/no_arabic_script_check.py` is part of the public language-boundary gate.
 
 ### Fixed
+- Customer-readiness candidate (2026-09-06): verify installed runtime source/data
+  against RECORD and the retained wheel when available; detect modified,
+  missing and unlisted files and select the actual recorded runtime. Preserve
+  external configuration roots and distinguish package integrity from execution
+  authenticity.
+- Bind public task completion to a frozen task/work-unit/lease, one current run,
+  exact tests and provider review evidence, and the tested source. Preserve
+  cancellation, reject terminal-task resurrection and failed/unidentified
+  reviewers, re-audit explicit successful transitions, and recover projection
+  failures without reviving consumed leases.
+- Natural-language plan mode preserves all nine quickstart criteria, separates
+  read-only intent from execution, reports blocked exit codes, and rejects
+  currently unsupported policy overrides before dispatch. Restored collection
+  of previously undiscovered intent/scorecard/scheduler regression tests.
+- Task CLI failure exits match failed submission/audit/run outcomes. Bulk
+  aggregation cannot upgrade executed-but-failed work to success; exact
+  provider/model selectors and requested quorum are preserved or blocked before
+  dispatch. Unsupported task-run overrides fail explicitly. Read-only task plans
+  have a distinct PLAN_READY outcome and never imply completed implementation.
+- Respect reduced-motion preferences and label historical webpage metrics and
+  preview/source differences. Added a dated readiness/standards register and
+  evidence-backed investor brief; no production or commercial-success claim.
+- PR23 review corrections: fallback candidates resolve their own settings effort;
+  task completion revalidates host evidence under the Suite write transaction;
+  merged check output uses bounded parent-owned pipe capture before disk writes.
+  Runtime qualification blocks skipped mandatory checks and distribution jobs
+  select the candidate head. These are source corrections, not release approval.
+- Runtime readiness receipts constrain Gemini/Ollama effort selection; absent
+  capability evidence cannot grant unrestricted effort. Standalone schema 7
+  uses graph-scoped node identity and preserves existing rows transactionally.
+  Qualification receipts also bind the actual test-step outcome.
 - Official spawn no longer prefers a system Grok that requires `GROK_API_KEY` when a user-local Grok Build TUI exists.
 - Claude `modelUsage.canonicalModel` and Codex `model:` banner now populate `model_served`.
 - `codex exec` no longer hangs on inherited stdin (empty EOF unless the prompt is on stdin).

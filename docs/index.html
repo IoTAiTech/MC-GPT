@@ -106,7 +106,8 @@
       --warning: #ffb4a8;
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
     body {
       margin: 0;
       color: var(--text);
@@ -223,7 +224,7 @@ cd MC-GPT/examples/quickstart-demo
 python3 -m unittest discover -s tests -v
 
 iot-ai "Read TASK.md, resolve the acceptance criteria and show the plan without executing." --plan</code></pre>
-      <p>The fixture is standard-library-only and contains no customer data. A live implementation run requires a configured provider route. Unavailable routes remain visible rather than being counted as consensus.</p>
+      <p>The plan command targets the unreleased source candidate; the tagged preview above does not contain the latest plan and evidence fixes. Read the <a href="product-readiness.md">readiness register</a> before evaluation. The fixture contains no customer data. Live implementation requires task authorization and enough qualified independent provider routes for its quorum.</p>
       <div class="actions">
         <a class="button primary" href="https://github.com/IoTAiTech/MC-GPT/blob/main/docs/quickstart.md">Full quickstart</a>
         <a class="button secondary" href="https://github.com/IoTAiTech/MC-GPT/issues/new?template=demo_feedback.yml">Submit demo feedback</a>
@@ -233,8 +234,8 @@ iot-ai "Read TASK.md, resolve the acceptance criteria and show the plan without 
     <section id="proof">
       <h2>Evidence, not blanket claims</h2>
       <div class="grid">
-        <div class="proof"><strong>220</strong><p>pytest cases passed in the current 6.8.0-beta.1 source-candidate summary.</p></div>
-        <div class="proof"><strong>0</strong><p>current-tree public-boundary findings in the checked-in summary.</p></div>
+        <div class="proof"><strong>220</strong><p>pytest cases in the historical checked-in summary, not qualification of later source changes.</p></div>
+        <div class="proof"><strong>0</strong><p>public-boundary findings in that historical snapshot; later artifacts require a new scan.</p></div>
         <div class="proof"><strong>1.1738 ms</strong><p>p95 runtime intent/compiler benchmark against a 10 ms target.</p></div>
         <div class="proof"><strong>Human gate</strong><p>Founder Accept/Reject/Rework, production and public release remain explicit.</p></div>
       </div>

@@ -558,7 +558,7 @@ def install_package(
         )
         if host_install.returncode != 0:
             raise RuntimeError(f"host-adapter installation failed: {host_install.stderr[-2000:]}")
-        checked = verify_host_adapters(user_home)
+        checked = verify_host_adapters(user_home, runtime_root=target)
         if checked.get("decision") != "pass":
             raise RuntimeError(f"host-adapter verification failed: {checked.get('blockers')}")
         if clean_install:

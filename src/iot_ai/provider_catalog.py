@@ -31,6 +31,25 @@ _CLIENT_PRODUCT = {
 }
 
 
+def model_binding_kind(provider: str, requested: str, served: str | None) -> str | None:
+    """Keep raw identities; recognize only Ollama's cloud transport qualifier.
+
+    This does not discard version/size tags or attest model weights. A different
+    family, revision, namespace or missing served identity still fails closed.
+    """
+    if not isinstance(served, str) or not served or not isinstance(requested, str):
+        return None
+    if requested in {"auto", "auto:cloud"}:
+        return "dynamic-provider-response"
+    if requested == served:
+        return "exact"
+    if provider == "ollama":
+        for suffix in (":cloud", "-cloud"):
+            if requested.endswith(suffix) and requested[:-len(suffix)] == served:
+                return "ollama-cloud-selector"
+    return None
+
+
 def catalog_path() -> Path:
     return Path(__file__).resolve().parent / "data" / CATALOG_NAME
 
@@ -293,9 +312,22 @@ def apply_catalog_to_candidate(
     row["adaptive_thinking"] = bool(resolved.get("adaptive_thinking"))
     row["rejects_budget_tokens"] = bool(resolved.get("rejects_budget_tokens"))
     if family in RUNTIME_WITHOUT_MODEL_CATALOG and family not in catalog_providers:
-        # No built-in model catalog is not evidence of zero runtime capability.
-        # Preserve the route's declaration (including an explicit empty list),
-        # and let dispatch validate it against policy and current readiness.
+        # Missing route metadata must not erase current readiness constraints.
+        # An explicit empty declaration remains empty; both declarations must
+        # hold when the route and receipt each provide a supported set.
+        from .settings_v2 import EFFORT_ORDER
+        declared = row.get("supported_efforts")
+        receipt = row.get("receipt")
+        observed = receipt.get("effort_supported") if isinstance(receipt, dict) else None
+        constraints = [value for value in (declared, observed) if value is not None]
+        if not constraints or any(not isinstance(value, (list, tuple)) or
+                any(type(item) is not str or item not in EFFORT_ORDER for item in value)
+                for value in constraints):
+            row["catalog_block"] = True
+            row["catalog_errors"] = ["runtime-effort-capabilities-unavailable"]
+        elif observed is not None:
+            row["supported_efforts"] = [item for item in EFFORT_ORDER
+                                        if all(item in value for value in constraints)]
         row["capability_source"] = "runtime-route"
     else:
         row["supported_efforts"] = list(resolved.get("supported_efforts") or [])

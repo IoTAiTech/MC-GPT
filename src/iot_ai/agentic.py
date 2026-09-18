@@ -212,6 +212,12 @@ def _default_provider_executor(
                 max_effort=max_effort,
                 role_id=node.role_id,
             )
+            if not candidate.get("requested_effort"):
+                candidate["requested_effort"] = (
+                    dispatch.get("requested_effort") or dispatch.get("effective_effort") or node.effort
+                )
+            if not candidate.get("effective_effort"):
+                candidate["effective_effort"] = dispatch.get("effective_effort")
             if dispatch.get("decision") == "block":
                 attempts.append(
                     {
@@ -278,13 +284,20 @@ def _default_provider_executor(
                     "model_served": None,
                 }
             effort_receipt = build_effort_receipt(
-                settings_requested=candidate.get("requested_effort"),
+                settings_requested=str(
+                    candidate.get("requested_effort")
+                    or dispatch.get("requested_effort")
+                    or dispatch.get("effective_effort")
+                    or node.effort
+                ),
                 candidate=candidate,
                 dispatch=dispatch,
-                tool_decision=tool_decision,
+                tool_decision={**tool_decision, "effective_effort": dispatch.get("effective_effort")},
                 adapter_request_effort=result.get("adapter_request_effort"),
                 response=result,
             )
+            if result.get("status") == "pass" and effort_receipt.get("consistent") is not True:
+                result = {**result, "status": "blocked", "failure_class": "effort-evidence-mismatch"}
             result = {
                 **result,
                 "effort_requested": dispatch.get("requested_effort") or candidate.get("requested_effort") or node.effort,

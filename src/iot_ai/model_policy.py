@@ -449,7 +449,7 @@ def select_candidates(
         if model_key not in used_models:
             used_models.append(model_key)
 
-    for role_id, candidate in selected.items():
+    def _stamp_candidate_effort(role_id: str, candidate: dict[str, Any]) -> dict[str, Any]:
         effort = resolve_effort(
             role_id=role_id,
             provider=str(candidate.get("provider") or ""),
@@ -463,6 +463,14 @@ def select_candidates(
         candidate["effort_source"] = effort["source_layer"]
         candidate["effort_decision"] = effort.get("decision") or "pass"
         candidate["effort_block_reason"] = effort.get("block_reason")
+        return candidate
+
+    for role_id, candidate in selected.items():
+        _stamp_candidate_effort(role_id, candidate)
+        candidate["fallback_candidates"] = [
+            _stamp_candidate_effort(role_id, dict(fallback))
+            for fallback in list(candidate.get("fallback_candidates") or [])
+        ]
     for role_id in role_ids:
         if role_id not in selected:
             selection_errors.append({"code": "required-role-unsatisfied", "role_id": role_id})

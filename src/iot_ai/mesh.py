@@ -177,6 +177,7 @@ def _open_pinned_request(
         try:
             if parsed.scheme == "https":
                 context = ssl.create_default_context()
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
                 sock = socket.create_connection((ip, port), timeout=timeout)
                 try:
                     wrapped = context.wrap_socket(sock, server_hostname=hostname)

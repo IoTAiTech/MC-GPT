@@ -14,6 +14,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from iot_ai.util import exclusive_lock
+from iot_ai import mesh
+from iot_ai import visual_runner
 
 
 class ExclusiveLockTests(unittest.TestCase):
@@ -52,16 +54,29 @@ class ExclusiveLockTests(unittest.TestCase):
             self.assertTrue(injected)
             self.assertFalse(lock.exists())
 
-    def test_permission_error_without_existing_lock_is_not_masked(self) -> None:
+    def test_permission_error_without_existing_lock_retries_then_times_out(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             lock = Path(temporary) / "state.lock"
             denied = PermissionError(
-                errno.EACCES, "simulated access denial", str(lock)
+                errno.EACCES, "simulated delete-pending", str(lock)
             )
             with patch("iot_ai.util.os.open", side_effect=denied):
-                with self.assertRaises(PermissionError):
+                with self.assertRaises(TimeoutError):
                     with exclusive_lock(lock, timeout_seconds=0.05):
                         self.fail("lock must not be acquired")
+
+
+class MeshTlsTests(unittest.TestCase):
+    def test_https_pin_requires_tls12(self) -> None:
+        source = Path(mesh.__file__).read_text(encoding="utf-8")
+        self.assertIn("TLSVersion.TLSv1_2", source)
+        self.assertIn("minimum_version", source)
+
+
+class VisualRunnerPresenceTests(unittest.TestCase):
+    def test_visual_runner_module_is_shipped(self) -> None:
+        self.assertTrue(Path(visual_runner.__file__).is_file())
+        self.assertIn("iot-ai.visual-runner-probe.v1", Path(visual_runner.__file__).read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

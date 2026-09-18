@@ -467,6 +467,18 @@ def resolve_dispatch_effort(
     requested = str(row.get("requested_effort") or row.get("effective_effort") or node_effort or "medium")
     source = str(row.get("effort_source") or "candidate")
     supported = row.get("supported_efforts")
+    if max_effort not in EFFORT_ORDER:
+        return {
+            "decision": "block",
+            "block_reason": "invalid-effort-ceiling",
+            "requested_effort": requested,
+            "configured_effort": requested,
+            "effective_effort": None,
+            "effort_source": source,
+            "clamp_reason": "invalid effort ceiling",
+            "entitlement_ceiling": None,
+            "allowed_efforts": [],
+        }
     resolved = resolve_effort(
         role_id=role_id or str(row.get("role_id") or ""),
         provider=str(row.get("provider") or ""),
@@ -477,7 +489,7 @@ def resolve_dispatch_effort(
     )
     source = str(resolved.get("source_layer") or source)
     clamp_reason = resolved.get("clamp_reason") or row.get("effort_clamp_reason")
-    ceiling = max_effort if max_effort in EFFORT_ORDER else "medium"
+    ceiling = max_effort
     entitlement_ceiling = str(resolved.get("entitlement_limit") or ceiling)
     if entitlement_ceiling in EFFORT_ORDER and EFFORT_ORDER.index(entitlement_ceiling) < EFFORT_ORDER.index(ceiling):
         ceiling = entitlement_ceiling

@@ -359,6 +359,16 @@ class EffortReceiptTests(IsolatedHomeTestCase):
         self.assertEqual(community_ok["decision"], "pass")
         self.assertEqual(community_ok["effective_value"], "medium")
 
+    def test_invalid_effort_ceiling_is_blocked_before_coerce(self) -> None:
+        dispatch = resolve_dispatch_effort(
+            {"requested_effort": "medium", "supported_efforts": ["medium"]},
+            node_effort="medium",
+            max_effort="bogus-ceiling",
+        )
+        self.assertEqual(dispatch["decision"], "block")
+        self.assertEqual(dispatch["block_reason"], "invalid-effort-ceiling")
+        self.assertIsNone(dispatch["effective_effort"])
+
     def test_empty_effort_intersection_is_unsatisfied_policy(self) -> None:
         dispatch = resolve_dispatch_effort(
             {

@@ -746,11 +746,6 @@
       "size": 2791
     },
     {
-      "path": "skills/iot-ai/SKILL.md",
-      "sha256": "c48116f32cf1456a1452a888689efe4d71b5ef1564db07be1d9a5aa3489d661a",
-      "size": 1710
-    },
-    {
       "path": "skills/iot-ai-help/SKILL.md",
       "sha256": "016f194c5b484d8609e94354cc70ba565868760c804efd5ed3f012f619eda0be",
       "size": 702
@@ -762,8 +757,23 @@
     },
     {
       "path": "skills/iot-ai-multi-coder/SKILL.md",
-      "sha256": "507266c6337695921b35b943c1b73dc64713c4ab96ceb151be42de3c8a8cc0ac",
-      "size": 1137
+      "sha256": "8a56339fb839aa65d34e0df1dff748f4cf7f9cc843b6000a3b52e431d3b83881",
+      "size": 7640
+    },
+    {
+      "path": "skills/iot-ai-seat-codex/SKILL.md",
+      "sha256": "6642242c57a7aaa7ff9e3e0af47c04768e4e71834a029c0a85f94133581adb48",
+      "size": 6357
+    },
+    {
+      "path": "skills/iot-ai-seat-grok/SKILL.md",
+      "sha256": "b1a7befd9f3bf26798898adc0bbd205f70c034c3d0fd4e33d07ab316a00affa6",
+      "size": 2146
+    },
+    {
+      "path": "skills/iot-ai-seat-panel/SKILL.md",
+      "sha256": "04c9081fb4daa0bfc80ad13b86a7c3ab0d537f142031c5f2855eeb1075bfffde",
+      "size": 2476
     },
     {
       "path": "skills/iot-ai-settings/SKILL.md",
@@ -784,6 +794,11 @@
       "path": "skills/iot-ai-update/SKILL.md",
       "sha256": "040789d7373bc48bf8c5267066ca023262936020e6c4519ef916f074fe8b316a",
       "size": 935
+    },
+    {
+      "path": "skills/iot-ai/SKILL.md",
+      "sha256": "c48116f32cf1456a1452a888689efe4d71b5ef1564db07be1d9a5aa3489d661a",
+      "size": 1710
     },
     {
       "path": "src/iot_ai/__init__.py",

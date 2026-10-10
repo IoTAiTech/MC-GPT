@@ -7,6 +7,7 @@ All notable changes are documented here. The project follows semantic versioning
 Source snapshot on `main` after the 2026-08-31 merge-all (package lockstep stays `6.8.0-beta.1` / MC-GPT `0.8.0-alpha.7` / pep440 `6.8.0b1`). Not a tagged download.
 
 ### Added
+- Seat skills for the multi-coder method: `skills/iot-ai-multi-coder/SKILL.md` plus `iot-ai-seat-codex`, `iot-ai-seat-grok`, and `iot-ai-seat-panel`. Codex executes in a copied work folder. Grok judges only the inlined prompt. The panel critiques one sanitised description.
 - GitHub Packages on every annotated `v*` tag / GitHub Release: container `ghcr.io/iotaitech/mc-gpt` and npm `@iotaitech/mc-gpt`. Python wheels stay on Releases. See `docs/github-packages.md`. First GHCR/npm publish is private until an org owner flips each package public once.
 - Disposable five-minute evaluation fixture (`examples/quickstart-demo/`) plus a demo-feedback GitHub issue form.
 - Minimum Necessary Change Gate: reuse-first planning engine (`src/iot_ai/minimum_change.py`), public assessment schemas, skill `skills/iot-ai-minimum-change/`, exclusive lock tests, and operator guide `docs/minimum-necessary-change-gate.md`.
